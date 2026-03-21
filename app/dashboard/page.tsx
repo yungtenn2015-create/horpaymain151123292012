@@ -14,7 +14,17 @@ import {
     Cog6ToothIcon,
     DocumentPlusIcon,
     BanknotesIcon,
-    UsersIcon
+    UsersIcon,
+    UserIcon,
+    ArrowRightOnRectangleIcon,
+    ChevronRightIcon,
+    ClockIcon,
+    BuildingOfficeIcon,
+    MapPinIcon,
+    DevicePhoneMobileIcon,
+    CalendarDaysIcon,
+    ArrowPathIcon,
+    CheckCircleIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -22,7 +32,10 @@ import {
     Squares2X2Icon as Squares2X2IconSolid,
     DocumentTextIcon as DocumentTextIconSolid,
     UserGroupIcon as UserGroupIconSolid,
-    Cog6ToothIcon as Cog6ToothIconSolid
+    Cog6ToothIcon as Cog6ToothIconSolid,
+    BuildingOffice2Icon as BuildingOfficeSolid,
+    BanknotesIcon as BanknotesSolid,
+    UserCircleIcon as UserCircleSolid
 } from '@heroicons/react/24/solid'
 
 // Define types for better readability and type safety
@@ -51,11 +64,30 @@ export default function DashboardPage() {
     const [userInitial, setUserInitial] = useState('O')
     const [userName, setUserName] = useState('')
     const [dbError, setDbError] = useState('') // added error state
+    const [isMenuOpen, setIsMenuOpen] = useState(false) // for user dropdown
+    const [pendingRoomIds, setPendingRoomIds] = useState<Set<string>>(new Set())
     const [stats, setStats] = useState({
         total: 0,
         occupied: 0,
         vacant: 0,
         pendingPayments: 0
+    })
+
+    // Settings States
+    const [activeSettingsTab, setActiveSettingsTab] = useState('dorm')
+    const [savingSettings, setSavingSettings] = useState(false)
+    const [settingsMessage, setSettingsMessage] = useState('')
+    const [dormData, setDormData] = useState({
+        name: '',
+        address: '',
+        contact_number: ''
+    })
+    const [settingsData, setSettingsData] = useState({
+        bank_name: '',
+        bank_account_no: '',
+        bank_account_name: '',
+        billing_day: 30,
+        payment_due_day: 5
     })
 
     useEffect(() => {
@@ -100,13 +132,48 @@ export default function DashboardPage() {
                 }
 
                 if (roomsData) {
-                    setRooms(roomsData)
                     const activeRooms = roomsData.filter(r => r.deleted_at === null)
+                    setRooms(activeRooms)
+
+                    // 3. Get Pending Bills
+                    const { data: billsData, error: billsError } = await supabase
+                        .from('bills')
+                        .select('room_id')
+                        .in('room_id', activeRooms.map(r => r.id))
+                        .in('status', ['unpaid', 'overdue'])
+
+                    const pendingIdsSet = new Set(billsData?.map(b => b.room_id) || [])
+                    setPendingRoomIds(pendingIdsSet)
+
                     setStats({
                         total: activeRooms.length,
                         occupied: activeRooms.filter(r => r.status === 'occupied').length,
                         vacant: activeRooms.filter(r => r.status === 'available').length,
-                        pendingPayments: 0 // Mock value for now
+                        pendingPayments: pendingIdsSet.size
+                    })
+
+                    // 4. Get Settings
+                    const { data: settings } = await supabase
+                        .from('dorm_settings')
+                        .select('*')
+                        .eq('dorm_id', dormsData[0].id)
+                        .single()
+
+                    if (settings) {
+                        setSettingsData({
+                            bank_name: settings.bank_name || '',
+                            bank_account_no: settings.bank_account_no || '',
+                            bank_account_name: settings.bank_account_name || '',
+                            billing_day: settings.billing_day || 30,
+                            payment_due_day: settings.payment_due_day || 5
+                        })
+                    }
+
+                    // 5. Set Dorm Data for Settings Tab
+                    setDormData({
+                        name: dormsData[0].name || '',
+                        address: dormsData[0].address || '',
+                        contact_number: dormsData[0].contact_number || ''
                     })
                 }
             } else {
@@ -124,12 +191,47 @@ export default function DashboardPage() {
         router.push('/login')
     }
 
+    async function handleSaveSettings() {
+        setSavingSettings(true)
+        setSettingsMessage('')
+        try {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user || !dorm) return
+
+            // 1. Update Dorm
+            await supabase.from('dorms').update({
+                name: dormData.name,
+                address: dormData.address,
+                contact_number: dormData.contact_number
+            }).eq('id', dorm.id)
+
+            // 2. Update Settings
+            await supabase.from('dorm_settings').update({
+                bank_name: settingsData.bank_name,
+                bank_account_no: settingsData.bank_account_no,
+                bank_account_name: settingsData.bank_account_name,
+                billing_day: settingsData.billing_day,
+                payment_due_day: settingsData.payment_due_day
+            }).eq('dorm_id', dorm.id)
+
+            setSettingsMessage('บันทึกข้อมูลเรียบร้อยแล้ว!')
+            // Refresh local dorm name if changed
+            setDorm({ ...dorm, name: dormData.name })
+            setTimeout(() => setSettingsMessage(''), 3000)
+        } catch (error) {
+            console.error('Error saving settings:', error)
+            setSettingsMessage('เกิดข้อผิดพลาดในการบันทึก')
+        } finally {
+            setSavingSettings(false)
+        }
+    }
+
     const navItems = [
         { id: 'overview', name: 'หน้าหลัก', outlineIcon: HomeIcon, solidIcon: HomeIconSolid },
-        { id: 'rooms', name: 'ห้องพัก', outlineIcon: Squares2X2Icon, solidIcon: Squares2X2IconSolid },
+        { id: 'rooms', name: 'สถานะห้องพัก', outlineIcon: Squares2X2Icon, solidIcon: Squares2X2IconSolid },
         { id: 'billing', name: 'บิล/มิเตอร์', outlineIcon: DocumentTextIcon, solidIcon: DocumentTextIconSolid },
         { id: 'tenants', name: 'ผู้เช่า', outlineIcon: UserGroupIcon, solidIcon: UserGroupIconSolid },
-        { id: 'settings', name: 'ตั้งค่า', outlineIcon: Cog6ToothIcon, solidIcon: Cog6ToothIconSolid },
     ]
 
     if (loading) {
@@ -145,18 +247,20 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col relative pb-24">
+            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col relative pb-24 border-gray-100 sm:border">
 
                 {/* ── Dynamic Main Content ── */}
                 {activeTab === 'overview' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
-                        {/* ── Vibrant Green Header ── */}
-                        <header className="bg-gradient-to-br from-green-500 to-green-600 pt-12 pb-24 px-6 rounded-b-[2.5rem] relative overflow-hidden shadow-lg shadow-green-200">
-                            {/* Decorative background elements */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-                            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-5 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4" />
+                        {/*  HEADER  */}
+                        <header className="relative pt-12 pb-24 px-6">
+                            {/* ── Background Layer (for clipping and gradient) ── */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 rounded-b-[2.5rem] overflow-hidden z-0 shadow-lg shadow-green-200">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+                            </div>
 
-                            <div className="relative z-10 flex items-start justify-between">
+                            <div className="relative flex items-start justify-between">
                                 <div className="text-white">
                                     <p className="text-green-100 text-[13px] font-bold tracking-widest uppercase mb-1 drop-shadow-sm">สวัสดีคุณ {userName} 👋</p>
                                     <h1 className="text-3xl font-black tracking-tight drop-shadow-md bg-clip-text text-transparent bg-gradient-to-b from-white to-green-50">{dorm?.name || 'หอพักของฉัน'}</h1>
@@ -166,11 +270,46 @@ export default function DashboardPage() {
                                         <BellIcon className="w-6 h-6 stroke-[2]" />
                                         <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-green-500" />
                                     </button>
-                                    <div 
-                                        onClick={handleLogout}
-                                        className="w-12 h-12 bg-white rounded-[1.2rem] flex items-center justify-center text-green-600 font-black text-xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-green-100"
-                                    >
-                                        {userInitial}
+                                    <div className="relative">
+                                        <div
+                                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                            className="w-12 h-12 bg-white rounded-[1.2rem] flex items-center justify-center text-green-600 shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-green-100"
+                                        >
+                                            <UserIcon className="w-7 h-7 stroke-[2]" />
+                                        </div>
+
+                                        {/* Dropdown Menu */}
+                                        {isMenuOpen && (
+                                            <>
+                                                <div
+                                                    className="fixed inset-0 z-40"
+                                                    onClick={() => setIsMenuOpen(false)}
+                                                />
+                                                <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                                                    <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">ยินดีต้อนรับ</p>
+                                                        <p className="text-sm font-black text-gray-800 truncate">{userName}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsMenuOpen(false);
+                                                            setActiveTab('settings');
+                                                        }}
+                                                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-gray-700 hover:bg-gray-50 transition-colors font-bold text-sm border-b border-gray-50"
+                                                    >
+                                                        <BuildingOfficeIcon className="w-5 h-5 stroke-[2.5]" />
+                                                        แก้ไขข้อมูลหอพัก
+                                                    </button>
+                                                    <button
+                                                        onClick={handleLogout}
+                                                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-red-500 hover:bg-red-50 transition-colors font-bold text-sm"
+                                                    >
+                                                        <ArrowRightOnRectangleIcon className="w-5 h-5 stroke-[2.5]" />
+                                                        ออกจากระบบ
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -188,7 +327,7 @@ export default function DashboardPage() {
                             {/* ── Stats Grid ── */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100/50">
                                         <Squares2X2Icon className="w-6 h-6 stroke-[2]" />
                                     </div>
                                     <div>
@@ -206,7 +345,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                                 <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100/50">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
                                         <UserGroupIcon className="w-6 h-6 stroke-[2]" />
                                     </div>
                                     <div>
@@ -215,11 +354,11 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                                 <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100/50">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100/50">
                                         <BanknotesIcon className="w-6 h-6 stroke-[2]" />
                                     </div>
                                     <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">รอชำระเงิน</p>
+                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องค้างชำระ</p>
                                         <p className="text-[28px] font-black text-gray-800 leading-none">{stats.pendingPayments}</p>
                                     </div>
                                 </div>
@@ -227,66 +366,74 @@ export default function DashboardPage() {
 
                             {/* ── Quick Actions ── */}
                             <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
-                                <h3 className="text-sm font-black text-gray-800 mb-4 tracking-tight px-1 text-center">เมนูใช้งานด่วน ✨</h3>
-                                <div className="grid grid-cols-5 gap-2">
+                                <h2 className="text-sm font-black text-gray-800 mb-4 tracking-tight px-1 text-center">เมนูใช้งาน</h2>
+                                <div className="grid grid-cols-3 gap-y-10 gap-x-2">
                                     {[
                                         { name: 'จดมิเตอร์', icon: DocumentPlusIcon, color: 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100 shadow-green-100/50', path: '/dashboard/meter' },
-                                        { name: 'เพิ่มคนเช่า', icon: UserGroupIcon, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 shadow-orange-100/50', path: '/dashboard/tenants/new' },
-                                        { name: 'ข้อมูลคนเช่า', icon: UsersIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50', path: '/dashboard/tenants' },
-                                        { name: 'จัดการห้อง', icon: Squares2X2Icon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50', path: '/dashboard/rooms' },
-                                        { name: 'ออกบิล', icon: BanknotesIcon, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100/50' },
+                                        { name: 'ออกบิล', icon: BanknotesIcon, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100/50', path: '/dashboard/billing' },
+                                        { name: 'ประวัติบิล', icon: ClockIcon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50', path: '/dashboard/history' },
+                                        { name: 'ข้อมูลผู้เช่า', icon: UsersIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50', path: '/dashboard/tenants' },
+                                        { name: 'เพิ่มผู้เช่า', icon: UserGroupIcon, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 shadow-orange-100/50', path: '/dashboard/tenants/new' },
                                     ].map((action, i) => (
-                                        <button 
-                                            key={i} 
-                                            onClick={() => action.path ? router.push(action.path) : alert('กำลังพัฒนาระบบนี้')}
-                                            className="flex flex-col items-center gap-2 group active:scale-[0.97] transition-all"
+                                        <button
+                                            key={i}
+                                            onClick={() => {
+                                                if (action.path) {
+                                                    router.push(action.path);
+                                                } else {
+                                                    alert('กำลังพัฒนาระบบนี้');
+                                                }
+                                            }}
+                                            className="flex flex-col items-center gap-2.5 group active:scale-[0.95] transition-all"
                                         >
-                                            <div className={`w-[54px] h-[54px] rounded-[1.2rem] flex items-center justify-center border transition-all shadow-sm ${action.color}`}>
-                                                <action.icon className="w-6 h-6 stroke-[1.5]" />
+                                            <div className={`w-[74px] h-[74px] rounded-[1.8rem] flex items-center justify-center border-2 transition-all shadow-lg ${action.color}`}>
+                                                <action.icon className="w-9 h-9 stroke-[2.2]" />
                                             </div>
-                                            <span className="text-[10px] font-bold text-gray-500 text-center tracking-tight leading-none group-hover:text-gray-800 transition-colors">{action.name}</span>
+                                            <span className="text-[13px] font-black text-gray-700 text-center tracking-tight leading-none group-hover:text-green-600 transition-colors uppercase">{action.name}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* ── Rooms Preview ── */}
-                            <div>
-                                <div className="flex items-center justify-between px-2 mb-4">
-                                    <div className="flex items-center gap-2 relative">
-                                        <div className="absolute -left-2 w-1.5 h-4 bg-green-500 rounded-full" />
-                                        <h3 className="text-[15px] font-black text-gray-800 tracking-tight pl-1">สถานะห้องพักล่าสุด</h3>
-                                    </div>
-                                    <button 
-                                        onClick={() => router.push('/dashboard/rooms')}
-                                        className="text-xs text-green-600 font-bold bg-green-50 px-4 py-2 rounded-xl hover:bg-green-100 transition-colors active:scale-95"
+                            {/* ── Latest Status ── */}
+                            <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
+                                <div className="flex items-center justify-between mb-5 px-1">
+                                    <h2 className="text-sm font-black text-gray-800 tracking-tight">ห้องพักค้างชำระล่าสุด</h2>
+                                    <button
+                                        onClick={() => setActiveTab('rooms')}
+                                        className="text-[12px] font-black text-green-600 uppercase tracking-widest hover:text-green-700 transition-colors"
                                     >
                                         ดูทั้งหมด
                                     </button>
                                 </div>
+
                                 <div className="grid gap-3">
-                                    {rooms.slice(0, 3).map((room) => (
-                                        <div 
-                                            key={room.id}
-                                            className="bg-white h-[76px] px-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-green-300 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-3 h-3 rounded-full shadow-sm ${room.status === 'available' ? 'bg-green-500 shadow-green-200' : 'bg-orange-500 shadow-orange-200'}`} />
-                                                <div>
-                                                    <h4 className="text-xl font-black text-gray-800 leading-none mb-1.5">{room.room_number}</h4>
-                                                    <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${
-                                                        room.deleted_at ? 'text-gray-400' : (room.status === 'available' ? 'text-green-500' : 'text-orange-500')
-                                                    }`}>
-                                                        {room.deleted_at ? 'ลบทิ้งแล้ว' : (room.status === 'available' ? 'ห้องว่าง' : 'มีผู้เช่าแล้ว')}
-                                                    </p>
+                                    {rooms.filter(r => pendingRoomIds.has(r.id)).length > 0 ? (
+                                        rooms.filter(r => pendingRoomIds.has(r.id)).slice(0, 3).map((room) => (
+                                            <div
+                                                key={room.id}
+                                                className="bg-white h-[76px] px-5 rounded-2xl border-2 border-red-50 shadow-sm flex items-center justify-between group hover:border-red-300 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-200" />
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">ห้อง</p>
+                                                        <h3 className="text-sm font-black text-gray-800 tracking-tight">{room.room_number}</h3>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 px-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+                                                        <span className="text-[10px] font-black uppercase text-red-600">ค้างชำระ</span>
+                                                    </div>
+                                                    <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-red-600 transition-colors" />
                                                 </div>
                                             </div>
-                                            <div className="text-right flex flex-col justify-center items-end h-full">
-                                                <div className="bg-gray-50 text-gray-400 font-bold text-[10px] px-2.5 py-1 rounded-lg mb-1">ชั้น {room.floor}</div>
-                                                <p className="text-xs font-black text-gray-800">฿{room.base_price.toLocaleString()}</p>
-                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-8 flex flex-col items-center justify-center text-center space-y-2 border-2 border-dashed border-gray-50 rounded-2xl">
+                                            <p className="text-xs font-bold text-gray-400">ไม่มีห้องค้างชำระ</p>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -298,64 +445,277 @@ export default function DashboardPage() {
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full px-6 pt-12 pb-32">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h1 className="text-3xl font-black text-gray-800 tracking-tight">ห้องพักทั้งหมด</h1>
+                                <h1 className="text-3xl font-black text-gray-800 tracking-tight">สถานะห้องพักทั้งหมด</h1>
                                 <p className="text-gray-400 font-bold text-sm mt-1">จำนวน {rooms.length} ห้อง</p>
                             </div>
-                            <button className="w-12 h-12 bg-green-500 hover:bg-green-600 rounded-[1.2rem] flex items-center justify-center text-white shadow-lg shadow-green-200 transition-all active:scale-95">
-                                <PlusIcon className="w-6 h-6 stroke-[2.5]" />
-                            </button>
                         </div>
 
-                        <div className="grid gap-4">
-                            {rooms.length === 0 ? (
-                                <div className="text-center py-10 bg-gray-50 rounded-3xl border border-gray-100">
-                                    <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
-                                </div>
-                            ) : (
-                                rooms.map((room) => (
-                                    <div 
-                                        key={room.id}
-                                        className="bg-white p-5 rounded-[1.5rem] border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex flex-col gap-4 group hover:border-green-300 hover:shadow-md transition-all cursor-pointer"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-inner ${room.status === 'available' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                                    {room.room_number}
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">ชั้น {room.floor}</p>
-                                                    <div className={`text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border inline-block ${
-                                                        room.deleted_at ? 'bg-gray-50 text-gray-400 border-gray-100' : (room.status === 'available' ? 'bg-green-50 text-green-500 border-green-100/50' : 'bg-orange-50 text-orange-500 border-orange-100/50')
-                                                    }`}>
-                                                        {room.deleted_at ? '⚪ ลบทิ้งแล้ว' : (room.status === 'available' ? '🟢 ห้องว่าง' : '🟠 มีผู้เช่าแล้ว')}
+                        {rooms.length === 0 ? (
+                            <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+                                <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-10">
+                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => a - b).map(floor => (
+                                    <div key={floor} className="space-y-4">
+                                        <div className="flex items-center gap-3 px-2">
+                                            <div className="h-6 w-1.5 bg-green-500 rounded-full" />
+                                            <h2 className="text-lg font-black text-gray-800 tracking-tight">ชั้น {floor}</h2>
+                                        </div>
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                            {rooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
+                                                const isPending = pendingRoomIds.has(room.id);
+                                                const isOccupied = room.status === 'occupied';
+
+                                                // Color Logic: Red (Pending) > Blue (Occupied) > Green (Available)
+                                                let bgColor = 'bg-green-50';
+                                                let textColor = 'text-green-600';
+                                                let borderColor = 'border-green-100';
+                                                let statusText = 'ว่าง';
+
+                                                if (isPending) {
+                                                    bgColor = 'bg-orange-50';
+                                                    textColor = 'text-orange-600';
+                                                    borderColor = 'border-orange-100';
+                                                    statusText = 'ค้างชำระ';
+                                                } else if (isOccupied) {
+                                                    bgColor = 'bg-blue-50';
+                                                    textColor = 'text-blue-600';
+                                                    borderColor = 'border-blue-100';
+                                                    statusText = 'มีคนพัก';
+                                                }
+
+                                                return (
+                                                    <div
+                                                        key={room.id}
+                                                        className={`aspect-square rounded-3xl border-2 flex flex-col items-center justify-center gap-1 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer ${bgColor} ${borderColor}`}
+                                                    >
+                                                        <span className={`text-[20px] font-black leading-none ${textColor}`}>{room.room_number}</span>
+                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor} opacity-80`}>{statusText}</span>
                                                     </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Settings Tab Content (NEW - Consolidated Single Page) ── */}
+                {activeTab === 'settings' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-white">
+                        <div className="px-6 pt-12 mb-6">
+                            <h1 className="text-3xl font-black text-gray-800 tracking-tight">ตั้งค่าหอพัก</h1>
+                            <p className="text-gray-400 font-bold text-sm mt-1">จัดการข้อมูลของหอพัก</p>
+                        </div>
+
+                        {/* Scrollable Content Area */}
+                        <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 custom-scrollbar">
+                            <div className="space-y-6">
+                                {/* Dorm Info Section */}
+                                <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
+                                            <BuildingOfficeIcon className="w-6 h-6 stroke-[2]" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-800 tracking-tight">ข้อมูลหอพัก</h3>
+                                            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Dormitory Information</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
+                                            <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อหอพัก</label>
+                                            <div className="relative group/field">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                    <BuildingOfficeIcon className="w-5 h-5" />
                                                 </div>
+                                                <input
+                                                    type="text"
+                                                    maxLength={50}
+                                                    value={dormData.name}
+                                                    onChange={(e) => setDormData({ ...dormData, name: e.target.value.slice(0, 50) })}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                    placeholder="ระบุชื่อหอพัก..."
+                                                />
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-xs text-gray-400 font-bold mb-1">ค่าเช่ารายเดือน</p>
-                                                <p className="text-lg font-black text-gray-800">฿{room.base_price.toLocaleString()}</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[13px] font-black text-gray-500 ml-1">ที่อยู่หอพัก</label>
+                                            <div className="relative group/field">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                    <MapPinIcon className="w-5 h-5" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    maxLength={100}
+                                                    value={dormData.address}
+                                                    onChange={(e) => setDormData({ ...dormData, address: e.target.value.slice(0, 100) })}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                    placeholder="ระบุที่อยู่หอพัก..."
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[13px] font-black text-gray-500 ml-1">เบอร์โทรติดต่อ</label>
+                                            <div className="relative group/field">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                    <DevicePhoneMobileIcon className="w-5 h-5" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    maxLength={10}
+                                                    value={dormData.contact_number}
+                                                    onChange={(e) => setDormData({ ...dormData, contact_number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                    placeholder="ระบุเบอร์โทร..."
+                                                />
                                             </div>
                                         </div>
                                     </div>
-                                ))
+                                </div>
+
+                                {/* Financial Section */}
+                                <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                                            <BanknotesIcon className="w-6 h-6 stroke-[2]" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-black text-gray-800 tracking-tight">การเงินและบัญชี</h3>
+                                            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Payment & Bank Details</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-5">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-black text-gray-500 ml-1">ธนาคาร</label>
+                                                <input
+                                                    type="text"
+                                                    maxLength={30}
+                                                    value={settingsData.bank_name}
+                                                    onChange={(e) => setSettingsData({ ...settingsData, bank_name: e.target.value.slice(0, 30) })}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                    placeholder="กรุงไทย..."
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-black text-gray-500 ml-1">เลขบัญชี</label>
+                                                <input
+                                                    type="text"
+                                                    maxLength={20}
+                                                    value={settingsData.bank_account_no}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/[^\d\- ]/g, '').slice(0, 20);
+                                                        setSettingsData({ ...settingsData, bank_account_no: val });
+                                                    }}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                    placeholder="092-0-13420-7"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อบัญชี</label>
+                                            <input
+                                                type="text"
+                                                maxLength={50}
+                                                value={settingsData.bank_account_name}
+                                                onChange={(e) => setSettingsData({ ...settingsData, bank_account_name: e.target.value.slice(0, 50) })}
+                                                className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                placeholder="ชื่อ-นามสกุล..."
+                                            />
+                                        </div>
+
+                                        <div className="pt-4 border-t border-gray-100 flex items-center gap-3 mb-2">
+                                            <CalendarDaysIcon className="w-5 h-5 text-green-500" />
+                                            <span className="text-sm font-black text-gray-700">ตั้งค่ารอบบิล</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-black text-gray-500 ml-1">วันจดมิเตอร์ / ตัดรอบบิล</label>
+                                                <input
+                                                    type="number"
+                                                    min="1" max="31"
+                                                    value={settingsData.billing_day}
+                                                    onChange={(e) => {
+                                                        let val = parseInt(e.target.value);
+                                                        if (val > 31) val = 31;
+                                                        setSettingsData({ ...settingsData, billing_day: isNaN(val) ? ('' as any) : val });
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (!settingsData.billing_day || settingsData.billing_day < 1) {
+                                                            setSettingsData({ ...settingsData, billing_day: 1 });
+                                                        }
+                                                    }}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-black text-gray-500 ml-1">วันครบกำหนดชำระ</label>
+                                                <input
+                                                    type="number"
+                                                    min="1" max="31"
+                                                    value={settingsData.payment_due_day}
+                                                    onChange={(e) => {
+                                                        let val = parseInt(e.target.value);
+                                                        if (val > 31) val = 31;
+                                                        setSettingsData({ ...settingsData, payment_due_day: isNaN(val) ? ('' as any) : val });
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (!settingsData.payment_due_day || settingsData.payment_due_day < 1) {
+                                                            setSettingsData({ ...settingsData, payment_due_day: 5 });
+                                                        }
+                                                    }}
+                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Message Indicator */}
+                            {settingsMessage && (
+                                <div className="mt-8 flex items-center gap-2 justify-center py-3 px-6 bg-green-50 text-green-600 rounded-full font-black text-xs animate-bounce w-fit mx-auto">
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                    {settingsMessage}
+                                </div>
                             )}
+                        </div>
+
+                        {/* Floating Save Button within Settings Drawer */}
+                        <div className="absolute bottom-[25px] left-0 right-0 px-6 sm:max-w-lg sm:mx-auto">
+                            <button
+                                onClick={handleSaveSettings}
+                                disabled={savingSettings}
+                                className="w-full h-16 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-2xl font-black text-lg shadow-xl shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {savingSettings ? (
+                                    <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                                ) : (
+                                    <>บันทึกการตั้งค่า</>
+                                )}
+                            </button>
                         </div>
                     </div>
                 )}
 
-                {/* ── Other Tabs Placeholder (billing, tenants, settings) ── */}
-                {activeTab !== 'overview' && activeTab !== 'rooms' && (
+                {activeTab !== 'overview' && activeTab !== 'rooms' && activeTab !== 'settings' && (
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 h-full relative z-10 bg-white">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-[2rem] flex items-center justify-center text-green-500 mb-6 transform -rotate-6 shadow-xl shadow-green-100/50">
                             <Squares2X2Icon className="w-12 h-12 stroke-[2]" />
                         </div>
                         <h2 className="text-2xl font-black text-gray-800 tracking-tight mb-3">
-                            ระบบ {navItems.find(n => n.id === activeTab)?.name}
+                            ระบบ {navItems.find(n => n.id === activeTab)?.name || 'จัดการห้อง'}
                         </h2>
                         <p className="text-gray-500 text-[13px] leading-relaxed max-w-[260px] font-medium">
                             หน้านี้กำลังอยู่ระหว่างการพัฒนา รอติดตามการอัปเดตระบบเร็วๆ นี้นะครับ 🚀
                         </p>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('overview')}
                             className="mt-8 px-8 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-2xl transition-all active:scale-95 border border-gray-200"
                         >

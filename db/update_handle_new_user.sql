@@ -12,7 +12,7 @@ BEGIN
     new.email, 
     COALESCE(new.raw_user_meta_data->>'name', ''), 
     new.raw_user_meta_data->>'phone',
-    COALESCE(new.raw_user_meta_data->>'role', 'owner'), -- Defaults to owner for this system
+    COALESCE(new.raw_user_meta_data->>'role', 'owner'), -- Default to owner for SaaS model
     'free', 
     now() + INTERVAL '60 days'
   );

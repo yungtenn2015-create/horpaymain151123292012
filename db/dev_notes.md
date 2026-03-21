@@ -580,4 +580,11 @@ const { data: { signedUrl } } = await supabase.storage
 
 ---
 
+### การแก้ไข Role Discrepancy (v8)
+- ปรับปรุง `handle_new_user` ให้รับค่า `role` จาก `raw_user_meta_data` ได้โดยตรง
+- หากไม่มีการส่งค่ามา จะ Default เป็น `'owner'` เพื่อให้เจ้าของหอเริ่มใช้งานได้ทันที
+- สอดคล้องกับ Logic ในหน้า `register/page.tsx` ที่ Hardcode role เป็น `'owner'` ไว้
+
+---
+
 *หากพบปัญหาหรือมีการแก้ไข SQL ให้อัปเดตไฟล์นี้พร้อมกันทุกครั้ง*

@@ -44,6 +44,8 @@ export default function SetupDormPage() {
     const [dormPhone, setDormPhone] = useState('')
     const [ownerName, setOwnerName] = useState('')
     const [ownerPhone, setOwnerPhone] = useState('')
+    const [billingDay, setBillingDay] = useState<number>(1)
+    const [paymentDueDay, setPaymentDueDay] = useState<number>(5)
 
     // Step 8: Bank Info
     const [bankName, setBankName] = useState('')
@@ -255,7 +257,8 @@ export default function SetupDormPage() {
                     bank_name: bankName,
                     bank_account_no: bankAccountNo,
                     bank_account_name: bankAccountName,
-                    billing_day: 1 // Default
+                    billing_day: billingDay,
+                    payment_due_day: paymentDueDay
                 })
 
             if (settingsError) throw settingsError
@@ -296,7 +299,7 @@ export default function SetupDormPage() {
             setLoading(false)
             showModal({
                 title: 'สำเร็จ! 🎉',
-                description: 'บันทึกข้อมูลหอพักและห้องพักทั้งหมดเรียบร้อยแล้ว ระบบพร้อมใช้งานครับ',
+                description: 'บันทึกข้อมูลหอพักและห้องพักทั้งหมดเรียบร้อยแล้ว',
                 type: 'alert',
                 onConfirm: () => {
                     closeModal()
@@ -459,6 +462,52 @@ export default function SetupDormPage() {
                                                 className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-[12px] font-bold transition-all"
                                             >เบอร์เดียวกัน</button>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Billing Cycle Setting Group */}
+                            <div className="space-y-4 pt-6 mt-4 border-t border-gray-100/50">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-green-500">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
+                                    </svg>
+                                    <h3 className="font-bold text-gray-700 tracking-tight text-[13px]">ตั้งค่ารอบบิล</h3>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[12px] text-gray-500 font-bold ml-1">วันจดมิเตอร์ / ตัดรอบบิล</label>
+                                        <input
+                                            type="number"
+                                            min="1" max="31"
+                                            value={billingDay}
+                                            onChange={(e) => {
+                                                let val = parseInt(e.target.value);
+                                                if (val > 31) val = 31;
+                                                setBillingDay(isNaN(val) ? ('' as any) : val);
+                                            }}
+                                            onBlur={() => {
+                                                if (!billingDay || billingDay < 1) setBillingDay(1);
+                                            }}
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[12px] text-gray-500 font-bold ml-1">วันครบกำหนดชำระ</label>
+                                        <input
+                                            type="number"
+                                            min="1" max="31"
+                                            value={paymentDueDay}
+                                            onChange={(e) => {
+                                                let val = parseInt(e.target.value);
+                                                if (val > 31) val = 31;
+                                                setPaymentDueDay(isNaN(val) ? ('' as any) : val);
+                                            }}
+                                            onBlur={() => {
+                                                if (!paymentDueDay || paymentDueDay < 1) setPaymentDueDay(5);
+                                            }}
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -843,18 +892,18 @@ export default function SetupDormPage() {
                     {/* STEP 8: BANK SETTINGS */}
                     {step === 8 && (
                         <div className="flex-1 flex flex-col space-y-6 animate-in slide-in-from-right-4 duration-500">
-                            <p className="text-gray-500 text-sm">ระบุข้อมูลบัญชีธนาคารสำหรับรับชำระเงินจากผู้เช่าครับ</p>
+                            <p className="text-gray-500 text-sm">ระบุข้อมูลบัญชีธนาคารสำหรับรับชำระเงินจากผู้เช่า</p>
 
                             <div className="space-y-4">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">เลือกธนาคาร <span className="text-red-500">*</span></label>
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                     {[
-                                        { id: 'kbank', name: 'กสิกร', color: '#138B2E', logo: 'K' },
+                                        { id: 'kbank', name: 'กสิกรไทย', color: '#138B2E', logo: 'K' },
                                         { id: 'scb', name: 'ไทยพาณิชย์', color: '#4E2E7F', logo: 'S' },
                                         { id: 'bbl', name: 'กรุงเทพ', color: '#1E4598', logo: 'B' },
                                         { id: 'ktb', name: 'กรุงไทย', color: '#00AEEF', logo: 'K' },
                                         { id: 'bay', name: 'กรุงศรี', color: '#FFD700', logo: 'A' },
-                                        { id: 'ttb', name: 'ทีทีบี', color: '#004A99', logo: 'T' },
+                                        { id: 'ttb', name: 'ทหารไทยธนชาต', color: '#004A99', logo: 'T' },
                                         { id: 'gsb', name: 'ออมสิน', color: '#EB1483', logo: 'G' },
                                         { id: 'promptpay', name: 'PromptPay', color: '#113566', logo: 'P' },
                                     ].map((bank) => (

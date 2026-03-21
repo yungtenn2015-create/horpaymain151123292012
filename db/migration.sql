@@ -95,7 +95,8 @@ CREATE TABLE dorm_settings (
   bank_name              TEXT,                                        -- ชื่อธนาคารสำหรับรับโอนเงิน
   bank_account_no        TEXT,                                        -- เลขบัญชีธนาคาร
   bank_account_name      TEXT,                                        -- ชื่อบัญชีธนาคาร
-  billing_day            INT CHECK (billing_day BETWEEN 1 AND 31)     -- วันที่ตัดรอบบิลของเดือน (1-31)
+  billing_day            INT CHECK (billing_day BETWEEN 1 AND 31),    -- วันที่ตัดรอบบิลของเดือน (1-31)
+  payment_due_day        INT CHECK (payment_due_day BETWEEN 1 AND 31) -- วันครบกำหนดชำระเงินของเดือน (1-31)
 );
 
 -- ============================================================
@@ -308,11 +309,16 @@ CREATE INDEX idx_upgrade_requests_status ON upgrade_requests(status) WHERE statu
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.users (id, email, name, role, plan_type, trial_expires_at)
-  -- [FIX 3] เปลี่ยน default role จาก 'owner' → 'tenant'
-  -- trial_expires_at: 60 วันนับจากวันสมัคร — ใช้งานเต็มที่ได้ในช่วง trial
-  -- หลัง trial หมด: read-only (ดูข้อมูลได้ แต่ INSERT/UPDATE ไม่ได้ จนกว่าจะอัปเกรดเป็น pro)
-  VALUES (new.id, new.email, '', 'tenant', 'free', now() + INTERVAL '60 days');
+  INSERT INTO public.users (id, email, name, phone, role, plan_type, trial_expires_at)
+  VALUES (
+    new.id, 
+    new.email, 
+    COALESCE(new.raw_user_meta_data->>'name', ''), 
+    new.raw_user_meta_data->>'phone',
+    COALESCE(new.raw_user_meta_data->>'role', 'owner'), -- Default to owner for SaaS model
+    'free', 
+    now() + INTERVAL '60 days'
+  );
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
