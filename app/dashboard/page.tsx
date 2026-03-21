@@ -13,7 +13,8 @@ import {
     PlusIcon,
     Cog6ToothIcon,
     DocumentPlusIcon,
-    BanknotesIcon
+    BanknotesIcon,
+    UsersIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -227,22 +228,23 @@ export default function DashboardPage() {
                             {/* ── Quick Actions ── */}
                             <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
                                 <h3 className="text-sm font-black text-gray-800 mb-4 tracking-tight px-1 text-center">เมนูใช้งานด่วน ✨</h3>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-5 gap-2">
                                     {[
                                         { name: 'จดมิเตอร์', icon: DocumentPlusIcon, color: 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100 shadow-green-100/50', path: '/dashboard/meter' },
-                                        { name: 'ออกบิล', icon: BanknotesIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50' },
                                         { name: 'เพิ่มคนเช่า', icon: UserGroupIcon, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 shadow-orange-100/50', path: '/dashboard/tenants/new' },
+                                        { name: 'ข้อมูลคนเช่า', icon: UsersIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50', path: '/dashboard/tenants' },
                                         { name: 'จัดการห้อง', icon: Squares2X2Icon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50', path: '/dashboard/rooms' },
+                                        { name: 'ออกบิล', icon: BanknotesIcon, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100/50' },
                                     ].map((action, i) => (
                                         <button 
                                             key={i} 
                                             onClick={() => action.path ? router.push(action.path) : alert('กำลังพัฒนาระบบนี้')}
                                             className="flex flex-col items-center gap-2 group active:scale-[0.97] transition-all"
                                         >
-                                            <div className={`w-[60px] h-[60px] rounded-[1.2rem] flex items-center justify-center border transition-all shadow-sm ${action.color}`}>
-                                                <action.icon className="w-7 h-7 stroke-[1.5]" />
+                                            <div className={`w-[54px] h-[54px] rounded-[1.2rem] flex items-center justify-center border transition-all shadow-sm ${action.color}`}>
+                                                <action.icon className="w-6 h-6 stroke-[1.5]" />
                                             </div>
-                                            <span className="text-[11px] font-bold text-gray-500 text-center tracking-tight leading-none group-hover:text-gray-800 transition-colors">{action.name}</span>
+                                            <span className="text-[10px] font-bold text-gray-500 text-center tracking-tight leading-none group-hover:text-gray-800 transition-colors">{action.name}</span>
                                         </button>
                                     ))}
                                 </div>
