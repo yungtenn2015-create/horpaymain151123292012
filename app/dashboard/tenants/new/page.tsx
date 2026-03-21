@@ -67,6 +67,7 @@ export default function AddTenantPage() {
                     .select('*')
                     .eq('dorm_id', currentDormId)
                     .eq('status', 'available')
+                    .is('deleted_at', null)
                     .order('room_number', { ascending: true })
 
                 if (roomsData) {

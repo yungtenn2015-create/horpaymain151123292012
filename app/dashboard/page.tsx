@@ -38,6 +38,7 @@ interface Room {
     floor: number;
     base_price: number;
     dorm_id: string;
+    deleted_at: string | null;
 }
 
 export default function DashboardPage() {
@@ -99,10 +100,11 @@ export default function DashboardPage() {
 
                 if (roomsData) {
                     setRooms(roomsData)
+                    const activeRooms = roomsData.filter(r => r.deleted_at === null)
                     setStats({
-                        total: roomsData.length,
-                        occupied: roomsData.filter(r => r.status === 'occupied').length,
-                        vacant: roomsData.filter(r => r.status === 'available').length,
+                        total: activeRooms.length,
+                        occupied: activeRooms.filter(r => r.status === 'occupied').length,
+                        vacant: activeRooms.filter(r => r.status === 'available').length,
                         pendingPayments: 0 // Mock value for now
                     })
                 }
@@ -230,7 +232,7 @@ export default function DashboardPage() {
                                         { name: 'จดมิเตอร์', icon: DocumentPlusIcon, color: 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100 shadow-green-100/50', path: '/dashboard/meter' },
                                         { name: 'ออกบิล', icon: BanknotesIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50' },
                                         { name: 'เพิ่มคนเช่า', icon: UserGroupIcon, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 shadow-orange-100/50', path: '/dashboard/tenants/new' },
-                                        { name: 'จัดการห้อง', icon: Squares2X2Icon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50' },
+                                        { name: 'จัดการห้อง', icon: Squares2X2Icon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50', path: '/dashboard/rooms' },
                                     ].map((action, i) => (
                                         <button 
                                             key={i} 
@@ -254,7 +256,7 @@ export default function DashboardPage() {
                                         <h3 className="text-[15px] font-black text-gray-800 tracking-tight pl-1">สถานะห้องพักล่าสุด</h3>
                                     </div>
                                     <button 
-                                        onClick={() => setActiveTab('rooms')}
+                                        onClick={() => router.push('/dashboard/rooms')}
                                         className="text-xs text-green-600 font-bold bg-green-50 px-4 py-2 rounded-xl hover:bg-green-100 transition-colors active:scale-95"
                                     >
                                         ดูทั้งหมด
@@ -270,8 +272,10 @@ export default function DashboardPage() {
                                                 <div className={`w-3 h-3 rounded-full shadow-sm ${room.status === 'available' ? 'bg-green-500 shadow-green-200' : 'bg-orange-500 shadow-orange-200'}`} />
                                                 <div>
                                                     <h4 className="text-xl font-black text-gray-800 leading-none mb-1.5">{room.room_number}</h4>
-                                                    <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${room.status === 'available' ? 'text-green-500' : 'text-orange-500'}`}>
-                                                        {room.status === 'available' ? 'ห้องว่าง' : 'มีผู้เช่าแล้ว'}
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${
+                                                        room.deleted_at ? 'text-gray-400' : (room.status === 'available' ? 'text-green-500' : 'text-orange-500')
+                                                    }`}>
+                                                        {room.deleted_at ? 'ลบทิ้งแล้ว' : (room.status === 'available' ? 'ห้องว่าง' : 'มีผู้เช่าแล้ว')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -318,8 +322,10 @@ export default function DashboardPage() {
                                                 </div>
                                                 <div>
                                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">ชั้น {room.floor}</p>
-                                                    <div className={`text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border inline-block ${room.status === 'available' ? 'bg-green-50 text-green-500 border-green-100/50' : 'bg-orange-50 text-orange-500 border-orange-100/50'}`}>
-                                                        {room.status === 'available' ? '🟢 ห้องว่าง' : '🟠 มีผู้เช่าแล้ว'}
+                                                    <div className={`text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border inline-block ${
+                                                        room.deleted_at ? 'bg-gray-50 text-gray-400 border-gray-100' : (room.status === 'available' ? 'bg-green-50 text-green-500 border-green-100/50' : 'bg-orange-50 text-orange-500 border-orange-100/50')
+                                                    }`}>
+                                                        {room.deleted_at ? '⚪ ลบทิ้งแล้ว' : (room.status === 'available' ? '🟢 ห้องว่าง' : '🟠 มีผู้เช่าแล้ว')}
                                                     </div>
                                                 </div>
                                             </div>
