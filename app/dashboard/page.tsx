@@ -24,7 +24,10 @@ import {
     DevicePhoneMobileIcon,
     CalendarDaysIcon,
     ArrowPathIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    ChatBubbleLeftRightIcon,
+    ClipboardIcon,
+    CheckIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -89,6 +92,52 @@ export default function DashboardPage() {
         billing_day: 30,
         payment_due_day: 5
     })
+    const [lineConfig, setLineConfig] = useState({
+        channel_id: '',
+        channel_secret: '',
+        access_token: '',
+        owner_line_user_id: ''
+    })
+
+    // LINE Settings Helpers
+    const [isTestingConnection, setIsTestingConnection] = useState(false)
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+    const [copied, setCopied] = useState(false)
+
+    const handleTestConnection = async () => {
+        if (!lineConfig.access_token) {
+            setTestResult({ success: false, message: 'กรุณากรอก Access Token ก่อนทดสอบ' });
+            return;
+        }
+
+        setIsTestingConnection(true);
+        setTestResult(null);
+
+        try {
+            const response = await fetch('/api/line/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ access_token: lineConfig.access_token })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setTestResult({ success: true, message: `เชื่อมต่อสำเร็จ! (Bot: ${data.bot.displayName})` });
+            } else {
+                setTestResult({ success: false, message: data.error || 'การเชื่อมต่อล้มเหลว' });
+            }
+        } catch (error) {
+            setTestResult({ success: false, message: 'เกิดข้อผิดพลาดในการเชื่อมต่อ' });
+        } finally {
+            setIsTestingConnection(false);
+        }
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     useEffect(() => {
         async function fetchData() {
@@ -169,6 +218,27 @@ export default function DashboardPage() {
                         })
                     }
 
+                    // 5. Get LINE Config (Safely)
+                    try {
+                        const { data: lineOa } = await supabase
+                            .from('line_oa_configs')
+                            .select('*')
+                            .eq('dorm_id', dormsData[0].id)
+                            .maybeSingle()
+
+                        if (lineOa) {
+                            setLineConfig({
+                                channel_id: lineOa.channel_id || '',
+                                channel_secret: lineOa.channel_secret || '',
+                                access_token: lineOa.access_token || '',
+                                owner_line_user_id: lineOa.owner_line_user_id || ''
+                            })
+                        }
+                    } catch (lineErr) {
+                        console.error("LINE Config Error:", lineErr)
+                        // Don't set dbError here to avoid blocking the whole UI
+                    }
+
                     // 5. Set Dorm Data for Settings Tab
                     setDormData({
                         name: dormsData[0].name || '',
@@ -214,6 +284,27 @@ export default function DashboardPage() {
                 billing_day: settingsData.billing_day,
                 payment_due_day: settingsData.payment_due_day
             }).eq('dorm_id', dorm.id)
+
+            // 3. Update LINE Config
+            const { data: existingLines } = await supabase
+                .from('line_oa_configs')
+                .select('id')
+                .eq('dorm_id', dorm.id)
+            
+            if (existingLines && existingLines.length > 0) {
+                await supabase.from('line_oa_configs').update({
+                    channel_id: lineConfig.channel_id,
+                    channel_secret: lineConfig.channel_secret,
+                    access_token: lineConfig.access_token
+                }).eq('dorm_id', dorm.id)
+            } else {
+                await supabase.from('line_oa_configs').insert({
+                    dorm_id: dorm.id,
+                    channel_id: lineConfig.channel_id,
+                    channel_secret: lineConfig.channel_secret,
+                    access_token: lineConfig.access_token
+                })
+            }
 
             setSettingsMessage('บันทึกข้อมูลเรียบร้อยแล้ว!')
             // Refresh local dorm name if changed
@@ -281,32 +372,55 @@ export default function DashboardPage() {
                                         {/* Dropdown Menu */}
                                         {isMenuOpen && (
                                             <>
-                                                <div
-                                                    className="fixed inset-0 z-40"
-                                                    onClick={() => setIsMenuOpen(false)}
-                                                />
-                                                <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                                                    <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">ยินดีต้อนรับ</p>
-                                                        <p className="text-sm font-black text-gray-800 truncate">{userName}</p>
+                                                    <div className="absolute right-0 mt-4 w-[240px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-50 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+                                                    {/* Header */}
+                                                    <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
+                                                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">ยินดีต้อนรับ</p>
+                                                        <h3 className="text-[17px] font-black text-gray-800 tracking-tight leading-none">{userName}</h3>
                                                     </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsMenuOpen(false);
-                                                            setActiveTab('settings');
-                                                        }}
-                                                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-gray-700 hover:bg-gray-50 transition-colors font-bold text-sm border-b border-gray-50"
-                                                    >
-                                                        <BuildingOfficeIcon className="w-5 h-5 stroke-[2.5]" />
-                                                        แก้ไขข้อมูลหอพัก
-                                                    </button>
-                                                    <button
-                                                        onClick={handleLogout}
-                                                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-red-500 hover:bg-red-50 transition-colors font-bold text-sm"
-                                                    >
-                                                        <ArrowRightOnRectangleIcon className="w-5 h-5 stroke-[2.5]" />
-                                                        ออกจากระบบ
-                                                    </button>
+
+                                                    {/* Menu Items */}
+                                                    <div className="p-2.5 space-y-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsMenuOpen(false);
+                                                                setActiveTab('settings');
+                                                                setActiveSettingsTab('dorm');
+                                                            }}
+                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
+                                                        >
+                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
+                                                                <BuildingOfficeIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                            </div>
+                                                            แก้ไขข้อมูลหอพัก
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsMenuOpen(false);
+                                                                setActiveTab('settings');
+                                                                setActiveSettingsTab('line');
+                                                            }}
+                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
+                                                        >
+                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
+                                                                <ChatBubbleLeftRightIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                            </div>
+                                                            ตั้งค่า LINE Notification
+                                                        </button>
+
+                                                        <div className="h-px bg-gray-100/60 mx-4 my-2" />
+
+                                                        <button
+                                                            onClick={handleLogout}
+                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-red-500 hover:bg-red-50 rounded-2xl transition-all font-bold text-[14.5px] group"
+                                                        >
+                                                            <div className="w-10 h-10 bg-red-50/50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
+                                                                <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-400 group-hover:text-red-600 stroke-[2.5]" />
+                                                            </div>
+                                                            ออกจากระบบ
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </>
                                         )}
@@ -507,175 +621,293 @@ export default function DashboardPage() {
                 {activeTab === 'settings' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-white">
                         <div className="px-6 pt-12 mb-6">
-                            <h1 className="text-3xl font-black text-gray-800 tracking-tight">ตั้งค่าหอพัก</h1>
-                            <p className="text-gray-400 font-bold text-sm mt-1">จัดการข้อมูลของหอพัก</p>
+                            <h1 className="text-3xl font-black text-gray-800 tracking-tight">
+                                {activeSettingsTab === 'dorm' ? 'ตั้งค่าหอพัก' : 'ตั้งค่า LINE Bot'}
+                            </h1>
+                            <p className="text-gray-400 font-bold text-sm mt-1">
+                                {activeSettingsTab === 'dorm' ? 'จัดการข้อมูลและบัญชีรับเงิน' : 'เชื่อมต่อ LINE Messaging API สำหรับแจ้งเตือน'}
+                            </p>
                         </div>
 
                         {/* Scrollable Content Area */}
                         <div className="flex-1 overflow-y-auto px-6 pt-2 pb-32 custom-scrollbar">
                             <div className="space-y-6">
-                                {/* Dorm Info Section */}
-                                <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
-                                            <BuildingOfficeIcon className="w-6 h-6 stroke-[2]" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-black text-gray-800 tracking-tight">ข้อมูลหอพัก</h3>
-                                            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Dormitory Information</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-5">
-                                        <div className="space-y-2">
-                                            <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อหอพัก</label>
-                                            <div className="relative group/field">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
-                                                    <BuildingOfficeIcon className="w-5 h-5" />
+                                {activeSettingsTab === 'dorm' && (
+                                    <>
+                                        {/* Dorm Info Section */}
+                                        <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-600">
+                                                    <BuildingOfficeIcon className="w-6 h-6 stroke-[2]" />
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    maxLength={50}
-                                                    value={dormData.name}
-                                                    onChange={(e) => setDormData({ ...dormData, name: e.target.value.slice(0, 50) })}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
-                                                    placeholder="ระบุชื่อหอพัก..."
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[13px] font-black text-gray-500 ml-1">ที่อยู่หอพัก</label>
-                                            <div className="relative group/field">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
-                                                    <MapPinIcon className="w-5 h-5" />
+                                                <div>
+                                                    <h3 className="text-lg font-black text-gray-800 tracking-tight">ข้อมูลหอพัก</h3>
+                                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Dormitory Information</p>
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    maxLength={100}
-                                                    value={dormData.address}
-                                                    onChange={(e) => setDormData({ ...dormData, address: e.target.value.slice(0, 100) })}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
-                                                    placeholder="ระบุที่อยู่หอพัก..."
-                                                />
                                             </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[13px] font-black text-gray-500 ml-1">เบอร์โทรติดต่อ</label>
-                                            <div className="relative group/field">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
-                                                    <DevicePhoneMobileIcon className="w-5 h-5" />
+
+                                            <div className="space-y-5">
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อหอพัก</label>
+                                                    <div className="relative group/field">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                            <BuildingOfficeIcon className="w-5 h-5" />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={50}
+                                                            value={dormData.name}
+                                                            onChange={(e) => setDormData({ ...dormData, name: e.target.value.slice(0, 50) })}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                            placeholder="ระบุชื่อหอพัก..."
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    maxLength={10}
-                                                    value={dormData.contact_number}
-                                                    onChange={(e) => setDormData({ ...dormData, contact_number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
-                                                    placeholder="ระบุเบอร์โทร..."
-                                                />
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">ที่อยู่หอพัก</label>
+                                                    <div className="relative group/field">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                            <MapPinIcon className="w-5 h-5" />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={100}
+                                                            value={dormData.address}
+                                                            onChange={(e) => setDormData({ ...dormData, address: e.target.value.slice(0, 100) })}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                            placeholder="ระบุที่อยู่หอพัก..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">เบอร์โทรติดต่อ</label>
+                                                    <div className="relative group/field">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-hover/field:text-green-500 transition-colors">
+                                                            <DevicePhoneMobileIcon className="w-5 h-5" />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={10}
+                                                            value={dormData.contact_number}
+                                                            onChange={(e) => setDormData({ ...dormData, contact_number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                            placeholder="ระบุเบอร์โทร..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Financial Section */}
+                                        <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                                                    <BanknotesIcon className="w-6 h-6 stroke-[2]" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-black text-gray-800 tracking-tight">การเงินและบัญชี</h3>
+                                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Payment & Bank Details</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-5">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">ธนาคาร</label>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={30}
+                                                            value={settingsData.bank_name}
+                                                            onChange={(e) => setSettingsData({ ...settingsData, bank_name: e.target.value.slice(0, 30) })}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                            placeholder="กรุงไทย..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">เลขบัญชี</label>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={20}
+                                                            value={settingsData.bank_account_no}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/[^\d\- ]/g, '').slice(0, 20);
+                                                                setSettingsData({ ...settingsData, bank_account_no: val });
+                                                            }}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                            placeholder="092-0-13420-7"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อบัญชี</label>
+                                                    <input
+                                                        type="text"
+                                                        maxLength={50}
+                                                        value={settingsData.bank_account_name}
+                                                        onChange={(e) => setSettingsData({ ...settingsData, bank_account_name: e.target.value.slice(0, 50) })}
+                                                        className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                        placeholder="ชื่อ-นามสกุล..."
+                                                    />
+                                                </div>
+
+                                                <div className="pt-4 border-t border-gray-100 flex items-center gap-3 mb-2">
+                                                    <CalendarDaysIcon className="w-5 h-5 text-green-500" />
+                                                    <span className="text-sm font-black text-gray-700">ตั้งค่ารอบบิล</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">วันจดมิเตอร์ / ตัดรอบบิล</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1" max="31"
+                                                            value={settingsData.billing_day}
+                                                            onChange={(e) => {
+                                                                let val = parseInt(e.target.value);
+                                                                if (val > 31) val = 31;
+                                                                setSettingsData({ ...settingsData, billing_day: isNaN(val) ? ('' as any) : val });
+                                                            }}
+                                                            onBlur={() => {
+                                                                if (!settingsData.billing_day || settingsData.billing_day < 1) {
+                                                                    setSettingsData({ ...settingsData, billing_day: 1 });
+                                                                }
+                                                            }}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">วันครบกำหนดชำระ</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1" max="31"
+                                                            value={settingsData.payment_due_day}
+                                                            onChange={(e) => {
+                                                                let val = parseInt(e.target.value);
+                                                                if (val > 31) val = 31;
+                                                                setSettingsData({ ...settingsData, payment_due_day: isNaN(val) ? ('' as any) : val });
+                                                            }}
+                                                            onBlur={() => {
+                                                                if (!settingsData.payment_due_day || settingsData.payment_due_day < 1) {
+                                                                    setSettingsData({ ...settingsData, payment_due_day: 5 });
+                                                                }
+                                                            }}
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none shadow-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeSettingsTab === 'line' && (
+                                    <div className="space-y-6">
+                                        <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
+                                            <div className="flex items-center justify-between mb-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 shadow-sm shadow-green-100">
+                                                        <ChatBubbleLeftRightIcon className="w-8 h-8 stroke-[2]" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-xl font-black text-gray-800 tracking-tight">LINE Messaging API</h3>
+                                                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Line Notification Configuration</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-2">
+                                                    {lineConfig.owner_line_user_id ? (
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-full border border-green-100">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                            <span className="text-[10px] font-black uppercase tracking-wider">เชื่อมต่อแล้ว</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-400 rounded-full border border-gray-200">
+                                                            <span className="text-[10px] font-black uppercase tracking-wider">ยังไม่เชื่อมต่อ</span>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <button 
+                                                        onClick={handleTestConnection}
+                                                        disabled={isTestingConnection || !lineConfig.access_token}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 rounded-full border border-gray-200 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+                                                    >
+                                                        {isTestingConnection ? (
+                                                            <ArrowPathIcon className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                                        )}
+                                                        ทดสอบการเชื่อมต่อ
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {testResult && (
+                                                <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${testResult.success ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                                    {testResult.success ? <CheckCircleIcon className="w-5 h-5" /> : <BellIcon className="w-5 h-5" />}
+                                                    <span className="text-xs font-bold">{testResult.message}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="grid gap-6">
+                                                {/* Webhook URL Section */}
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Webhook URL (สำหรับนำไปวางใน LINE Console)</label>
+                                                    <div className="relative group/webhook">
+                                                        <input
+                                                            readOnly
+                                                            type="text"
+                                                            value={typeof window !== 'undefined' ? `${window.location.origin}/api/line/webhook` : ''}
+                                                            className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-2xl px-5 pr-14 font-mono text-[11px] font-bold text-gray-500 transition-all outline-none"
+                                                        />
+                                                        <button
+                                                            onClick={() => copyToClipboard(typeof window !== 'undefined' ? `${window.location.origin}/api/line/webhook` : '')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm border border-gray-100 hover:bg-gray-50 transition-all active:scale-90"
+                                                        >
+                                                            {copied ? <CheckIcon className="w-5 h-5 text-green-500" /> : <ClipboardIcon className="w-5 h-5 text-gray-400" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="h-px bg-gray-100/50 my-2" />
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Channel ID</label>
+                                                    <input
+                                                        type="text"
+                                                        value={lineConfig.channel_id}
+                                                        onChange={(e) => setLineConfig({ ...lineConfig, channel_id: e.target.value })}
+                                                        className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                        placeholder="200xxxxxxx"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Channel Secret</label>
+                                                    <input
+                                                        type="password"
+                                                        value={lineConfig.channel_secret}
+                                                        onChange={(e) => setLineConfig({ ...lineConfig, channel_secret: e.target.value })}
+                                                        className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                        placeholder="••••••••••••••••"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Channel Access Token</label>
+                                                    <textarea
+                                                        value={lineConfig.access_token}
+                                                        onChange={(e) => setLineConfig({ ...lineConfig, access_token: e.target.value })}
+                                                        className="w-full h-32 bg-white border-2 border-gray-50 rounded-2xl p-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm resize-none text-sm break-all"
+                                                        placeholder="eyJhbGciOiJIUzI1NiJ9..."
+                                                    />
+                                                </div>
+                                                {!lineConfig.owner_line_user_id && lineConfig.channel_id && (
+                                                    <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                                                        <p className="text-[11px] font-bold text-orange-700 leading-relaxed text-center">
+                                                            ⚠️ หลังจากบันทึกแล้ว กรุณาเพิ่มเพื่อน LINE OA ของคุณ <br/>เพื่อเชื่อมต่อระบบในฐานะเจ้าของ
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Financial Section */}
-                                <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50 backdrop-blur-sm shadow-sm group hover:shadow-md transition-all duration-300">
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
-                                            <BanknotesIcon className="w-6 h-6 stroke-[2]" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-black text-gray-800 tracking-tight">การเงินและบัญชี</h3>
-                                            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Payment & Bank Details</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-5">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[13px] font-black text-gray-500 ml-1">ธนาคาร</label>
-                                                <input
-                                                    type="text"
-                                                    maxLength={30}
-                                                    value={settingsData.bank_name}
-                                                    onChange={(e) => setSettingsData({ ...settingsData, bank_name: e.target.value.slice(0, 30) })}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                    placeholder="กรุงไทย..."
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[13px] font-black text-gray-500 ml-1">เลขบัญชี</label>
-                                                <input
-                                                    type="text"
-                                                    maxLength={20}
-                                                    value={settingsData.bank_account_no}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/[^\d\- ]/g, '').slice(0, 20);
-                                                        setSettingsData({ ...settingsData, bank_account_no: val });
-                                                    }}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                    placeholder="092-0-13420-7"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[13px] font-black text-gray-500 ml-1">ชื่อบัญชี</label>
-                                            <input
-                                                type="text"
-                                                maxLength={50}
-                                                value={settingsData.bank_account_name}
-                                                onChange={(e) => setSettingsData({ ...settingsData, bank_account_name: e.target.value.slice(0, 50) })}
-                                                className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                placeholder="ชื่อ-นามสกุล..."
-                                            />
-                                        </div>
-
-                                        <div className="pt-4 border-t border-gray-100 flex items-center gap-3 mb-2">
-                                            <CalendarDaysIcon className="w-5 h-5 text-green-500" />
-                                            <span className="text-sm font-black text-gray-700">ตั้งค่ารอบบิล</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[13px] font-black text-gray-500 ml-1">วันจดมิเตอร์ / ตัดรอบบิล</label>
-                                                <input
-                                                    type="number"
-                                                    min="1" max="31"
-                                                    value={settingsData.billing_day}
-                                                    onChange={(e) => {
-                                                        let val = parseInt(e.target.value);
-                                                        if (val > 31) val = 31;
-                                                        setSettingsData({ ...settingsData, billing_day: isNaN(val) ? ('' as any) : val });
-                                                    }}
-                                                    onBlur={() => {
-                                                        if (!settingsData.billing_day || settingsData.billing_day < 1) {
-                                                            setSettingsData({ ...settingsData, billing_day: 1 });
-                                                        }
-                                                    }}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[13px] font-black text-gray-500 ml-1">วันครบกำหนดชำระ</label>
-                                                <input
-                                                    type="number"
-                                                    min="1" max="31"
-                                                    value={settingsData.payment_due_day}
-                                                    onChange={(e) => {
-                                                        let val = parseInt(e.target.value);
-                                                        if (val > 31) val = 31;
-                                                        setSettingsData({ ...settingsData, payment_due_day: isNaN(val) ? ('' as any) : val });
-                                                    }}
-                                                    onBlur={() => {
-                                                        if (!settingsData.payment_due_day || settingsData.payment_due_day < 1) {
-                                                            setSettingsData({ ...settingsData, payment_due_day: 5 });
-                                                        }
-                                                    }}
-                                                    className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Message Indicator */}

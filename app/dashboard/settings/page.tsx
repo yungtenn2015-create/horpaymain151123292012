@@ -12,7 +12,8 @@ import {
     MapPinIcon,
     BuildingOfficeIcon,
     CheckCircleIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 
 export default function SettingsPage() {
@@ -35,6 +36,13 @@ export default function SettingsPage() {
         bank_account_name: '',
         billing_day: 30,
         payment_due_day: 5
+    })
+
+    const [lineConfig, setLineConfig] = useState({
+        channel_id: '',
+        channel_secret: '',
+        access_token: '',
+        owner_line_user_id: ''
     })
 
     useEffect(() => {
@@ -79,6 +87,22 @@ export default function SettingsPage() {
                             payment_due_day: settings.payment_due_day || 5
                         })
                     }
+
+                    // Get LINE Config
+                    const { data: lineOa } = await supabase
+                        .from('line_oa_configs')
+                        .select('*')
+                        .eq('dorm_id', dorm.id)
+                        .maybeSingle()
+
+                    if (lineOa) {
+                        setLineConfig({
+                            channel_id: lineOa.channel_id || '',
+                            channel_secret: lineOa.channel_secret || '',
+                            access_token: lineOa.access_token || '',
+                            owner_line_user_id: lineOa.owner_line_user_id || ''
+                        })
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching dorm info:', error)
@@ -121,6 +145,17 @@ export default function SettingsPage() {
                     billing_day: settingsData.billing_day,
                     payment_due_day: settingsData.payment_due_day
                 }).eq('dorm_id', dormId)
+
+                // 3. Update LINE Config (Upsert)
+                if (lineConfig.channel_id || lineConfig.channel_secret || lineConfig.access_token) {
+                    await supabase.from('line_oa_configs').upsert({
+                        dorm_id: dormId,
+                        channel_id: lineConfig.channel_id,
+                        channel_secret: lineConfig.channel_secret,
+                        access_token: lineConfig.access_token,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'dorm_id' })
+                }
 
                 setMessage('บันทึกข้อมูลเรียบร้อยแล้ว!')
                 setTimeout(() => setMessage(''), 3000)
@@ -324,6 +359,72 @@ export default function SettingsPage() {
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase tracking-widest">ของเดือนถัดไป</span>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── SECTION 4: LINE NOTIFICATION ── */}
+                <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-green-500">
+                            <ChatBubbleLeftRightIcon className="w-6 h-6" />
+                        </div>
+                        <h2 className="text-lg font-black text-gray-800">LINE Messaging API</h2>
+                        {lineConfig.owner_line_user_id ? (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black uppercase tracking-wider animate-pulse">
+                                <CheckCircleIcon className="w-3.5 h-3.5" />
+                                เชื่อมต่อเจ้าของแล้ว
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                ยังไม่เชื่อมต่อเจ้าของ
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs font-bold text-gray-400 mb-8 ml-13">ตั้งค่าเพื่อส่งใบแจ้งหนี้และรับแจ้งเตือนสลิปผ่าน LINE</p>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Channel ID</label>
+                            <input 
+                                type="text"
+                                value={lineConfig.channel_id}
+                                onChange={(e) => setLineConfig({...lineConfig, channel_id: e.target.value})}
+                                placeholder="เช่น 200635xxxx"
+                                className="w-full h-14 bg-gray-50 border-none rounded-2xl px-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-green-500/20 transition-all"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Channel Secret</label>
+                                <input 
+                                    type="password"
+                                    value={lineConfig.channel_secret}
+                                    onChange={(e) => setLineConfig({...lineConfig, channel_secret: e.target.value})}
+                                    placeholder="••••••••••••••••••••"
+                                    className="w-full h-14 bg-gray-50 border-none rounded-2xl px-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-green-500/20 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Channel Access Token</label>
+                                <textarea 
+                                    rows={3}
+                                    value={lineConfig.access_token}
+                                    onChange={(e) => setLineConfig({...lineConfig, access_token: e.target.value})}
+                                    placeholder="ใส่ Access Token ยาวๆ จาก LINE Console"
+                                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-green-500/20 transition-all resize-none text-sm break-all"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/50">
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">💡 วิธีตั้งค่า</p>
+                            <ul className="text-xs text-blue-700 font-bold space-y-1 ml-4 list-disc">
+                                <li>ไปที่ LINE Developers Console เลือก Channel Messaging API</li>
+                                <li>คัดลอก Channel ID, Secret และ Issue 'Channel access token'</li>
+                                <li>ตั้งค่า Webhook URL เป็น: <code className="bg-white/80 px-1 rounded">https://yourdomain.com/api/line/webhook</code></li>
+                                <li>กด "บันทึกการตั้งค่า" ในหน้านี้</li>
+                            </ul>
                         </div>
                     </div>
                 </section>

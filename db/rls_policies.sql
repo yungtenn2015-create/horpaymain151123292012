@@ -492,16 +492,21 @@ CREATE POLICY "audit_logs: ผู้เช่าดูได้"
 ALTER TABLE upgrade_requests ENABLE ROW LEVEL SECURITY;
 
 -- เจ้าของหอดูและสร้าง request ของตัวเองได้
-CREATE POLICY "upgrade_requests: ดูของตัวเองได้"
+CREATE POLICY "upgrade_requests: ดูคำขอตัวเองได้"
   ON upgrade_requests FOR SELECT
   USING (user_id = auth.uid());
 
-CREATE POLICY "upgrade_requests: สร้างได้เฉพาะตัวเอง"
+CREATE POLICY "upgrade_requests: สร้างคำขอได้"
   ON upgrade_requests FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
--- แก้ไขไม่ได้ — เราจัดการผ่าน service_role เท่านั้น
--- (ป้องกันเจ้าของหอแก้ status เป็น approved เอง)
+CREATE POLICY "upgrade_requests: แก้ไขไม่ได้"
+  ON upgrade_requests FOR UPDATE
+  USING (false);
+
+CREATE POLICY "upgrade_requests: ลบไม่ได้"
+  ON upgrade_requests FOR DELETE
+  USING (false);
 
 -- ============================================================
 -- STORAGE Policies
