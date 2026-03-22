@@ -21,7 +21,8 @@ export async function POST(req: Request) {
       .select(`
         *,
         rooms:room_id (room_number, dorm_id),
-        tenants:tenant_id (name, line_user_id)
+        tenants:tenant_id (name, line_user_id),
+        utilities:utility_id(*)
       `)
       .eq('id', billId)
       .maybeSingle();
@@ -112,13 +113,20 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
   const otherAmount = Number(bill.other_amount) || 0;
   const totalAmount = Number(bill.total_amount) || 0;
 
+  const roomNumber = bill.rooms?.room_number || '-';
+  const utils = bill.utilities;
+
   const billingMonth = bill.billing_month ? 
     new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : 
     '-';
 
+  const dueDate = bill.due_date ? 
+    new Date(bill.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) : 
+    '-';
+
   return {
     type: "flex",
-    altText: `แจ้งค่าเช่าห้องพักเดือน ${billingMonth}`,
+    altText: `แจ้งค่าเช่าห้อง ${roomNumber} เดือน ${billingMonth}`,
     contents: {
       type: "bubble",
       size: "mega",
@@ -130,7 +138,7 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
         contents: [
           {
             type: "text",
-            text: "แจ้งค่าเช่าห้องพัก",
+            text: `แจ้งค่าเช่าห้อง ${roomNumber}`,
             color: "#FFFFFF",
             weight: "bold",
             size: "xl"
@@ -201,40 +209,66 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
               },
               {
                 type: "box",
-                layout: "horizontal",
+                layout: "vertical",
                 contents: [
                   {
-                    type: "text",
-                    text: "ค่าน้ำประปา",
-                    color: "#6B7280",
-                    size: "md"
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ค่าน้ำประปา",
+                        color: "#6B7280",
+                        size: "md"
+                      },
+                      {
+                        type: "text",
+                        text: `฿${waterAmount.toLocaleString()}`,
+                        color: "#111827",
+                        weight: "bold",
+                        align: "end"
+                      }
+                    ]
                   },
-                  {
+                  ...(utils ? [{
                     type: "text",
-                    text: `฿${waterAmount.toLocaleString()}`,
-                    color: "#111827",
-                    weight: "bold",
-                    align: "end"
-                  }
+                    text: `มิเตอร์: ${utils.prev_water_meter} → ${utils.curr_water_meter} หน่วย`,
+                    color: "#9CA3AF",
+                    size: "xs",
+                    margin: "xs"
+                  }] : [])
                 ]
               },
               {
                 type: "box",
-                layout: "horizontal",
+                layout: "vertical",
                 contents: [
                   {
-                    type: "text",
-                    text: "ค่าไฟฟ้า",
-                    color: "#6B7280",
-                    size: "md"
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      {
+                        type: "text",
+                        text: "ค่าไฟฟ้า",
+                        color: "#6B7280",
+                        size: "md"
+                      },
+                      {
+                        type: "text",
+                        text: `฿${electricAmount.toLocaleString()}`,
+                        color: "#111827",
+                        weight: "bold",
+                        align: "end"
+                      }
+                    ]
                   },
-                  {
+                  ...(utils ? [{
                     type: "text",
-                    text: `฿${electricAmount.toLocaleString()}`,
-                    color: "#111827",
-                    weight: "bold",
-                    align: "end"
-                  }
+                    text: `มิเตอร์: ${utils.prev_electric_meter} → ${utils.curr_electric_meter} หน่วย`,
+                    color: "#9CA3AF",
+                    size: "xs",
+                    margin: "xs"
+                  }] : [])
                 ]
               },
               ...(otherAmount > 0 ? [{
@@ -283,7 +317,25 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
           {
             type: "box",
             layout: "vertical",
-            margin: "xxl",
+            margin: "xl",
+            backgroundColor: "#FEF2F2",
+            paddingAll: "12px",
+            cornerRadius: "8px",
+            contents: [
+              {
+                type: "text",
+                text: `📅 กำหนดชำระภายในวันที่ ${dueDate}`,
+                color: "#B91C1C",
+                size: "xs",
+                weight: "bold",
+                align: "center"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "xl",
             backgroundColor: "#F9FAFB",
             paddingAll: "16px",
             cornerRadius: "12px",
