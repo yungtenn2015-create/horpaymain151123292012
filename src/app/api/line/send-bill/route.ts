@@ -108,13 +108,13 @@ export async function POST(req: Request) {
 
 function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
   const roomAmount = Number(bill.room_amount) || 0;
-  const waterAmount = Number(bill.water_amount) || 0;
-  const electricAmount = Number(bill.electric_amount) || 0;
+  const utils = bill.utilities;
+  const waterAmount = Number(utils?.water_price) || 0;
+  const electricAmount = Number(utils?.electric_price) || 0;
   const otherAmount = Number(bill.other_amount) || 0;
   const totalAmount = Number(bill.total_amount) || 0;
 
   const roomNumber = bill.rooms?.room_number || '-';
-  const utils = bill.utilities;
 
   const billingMonth = bill.billing_month ? 
     new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : 
@@ -326,9 +326,10 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
                 type: "text",
                 text: `📅 กำหนดชำระภายในวันที่ ${dueDate}`,
                 color: "#B91C1C",
-                size: "xs",
+                size: "sm",
                 weight: "bold",
-                align: "center"
+                align: "center",
+                wrap: true
               }
             ]
           },
