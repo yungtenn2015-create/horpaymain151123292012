@@ -134,18 +134,18 @@ export default function ReceiptPage() {
                 const isFlatWater = settings?.water_billing_type === 'flat' || 
                                    (Number(bill.water_amount) > 0 && Number(utility?.water_unit || 0) === 0)
                 
-                if (Number(bill.water_amount) > 0 || Number(utility?.water_unit) > 0) {
+                if (Number(utility?.water_price) > 0 || Number(utility?.water_unit) > 0) {
                     items.push({
                         name: 'ค่าน้ำประปา',
-                        amount: Number(bill.water_amount),
+                        amount: Number(utility?.water_price || 0),
                         detail: isFlatWater ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} → ${utility?.curr_water_meter || 0} หน่วย`
                     })
                 }
                 
-                if (Number(bill.electric_amount) > 0 || Number(utility?.electric_unit) > 0) {
+                if (Number(utility?.electric_price) > 0 || Number(utility?.electric_unit) > 0) {
                     items.push({
                         name: 'ค่าไฟฟ้า',
-                        amount: Number(bill.electric_amount),
+                        amount: Number(utility?.electric_price || 0),
                         detail: `มิเตอร์: ${utility?.prev_electric_meter || 0} → ${utility?.curr_electric_meter || 0} หน่วย`
                     })
                 }
