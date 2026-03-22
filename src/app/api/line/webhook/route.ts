@@ -27,16 +27,23 @@ export async function POST(req: Request) {
     }
 
     const destination = jsonBody.destination; // This is the Channel ID or User ID of the BOT
+    console.log('Webhook received for destination:', destination);
 
     // Find config by channel_id (destination)
-    const { data: config } = await supabaseAdmin
+    const { data: config, error: configError } = await supabaseAdmin
       .from('line_oa_configs')
       .select('*, dorms(owner_id, name)')
       .eq('channel_id', destination)
-      .single();
+      .maybeSingle();
+
+    if (configError) {
+      console.error('Database error fetching config:', configError);
+      return new Response('DB Error', { status: 500 });
+    }
 
     if (!config) {
-      console.error('No config found for destination:', destination);
+      console.error('No config found in database for destination:', destination);
+      console.log('Please check that "Channel ID" in settings matches the Bot User ID from LINE Console.');
       return new Response('Not configured', { status: 404 });
     }
 
@@ -46,7 +53,11 @@ export async function POST(req: Request) {
       .update(body)
       .digest('base64');
 
+    console.log('Signature verification - Body hash:', hash);
+    console.log('Signature verification - LINE header:', signature);
+
     if (hash !== signature) {
+      console.error('Signature verification failed');
       return new Response('Invalid signature', { status: 401 });
     }
 
