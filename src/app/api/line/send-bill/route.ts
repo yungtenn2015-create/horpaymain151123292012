@@ -31,7 +31,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
     }
 
+    // INITIAL LOG - To see if we even reached here
+    await supabaseAdmin.from('line_notification_logs').insert({
+        dorm_id: bill.rooms.dorm_id,
+        receiver_id: bill.tenants?.line_user_id || 'UNKNOWN',
+        message_type: 'debug',
+        status: 'starting',
+        error_message: `Attempting to send bill ${billId}`
+    });
+
     if (!bill.tenants?.line_user_id) {
+       console.error('Tenant has no LINE linked. Bill ID:', billId, 'Tenant:', bill.tenants);
+       await supabaseAdmin.from('line_notification_logs').insert({
+          dorm_id: bill.rooms.dorm_id,
+          receiver_id: 'UNKNOWN',
+          message_type: 'error',
+          status: 'failed',
+          error_message: 'Tenant has no LINE linked'
+       });
        return NextResponse.json({ error: 'Tenant has no LINE linked' }, { status: 400 });
     }
 
@@ -43,6 +60,14 @@ export async function POST(req: Request) {
     ]);
 
     if (!dormConfig) {
+      console.error('LINE OA not configured for dorm:', bill.rooms.dorm_id);
+      await supabaseAdmin.from('line_notification_logs').insert({
+          dorm_id: bill.rooms.dorm_id,
+          receiver_id: bill.tenants.line_user_id,
+          message_type: 'error',
+          status: 'failed',
+          error_message: 'LINE OA not configured'
+      });
       return NextResponse.json({ error: 'LINE OA not configured' }, { status: 400 });
     }
 
@@ -64,7 +89,7 @@ export async function POST(req: Request) {
 
     const result = await response.json();
 
-    // 5. Log notification
+    // 5. Log notification (Final result)
     await supabaseAdmin.from('line_notification_logs').insert({
         dorm_id: bill.rooms.dorm_id,
         receiver_id: bill.tenants.line_user_id,
