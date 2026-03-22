@@ -124,7 +124,7 @@ function createConfirmFlexMessage(bill: any, dormName: string) {
             size: "md",
             color: "#6B7280",
             align: "center",
-            marginTop: "8px"
+            margin: "8px"
           },
           {
             type: "box",

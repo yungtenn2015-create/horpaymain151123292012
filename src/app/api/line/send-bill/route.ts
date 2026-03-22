@@ -115,7 +115,7 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
             text: dormName,
             color: "#ECFDF5",
             size: "sm",
-            marginTop: "4px"
+            margin: "4px"
           }
         ]
       },
@@ -284,7 +284,7 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
                 color: "#10B981",
                 weight: "bold",
                 size: "lg",
-                margin: "4px 0"
+                margin: "4px"
               },
               {
                 type: "text",
