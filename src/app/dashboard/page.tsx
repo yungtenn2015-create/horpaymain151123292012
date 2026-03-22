@@ -27,7 +27,11 @@ import {
     CheckCircleIcon,
     ChatBubbleLeftRightIcon,
     ClipboardIcon,
-    CheckIcon
+    CheckIcon,
+    ChartBarIcon,
+    IdentificationIcon,
+    KeyIcon,
+    LockClosedIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -38,7 +42,8 @@ import {
     Cog6ToothIcon as Cog6ToothIconSolid,
     BuildingOffice2Icon as BuildingOfficeSolid,
     BanknotesIcon as BanknotesSolid,
-    UserCircleIcon as UserCircleSolid
+    UserCircleIcon as UserCircleSolid,
+    ChartBarIcon as ChartBarIconSolid
 } from '@heroicons/react/24/solid'
 
 // Define types for better readability and type safety
@@ -51,9 +56,15 @@ interface Dorm {
 interface Room {
     id: string;
     room_number: string;
-    status: 'available' | 'occupied';
-    floor: number;
+    status: 'available' | 'occupied' | 'maintenance';
+    floor: string;
     base_price: number;
+    tenants?: {
+        name: string;
+        phone: string | null;
+        line_user_id: string | null;
+        status: string;
+    }[];
     dorm_id: string;
     deleted_at: string | null;
 }
@@ -99,7 +110,28 @@ export default function DashboardPage() {
         owner_line_user_id: ''
     })
 
+    // Overview Stats States
+    const [overviewData, setOverviewData] = useState({
+        monthlyRevenue: 0,
+        collectedRevenue: 0,
+        pendingRevenue: 0,
+        projectedRevenue: 0,
+        occupancyRate: 0,
+        waterUnits: 0,
+        waterAmount: 0,
+        electricityUnits: 0,
+        electricityAmount: 0,
+        billStatusCounts: {
+            paid: 0,
+            waiting_verify: 0,
+            unpaid: 0
+        },
+        historicalRevenue: [] as { month: string, amount: number }[]
+    })
+    const [fetchingOverview, setFetchingOverview] = useState(false)
+
     // LINE Settings Helpers
+    const [showLineConfig, setShowLineConfig] = useState(false)
     const [isTestingConnection, setIsTestingConnection] = useState(false)
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
     const [copied, setCopied] = useState(false)
@@ -176,7 +208,7 @@ export default function DashboardPage() {
                 // 2. Get Rooms
                 const { data: roomsData, error: roomsError } = await supabase
                     .from('rooms')
-                    .select('*')
+                    .select('*, tenants(name, phone, line_user_id, status)')
                     .eq('dorm_id', dormsData[0].id)
                     .order('room_number', { ascending: true })
 
@@ -260,6 +292,116 @@ export default function DashboardPage() {
         fetchData()
     }, [router])
 
+    useEffect(() => {
+        if (activeTab === 'stats' && dorm?.id) {
+            fetchOverviewData(dorm.id)
+        }
+    }, [activeTab, dorm])
+
+    async function fetchOverviewData(dormId: string) {
+        setFetchingOverview(true)
+        const supabase = createClient()
+        const now = new Date()
+
+        // Start of current month
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+        // Last 6 months range
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString()
+
+        try {
+            // 1. Current Month Bills
+            const { data: monthBills } = await supabase
+                .from('bills')
+                .select('*')
+                .eq('dorm_id', dormId)
+                .gte('period_start', startOfMonth)
+                .is('deleted_at', null)
+
+            // 2. Historical Revenue (last 6 months - PAID)
+            const { data: historyBills } = await supabase
+                .from('bills')
+                .select('total_amount, period_start')
+                .eq('dorm_id', dormId)
+                .eq('status', 'paid')
+                .gte('period_start', sixMonthsAgo)
+                .is('deleted_at', null)
+
+            // 3. Occupancy
+            const { count: totalRooms } = await supabase
+                .from('rooms')
+                .select('*', { count: 'exact', head: true })
+                .eq('dorm_id', dormId)
+                .is('deleted_at', null)
+
+            const { count: occupiedRooms } = await supabase
+                .from('rooms')
+                .select('*', { count: 'exact', head: true })
+                .eq('dorm_id', dormId)
+                .eq('status', 'occupied')
+                .is('deleted_at', null)
+
+            let collected = 0
+            let pending = 0
+            let water = 0
+            let waterAmt = 0
+            let electric = 0
+            let electricAmt = 0
+            let counts = { paid: 0, waiting_verify: 0, unpaid: 0 }
+
+            monthBills?.forEach(b => {
+                if (b.status === 'paid') {
+                    collected += (b.total_amount || 0)
+                    counts.paid++
+                } else if (b.status === 'waiting_verify') {
+                    pending += (b.total_amount || 0)
+                    counts.waiting_verify++
+                } else {
+                    pending += (b.total_amount || 0)
+                    counts.unpaid++
+                }
+
+                // Units calculation
+                water += (b.water_curr - b.water_prev) || 0
+                waterAmt += (b.water_amount || 0)
+                electric += (b.electric_curr - b.electric_prev) || 0
+                electricAmt += (b.electric_amount || 0)
+            })
+
+            // Process History
+            const historyMap = new Map<string, number>()
+            historyBills?.forEach(b => {
+                const m = new Date(b.period_start).toLocaleDateString('th-TH', { month: 'short' })
+                historyMap.set(m, (historyMap.get(m) || 0) + (b.total_amount || 0))
+            })
+
+            const historicalRevenue = []
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+                const m = d.toLocaleDateString('th-TH', { month: 'short' })
+                historicalRevenue.push({ month: m, amount: historyMap.get(m) || 0 })
+            }
+
+            setOverviewData({
+                monthlyRevenue: collected + pending,
+                collectedRevenue: collected,
+                pendingRevenue: pending,
+                projectedRevenue: collected + pending,
+                occupancyRate: totalRooms ? Math.round((occupiedRooms || 0) / totalRooms * 100) : 0,
+                waterUnits: water,
+                waterAmount: waterAmt,
+                electricityUnits: electric,
+                electricityAmount: electricAmt,
+                billStatusCounts: counts,
+                historicalRevenue
+            })
+
+        } catch (err) {
+            console.error('Overview Data Error:', err)
+        } finally {
+            setFetchingOverview(false)
+        }
+    }
+
     async function handleLogout() {
         const supabase = createClient()
         await supabase.auth.signOut()
@@ -295,7 +437,7 @@ export default function DashboardPage() {
                 .from('line_oa_configs')
                 .select('id')
                 .eq('dorm_id', dorm.id)
-            
+
             if (existingLines && existingLines.length > 0) {
                 await supabase.from('line_oa_configs').update({
                     channel_id: lineConfig.channel_id,
@@ -325,8 +467,8 @@ export default function DashboardPage() {
 
     const navItems = [
         { id: 'overview', name: 'หน้าหลัก', outlineIcon: HomeIcon, solidIcon: HomeIconSolid },
-        { id: 'rooms', name: 'สถานะห้องพัก', outlineIcon: Squares2X2Icon, solidIcon: Squares2X2IconSolid },
-        { id: 'billing', name: 'บิล/มิเตอร์', outlineIcon: DocumentTextIcon, solidIcon: DocumentTextIconSolid },
+        { id: 'stats', name: 'ภาพรวม', outlineIcon: ChartBarIcon, solidIcon: ChartBarIconSolid },
+        { id: 'rooms', name: 'สถานะห้อง', outlineIcon: Squares2X2Icon, solidIcon: Squares2X2IconSolid },
         { id: 'tenants', name: 'ผู้เช่า', outlineIcon: UserGroupIcon, solidIcon: UserGroupIconSolid },
     ]
 
@@ -349,7 +491,12 @@ export default function DashboardPage() {
                 {activeTab === 'overview' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
                         {/*  HEADER  */}
-                        <header className="relative pt-12 pb-24 px-6">
+                        <header className="relative pt-14 pb-20 px-6">
+                            {/* App Name at Top Center */}
+                            <div className="absolute top-5 left-0 right-0 flex justify-center z-10 pointer-events-none">
+                                <span className="text-[15px] font-black tracking-[0.5em] text-white/60 uppercase drop-shadow-lg">HORPAY</span>
+                            </div>
+
                             {/* ── Background Layer (for clipping and gradient) ── */}
                             <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 rounded-b-[2.5rem] overflow-hidden z-0 shadow-lg shadow-green-200">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -377,7 +524,7 @@ export default function DashboardPage() {
                                         {/* Dropdown Menu */}
                                         {isMenuOpen && (
                                             <>
-                                                    <div className="absolute right-0 mt-4 w-[240px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-50 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+                                                <div className="absolute right-0 mt-4 w-[240px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-50 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
                                                     {/* Header */}
                                                     <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
                                                         <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">ยินดีต้อนรับ</p>
@@ -457,41 +604,41 @@ export default function DashboardPage() {
                             )}
 
                             {/* ── Stats Grid ── */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100/50">
-                                        <Squares2X2Icon className="w-6 h-6 stroke-[2]" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100/50">
+                                        <Squares2X2Icon className="w-5 h-5 stroke-[2]" />
                                     </div>
                                     <div>
                                         <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องทั้งหมด</p>
-                                        <p className="text-[28px] font-black text-gray-800 leading-none">{stats.total}</p>
+                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.total}</p>
                                     </div>
                                 </div>
-                                <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 text-green-600 flex items-center justify-center shrink-0 border border-green-100/50">
-                                        <HomeIcon className="w-6 h-6 stroke-[2]" />
+                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-50 to-green-100 text-green-600 flex items-center justify-center shrink-0 border border-green-100/50">
+                                        <HomeIcon className="w-5 h-5 stroke-[2]" />
                                     </div>
                                     <div>
                                         <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องว่าง</p>
-                                        <p className="text-[28px] font-black text-gray-800 leading-none">{stats.vacant}</p>
+                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.vacant}</p>
                                     </div>
                                 </div>
-                                <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
-                                        <UserGroupIcon className="w-6 h-6 stroke-[2]" />
+                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
+                                        <UserGroupIcon className="w-5 h-5 stroke-[2]" />
                                     </div>
                                     <div>
                                         <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">มีผู้เช่า</p>
-                                        <p className="text-[28px] font-black text-gray-800 leading-none">{stats.occupied}</p>
+                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.occupied}</p>
                                     </div>
                                 </div>
-                                <div className="bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100/50">
-                                        <BanknotesIcon className="w-6 h-6 stroke-[2]" />
+                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100/50">
+                                        <BanknotesIcon className="w-5 h-5 stroke-[2]" />
                                     </div>
                                     <div>
                                         <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องค้างชำระ</p>
-                                        <p className="text-[28px] font-black text-gray-800 leading-none">{stats.pendingPayments}</p>
+                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.pendingPayments}</p>
                                     </div>
                                 </div>
                             </div>
@@ -518,10 +665,10 @@ export default function DashboardPage() {
                                             }}
                                             className="flex flex-col items-center gap-2.5 group active:scale-[0.95] transition-all"
                                         >
-                                            <div className={`w-[74px] h-[74px] rounded-[1.8rem] flex items-center justify-center border-2 transition-all shadow-lg ${action.color}`}>
-                                                <action.icon className="w-9 h-9 stroke-[2.2]" />
+                                            <div className={`w-[64px] h-[64px] rounded-[1.5rem] flex items-center justify-center border-2 transition-all shadow-lg ${action.color}`}>
+                                                <action.icon className="w-7 h-7 stroke-[2.2]" />
                                             </div>
-                                            <span className="text-[13px] font-black text-gray-700 text-center tracking-tight leading-none group-hover:text-green-600 transition-colors uppercase">{action.name}</span>
+                                            <span className="text-[12px] font-black text-gray-700 text-center tracking-tight leading-none group-hover:text-green-600 transition-colors uppercase">{action.name}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -572,58 +719,323 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* ── Rooms Tab Content ── */}
+                {/* ── Stats Tab Content (NEW) ── */}
+                {activeTab === 'stats' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full px-6 pt-12 pb-32">
+                        <div className="mb-8">
+                            <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+                                <span className="text-4xl">📊</span> ภาพรวมหอพัก
+                            </h1>
+                            <p className="text-gray-400 font-bold text-sm mt-1">สรุปข้อมูลการเงินและสถานะรายเดือน</p>
+                        </div>
+
+                        {fetchingOverview ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                <div className="w-10 h-10 border-4 border-green-100 border-t-green-600 rounded-full animate-spin" />
+                                <p className="text-gray-400 font-bold text-sm">กำลังคำนวณข้อมูล...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* ── Revenue Card ── */}
+                                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-[1.8rem] p-5 text-green-700 shadow-sm border border-green-100">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <p className="text-green-600 text-[11px] font-black uppercase tracking-widest mb-1">รายรับเดือนนี้</p>
+                                            <h2 className="text-3xl font-black tracking-tight">฿{overviewData.monthlyRevenue.toLocaleString()}</h2>
+                                        </div>
+                                        <div className="bg-white/50 p-2.5 rounded-2xl backdrop-blur-md">
+                                            <BanknotesSolid className="w-6 h-6" />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs font-bold">
+                                                <span className="text-green-600">เก็บแล้ว {Math.round((overviewData.collectedRevenue / (overviewData.monthlyRevenue || 1)) * 100)}%</span>
+                                                <span className="text-green-800">฿{overviewData.collectedRevenue.toLocaleString()}</span>
+                                            </div>
+                                            <div className="h-2 bg-green-200/50 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-green-600 transition-all duration-1000"
+                                                    style={{ width: `${(overviewData.collectedRevenue / (overviewData.monthlyRevenue || 1)) * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between text-xs font-bold pt-2 border-t border-green-200/50 text-green-600">
+                                            <span>ยังไม่เก็บ</span>
+                                            <span className="text-green-800">฿{overviewData.pendingRevenue.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ── Revenue Graph ── */}
+                                <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
+                                    <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
+                                        <ClockIcon className="w-4 h-4 text-green-500" />
+                                        รายรับรายเดือน (6 เดือนล่าสุด)
+                                    </h3>
+
+                                    <div className="h-40 flex items-end justify-between gap-3 px-2">
+                                        {overviewData.historicalRevenue.map((data, i) => {
+                                            const maxAmount = Math.max(...overviewData.historicalRevenue.map(h => h.amount), 1);
+                                            const height = (data.amount / maxAmount) * 100;
+                                            return (
+                                                <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative">
+                                                    {/* Tooltip */}
+                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                                        ฿{data.amount.toLocaleString()}
+                                                    </div>
+                                                    <div className="w-full relative flex items-end justify-center h-full">
+                                                        <div
+                                                            className={`w-full rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-green-500' : 'bg-gray-100 group-hover:bg-green-200'}`}
+                                                            style={{ height: `${Math.max(height, 5)}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className={`text-[10px] font-black ${i === 5 ? 'text-green-600' : 'text-gray-400'}`}>
+                                                        {data.month}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* ── Status & Utilities Grid ── */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-100">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                                                <UsersIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-[11px] font-black text-blue-900 uppercase">อัตราพัก</span>
+                                        </div>
+                                        <div className="flex items-end gap-2">
+                                            <span className="text-2xl font-black text-blue-600">{overviewData.occupancyRate}%</span>
+                                            <span className="text-[10px] font-bold text-blue-400 pb-1">Occupied</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-orange-50 rounded-2xl p-4 border-2 border-orange-100">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-8 h-8 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
+                                                <ArrowPathIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-[11px] font-black text-orange-900 uppercase">การใช้น้ำ/ไฟ</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[11px] font-bold text-orange-600">💡 ไฟ: {overviewData.electricityUnits} หน่วย</p>
+                                                <p className="text-[10px] font-black text-orange-700">฿{overviewData.electricityAmount.toLocaleString()}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[11px] font-bold text-blue-600">💧 น้ำ: {overviewData.waterUnits} หน่วย</p>
+                                                <p className="text-[10px] font-black text-blue-700">฿{overviewData.waterAmount.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ── Bill Status Summary ── */}
+                                <div className="bg-white rounded-[1.5rem] p-1.5 border-2 border-gray-50 shadow-sm overflow-hidden">
+                                    <div className="p-3 border-b border-gray-50 bg-gray-50/30 rounded-t-[1.3rem]">
+                                        <h3 className="text-[13px] font-black text-gray-800 tracking-tight">สถานะบิลเดือนนี้</h3>
+                                    </div>
+                                    <div className="divide-y divide-gray-50">
+                                        <div 
+                                            onClick={() => router.push('/dashboard/billing')}
+                                            className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                                    <CheckCircleIcon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-700 group-hover:text-green-600 transition-colors">ชำระแล้ว</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-green-600">{overviewData.billStatusCounts.paid} ห้อง</span>
+                                                <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-green-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                        <div
+                                            onClick={() => router.push('/dashboard/billing')}
+                                            className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                                    <ClockIcon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">รอยืนยันสลิป</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-blue-600">{overviewData.billStatusCounts.waiting_verify} ห้อง</span>
+                                                <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-blue-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                        <div 
+                                            onClick={() => router.push('/dashboard/billing')}
+                                            className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                                    <BellIcon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-700 group-hover:text-red-600 transition-colors">ค้างชำระ</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-red-600">{overviewData.billStatusCounts.unpaid} ห้อง</span>
+                                                <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-red-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Rooms Tab Content (Premium Redesign) ── */}
                 {activeTab === 'rooms' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full px-6 pt-12 pb-32">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h1 className="text-3xl font-black text-gray-800 tracking-tight">สถานะห้องพักทั้งหมด</h1>
-                                <p className="text-gray-400 font-bold text-sm mt-1">จำนวน {rooms.length} ห้อง</p>
+                                <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+                                    <span className="text-4xl">🏢</span> สถานะห้องพัก
+                                </h1>
+                                <p className="text-black-400 font-bold text-sm mt-1">มีทั้งหมด {rooms.length} ห้อง</p>
                             </div>
                         </div>
 
                         {rooms.length === 0 ? (
-                            <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+                            <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
                                 <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
                             </div>
                         ) : (
-                            <div className="space-y-10">
-                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => a - b).map(floor => (
+                            <div className="space-y-8">
+                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, {numeric: true})).map(floor => (
                                     <div key={floor} className="space-y-4">
-                                        <div className="flex items-center gap-3 px-2">
-                                            <div className="h-6 w-1.5 bg-green-500 rounded-full" />
-                                            <h2 className="text-lg font-black text-gray-800 tracking-tight">ชั้น {floor}</h2>
+                                        <div className="flex items-center justify-between px-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-2 bg-green-500 rounded-full shadow-sm shadow-green-100" />
+                                                <h2 className="text-xl font-black text-gray-800 tracking-tight">ชั้น {floor}</h2>
+                                            </div>
+                                            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                                                {rooms.filter(r => r.floor === floor).length} ห้อง
+                                            </span>
                                         </div>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+
+                                        <div className="grid grid-cols-2 gap-3">
                                             {rooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
-                                                const isPending = pendingRoomIds.has(room.id);
+                                                const isUnpaid = pendingRoomIds.has(room.id);
                                                 const isOccupied = room.status === 'occupied';
 
-                                                // Color Logic: Red (Pending) > Blue (Occupied) > Green (Available)
-                                                let bgColor = 'bg-green-50';
-                                                let textColor = 'text-green-600';
-                                                let borderColor = 'border-green-100';
-                                                let statusText = 'ว่าง';
+                                                // Color & Info Logic
+                                                let theme = {
+                                                    bg: 'bg-white',
+                                                    border: 'border-gray-100',
+                                                    iconBg: 'bg-green-50 text-green-600',
+                                                    badge: 'bg-green-500 text-white',
+                                                    status: 'ว่าง',
+                                                    icon: KeyIcon,
+                                                    shadow: 'shadow-gray-100'
+                                                };
 
-                                                if (isPending) {
-                                                    bgColor = 'bg-orange-50';
-                                                    textColor = 'text-orange-600';
-                                                    borderColor = 'border-orange-100';
-                                                    statusText = 'ค้างชำระ';
+                                                if (isUnpaid) {
+                                                    theme = {
+                                                        bg: 'bg-white',
+                                                        border: 'border-red-100',
+                                                        iconBg: 'bg-orange-50 text-orange-600',
+                                                        badge: 'bg-orange-500 text-white',
+                                                        status: 'ค้างชำระ',
+                                                        icon: BellIcon,
+                                                        shadow: 'shadow-orange-50'
+                                                    };
                                                 } else if (isOccupied) {
-                                                    bgColor = 'bg-blue-50';
-                                                    textColor = 'text-blue-600';
-                                                    borderColor = 'border-blue-100';
-                                                    statusText = 'มีคนพัก';
+                                                    theme = {
+                                                        bg: 'bg-white',
+                                                        border: 'border-blue-100',
+                                                        iconBg: 'bg-blue-50 text-blue-600',
+                                                        badge: 'bg-blue-600 text-white',
+                                                        status: 'มีคนพัก',
+                                                        icon: BuildingOfficeIcon,
+                                                        shadow: 'shadow-blue-50'
+                                                    };
                                                 }
+                                                const activeTenant = room.tenants?.find(t => t.status === 'active');
 
                                                 return (
                                                     <div
                                                         key={room.id}
-                                                        className={`aspect-square rounded-3xl border-2 flex flex-col items-center justify-center gap-1 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer ${bgColor} ${borderColor}`}
+                                                        className={`group relative overflow-hidden bg-white rounded-[1.5rem] border-2 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${theme.border} ${theme.shadow}`}
                                                     >
-                                                        <span className={`text-[20px] font-black leading-none ${textColor}`}>{room.room_number}</span>
-                                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${textColor} opacity-80`}>{statusText}</span>
+                                                        {/* Status Badge */}
+                                                        <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest ${theme.badge} z-20`}>
+                                                            {theme.status}
+                                                        </div>
+
+                                                        {isOccupied && activeTenant?.line_user_id && (
+                                                            <div className="absolute top-7 right-0 px-2.5 py-1 bg-green-500 text-white rounded-l-lg shadow-sm z-10 animate-in slide-in-from-right duration-500 border-y border-l border-green-600/20">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                                                                        <CheckIcon className="w-2.5 h-2.5 text-green-600 stroke-[4]" />
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black leading-none tracking-tight">LINE Verified</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="space-y-3">
+                                                            <div className="flex items-start justify-between">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:scale-110 ${theme.iconBg}`}>
+                                                                    <theme.icon className="w-5 h-5 stroke-[2.2]" />
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">ห้องหมายเลข</p>
+                                                                <h3 className="text-xl font-black text-gray-800 tracking-tight leading-none mb-2">{room.room_number}</h3>
+                                                                
+                                                                {isOccupied && activeTenant && (
+                                                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
+                                                                        <div className="flex items-center gap-2 overflow-hidden">
+                                                                            <div className="relative">
+                                                                                <UserIcon className="w-4 h-4 text-blue-500 shrink-0 bg-blue-50 rounded-md p-0.5" />
+                                                                                {activeTenant.line_user_id && (
+                                                                                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-white flex items-center justify-center">
+                                                                                        <CheckIcon className="w-1.5 h-1.5 text-white stroke-[4]" />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="text-[12px] font-black text-gray-700 truncate tracking-tight">
+                                                                                {activeTenant.name}
+                                                                                {activeTenant.line_user_id && <span className="ml-1 text-[8px] text-green-600 font-bold">(ตรงกัน)</span>}
+                                                                            </span>
+                                                                        </div>
+                                                                        {activeTenant.phone && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                {activeTenant.line_user_id ? (
+                                                                                    <div className="w-4 h-4 bg-green-50 rounded-md flex items-center justify-center shrink-0">
+                                                                                        <ChatBubbleLeftRightIcon className="w-3 h-3 text-green-600" />
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <DevicePhoneMobileIcon className="w-4 h-4 text-gray-400 shrink-0 bg-gray-50 rounded-md p-0.5" />
+                                                                                )}
+                                                                                <span className={`text-[11px] font-bold tracking-tighter ${activeTenant.line_user_id ? 'text-green-700' : 'text-gray-500'}`}>
+                                                                                    {activeTenant.phone}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="pt-1.5 flex items-center justify-between">
+                                                                <span className="text-[11px] font-bold text-gray-400">
+                                                                    ฿{(room.base_price?.toLocaleString() || '0')}
+                                                                </span>
+                                                                <div className="w-5 h-5 bg-gray-50 rounded-lg flex items-center justify-center text-gray-300 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
+                                                                    <ChevronRightIcon className="w-4 h-4" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
@@ -830,10 +1242,36 @@ export default function DashboardPage() {
                                                         <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">Line Notification Configuration</p>
                                                     </div>
                                                 </div>
+
+                                                {/* Toggle Switch */}
+                                                <div className="flex flex-col items-end gap-1 px-4 py-2 bg-white rounded-2xl border-2 border-gray-50 shadow-sm">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${showLineConfig ? 'text-green-600' : 'text-gray-400'}`}>
+                                                            {showLineConfig ? 'พร้อมแก้ไข' : 'ปิดอยู่'}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => setShowLineConfig(!showLineConfig)}
+                                                            className={`relative w-12 h-6 flex items-center rounded-full p-1 transition-all duration-300 ${showLineConfig ? 'bg-green-500' : 'bg-gray-200 shadow-inner'}`}
+                                                        >
+                                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${showLineConfig ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
 
-
-                                            <div className="grid gap-6">
+                                            <div className={`grid gap-6 transition-all duration-500 transform ${showLineConfig ? 'opacity-100 translate-y-0 filter-none' : 'opacity-40 translate-y-2 pointer-events-none grayscale-0'}`}>
+                                                {/* Overlay message when locked */}
+                                                {!showLineConfig && (
+                                                    <div className="absolute inset-0 z-50 flex items-center justify-center p-8 text-center bg-white/50 backdrop-blur-[2px] rounded-[2.5rem]">
+                                                        <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-3xl shadow-xl border border-gray-100">
+                                                            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 mb-2">
+                                                                <LockClosedIcon className="w-6 h-6" />
+                                                            </div>
+                                                            <p className="text-sm font-black text-gray-700">ฟีเจอร์นี้ถูกปิดใช้งานอยู่</p>
+                                                            <p className="text-[11px] font-bold text-gray-400 leading-relaxed uppercase tracking-widest">กรุณากดเปิดที่ปุ่มด้านบน<br/>เพื่อความปลอดภัยและป้องกันการกดเล่น</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {/* Webhook URL Section */}
                                                 <div className="space-y-2">
                                                     <label className="text-[13px] font-black text-gray-500 ml-1">Webhook URL (สำหรับนำไปวางใน LINE Console)</label>
@@ -886,7 +1324,7 @@ export default function DashboardPage() {
                                                         />
                                                     </div>
 
-                                                    <button 
+                                                    <button
                                                         onClick={handleTestConnection}
                                                         disabled={isTestingConnection || !lineConfig.access_token}
                                                         className="w-full h-14 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl border-2 border-blue-100 font-black text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
@@ -938,7 +1376,7 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {activeTab !== 'overview' && activeTab !== 'rooms' && activeTab !== 'settings' && (
+                {activeTab !== 'overview' && activeTab !== 'rooms' && activeTab !== 'stats' && activeTab !== 'settings' && (
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 h-full relative z-10 bg-white">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-[2rem] flex items-center justify-center text-green-500 mb-6 transform -rotate-6 shadow-xl shadow-green-100/50">
                             <Squares2X2Icon className="w-12 h-12 stroke-[2]" />
@@ -979,10 +1417,10 @@ export default function DashboardPage() {
                                     {item.name}
                                 </span>
                             </button>
-                        )
+                        );
                     })}
                 </div>
             </div>
         </div>
-    )
+    );
 }

@@ -14,7 +14,8 @@ import {
     TruckIcon,
     DocumentTextIcon,
     CalendarDaysIcon,
-    BanknotesIcon
+    BanknotesIcon,
+    ArrowPathIcon
 } from '@heroicons/react/24/outline'
 
 interface Room {
@@ -41,6 +42,10 @@ export default function AddTenantPage() {
     const [carRegistration, setCarRegistration] = useState('')
     const [motorcycleRegistration, setMotorcycleRegistration] = useState('')
     const [emergencyContact, setEmergencyContact] = useState('')
+
+    // Searching existing tenant
+    const [searchingTenant, setSearchingTenant] = useState(false)
+    const [foundTenant, setFoundTenant] = useState<any | null>(null)
 
     // Lease details
     const [depositAmount, setDepositAmount] = useState<number>(0)
@@ -91,6 +96,52 @@ export default function AddTenantPage() {
         }
         fetchAvailableRooms()
     }, [router])
+
+    async function searchExistingTenant() {
+        if (!tenantPhone.trim() && !tenantName.trim()) {
+            setErrorMsg('กรุณากรอกชื่อหรือเบอร์โทรเพื่อค้นหา')
+            return
+        }
+        
+        setSearchingTenant(true)
+        setFoundTenant(null)
+        const supabase = createClient()
+        try {
+            let query = supabase
+                .from('tenants')
+                .select('*')
+                .eq('dorm_id', dormId)
+            
+            if (tenantPhone.trim()) {
+                query = query.eq('phone', tenantPhone.trim())
+            } else {
+                query = query.ilike('name', `%${tenantName.trim()}%`)
+            }
+
+            const { data, error } = await query
+                .order('created_at', { ascending: false })
+                .limit(1)
+
+            if (data && data.length > 0) {
+                setFoundTenant(data[0])
+            } else {
+                setErrorMsg('ไม่พบข้อมูลผู้เช่ารายนี้ในระบบ')
+            }
+        } catch (err) {
+            console.error('Search error:', err)
+        } finally {
+            setSearchingTenant(false)
+        }
+    }
+
+    const applyFoundTenant = () => {
+        if (!foundTenant) return
+        setTenantName(foundTenant.name || '')
+        setCarRegistration(foundTenant.car_registration || '')
+        setMotorcycleRegistration(foundTenant.motorcycle_registration || '')
+        setEmergencyContact(foundTenant.emergency_contact || '')
+        setFoundTenant(null) // Clear after applying
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -338,10 +389,47 @@ export default function AddTenantPage() {
                                     value={tenantPhone}
                                     maxLength={10}
                                     onChange={(e) => setTenantPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                                    className="block w-full pl-11 pr-4 py-4 border-2 border-gray-200 focus:ring-4 focus:ring-green-500/10 focus:border-green-600 sm:text-sm rounded-[1.2rem] bg-white transition-all font-bold text-gray-900 tracking-wide"
-                                    required
+                                    className="block w-full pl-11 pr-24 py-4 border-2 border-gray-200 focus:ring-4 focus:ring-green-500/10 focus:border-green-600 sm:text-sm rounded-[1.2rem] bg-white transition-all font-bold text-gray-900 tracking-wide"
+                                    placeholder="0xxxxxxxxx"
                                 />
+                                <div className="absolute inset-y-2 right-2 flex items-center">
+                                    <button
+                                        type="button"
+                                        onClick={searchExistingTenant}
+                                        disabled={searchingTenant || (!tenantPhone && !tenantName)}
+                                        className="h-full px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-[11px] font-black transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1 border border-gray-200"
+                                    >
+                                        {searchingTenant ? (
+                                            <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            <IdentificationIcon className="w-3.5 h-3.5" />
+                                        )}
+                                        ค้นหาประวัติ
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* Found Tenant Card */}
+                            {foundTenant && (
+                                <div className="mt-3 bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                                            <UserCircleIcon className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-blue-900 leading-none">พบข้อมูลผู้เช่ารายเดิม</p>
+                                            <p className="text-[11px] font-bold text-blue-700 mt-1 uppercase tracking-tight">คุณ {foundTenant.name}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={applyFoundTenant}
+                                        className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[11px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+                                    >
+                                        ดึงข้อมูลอัตโนมัติ
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* ── ส่วนที่ 3: ข้อมูลยานพาหนะและการติดต่อฉุกเฉิน ── */}
