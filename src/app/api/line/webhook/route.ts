@@ -159,11 +159,9 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
       }
     } 
     else if (event.message.type === 'image') {
-      // Handle Slip acknowledgment
-      const ackMsg = `ได้รับรูปภาพใบโอนเงินเรียบร้อยแล้วครับ! 😊
-เจ้าหน้าที่กำลังดำเนินการตรวจสอบยอดเงิน 
-รบกวนรอซักครู่ครับ`;
-      await replyText(replyToken, config.access_token, ackMsg);
+      // User sent a slip/image
+      console.log('User sent an image/slip. No auto-reply as per owner request.');
+      // The owner will confirm later via the dashboard
     }
   }
 
