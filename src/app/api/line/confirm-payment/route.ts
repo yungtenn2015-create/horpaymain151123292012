@@ -88,7 +88,7 @@ export async function POST(req: Request) {
 
 function createConfirmFlexMessage(bill: any, dormName: string) {
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-  const liffUrl = `https://liff.line.me/${liffId}/dashboard/billing/receipt/${bill.id}`;
+  const liffUrl = `https://liff.line.me/${liffId}?billId=${bill.id}`;
   
   const totalAmount = Number(bill.total_amount) || 0;
   
