@@ -163,6 +163,27 @@ function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
             contents: [
               {
                 type: "text",
+                text: "ชื่อผู้เช่า",
+                color: "#6B7280",
+                size: "sm"
+              },
+              {
+                type: "text",
+                text: bill.tenants?.name || '-',
+                color: "#111827",
+                weight: "bold",
+                size: "sm",
+                align: "end"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "sm",
+            contents: [
+              {
+                type: "text",
                 text: "ประจำเดือน",
                 color: "#6B7280",
                 size: "sm"
