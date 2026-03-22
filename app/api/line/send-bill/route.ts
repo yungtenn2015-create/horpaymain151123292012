@@ -20,7 +20,8 @@ export async function POST(req: Request) {
       .select(`
         *,
         rooms:room_id (room_number, dorm_id),
-        tenants:tenant_id (name, line_user_id)
+        tenants:tenant_id (name, line_user_id),
+        utilities:utility_id (water_price, electric_price)
       `)
       .eq('id', billId)
       .single();
@@ -85,11 +86,18 @@ export async function POST(req: Request) {
 }
 
 function createBillFlexMessage(bill: any, dormName: string) {
-  const liffUrl = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?billId=${bill.id}`;
-  const total = (bill.rent_amount || 0) + (bill.water_amount || 0) + (bill.electric_amount || 0) + (bill.other_amount || 0);
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  const liffUrl = `https://liff.line.me/${liffId}?billId=${bill.id}`;
+  
+  const roomAmount = Number(bill.room_amount) || 0;
+  const waterAmount = Number(bill.utilities?.water_price) || 0;
+  const electricAmount = Number(bill.utilities?.electric_price) || 0;
+  const otherAmount = Number(bill.other_amount) || 0;
+  const totalAmount = Number(bill.total_amount) || 0;
   
   // Format Month Year (Thai)
-  const date = new Date(bill.billing_date);
+  // bill.billing_month is string "YYYY-MM-DD"
+  const date = new Date(bill.billing_month);
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   const monthStr = months[date.getMonth()];
   const yearStr = (date.getFullYear() + 543).toString().slice(-2);
@@ -155,7 +163,7 @@ function createBillFlexMessage(bill: any, dormName: string) {
                 layout: "horizontal",
                 contents: [
                   { type: "text", text: "ค่าเช่าห้อง", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${bill.rent_amount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  { type: "text", text: `฿${roomAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
                 ]
               },
               {
@@ -163,7 +171,7 @@ function createBillFlexMessage(bill: any, dormName: string) {
                 layout: "horizontal",
                 contents: [
                   { type: "text", text: "ค่าน้ำประปา", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${bill.water_amount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  { type: "text", text: `฿${waterAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
                 ]
               },
               {
@@ -171,7 +179,15 @@ function createBillFlexMessage(bill: any, dormName: string) {
                 layout: "horizontal",
                 contents: [
                   { type: "text", text: "ค่าไฟฟ้า", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${bill.electric_amount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  { type: "text", text: `฿${electricAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                ]
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "อื่นๆ", size: "sm", color: "#555555" },
+                  { type: "text", text: `฿${otherAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
                 ]
               }
             ]
@@ -183,7 +199,7 @@ function createBillFlexMessage(bill: any, dormName: string) {
             margin: "xl",
             contents: [
               { type: "text", text: "ยอดรวมทั้งสิ้น", weight: "bold", size: "lg", color: "#111111" },
-              { type: "text", text: `฿${total.toLocaleString()}`, weight: "bold", size: "lg", align: "end", color: "#059669" }
+              { type: "text", text: `฿${totalAmount.toLocaleString()}`, weight: "bold", size: "lg", align: "end", color: "#059669" }
             ]
           }
         ],
