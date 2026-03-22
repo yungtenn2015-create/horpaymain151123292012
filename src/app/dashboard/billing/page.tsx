@@ -119,7 +119,7 @@ function BillingContent() {
                     status, 
                     floor, 
                     base_price,
-                    tenants(id, name, line_user_id)
+                    tenants(id, name, line_user_id, status)
                 `)
                 .eq('dorm_id', dorm.id)
                 .is('deleted_at', null)
@@ -144,14 +144,17 @@ function BillingContent() {
                     .eq('billing_month', monthStart)
 
                 // 5. Get Lease Contracts for Rent Price
+                // Better to fetch only active contracts for these rooms
                 const { data: contractsData } = await supabase
                     .from('lease_contracts')
                     .select('*')
+                    .in('room_id', roomIds)
                     .eq('status', 'active')
 
                 // 6. Map to UI format
                 const mappedBilling = roomsData.map(room => {
-                    const activeTenant = (room.tenants as any[])?.find((t: any) => t)
+                    // CRITICAL FIX: Only find the ACTIVE tenant for this room
+                    const activeTenant = (room.tenants as any[])?.find((t: any) => t.status === 'active')
                     const utils = utilsData?.find(u => u.room_id === room.id)
                     const bill = billsData?.find(b => b.room_id === room.id)
                     const contract = contractsData?.find(c => c.tenant_id === activeTenant?.id)
@@ -168,18 +171,20 @@ function BillingContent() {
                     else if (!hasMeters) status = 'pending_meter'
                     else status = 'ready'
 
+                    // CRITICAL FIX: If bill exists, use it as the source of truth for amounts
+                    // Otherwise, use contract predictions
                     return {
                         roomId: room.id,
                         roomNumber: room.room_number,
                         tenantId: activeTenant?.id,
                         tenantName: activeTenant?.name,
                         lineUserId: activeTenant?.line_user_id,
-                        rent: contract?.rent_price || room.base_price,
-                        water: utils?.water_price || 0,
-                        electricity: utils?.electric_price || 0,
+                        rent: isIssued ? (bill.room_amount || 0) : (contract?.rent_price || room.base_price),
+                        water: isIssued ? (bill.water_amount || 0) : (utils?.water_price || 0),
+                        electricity: isIssued ? (bill.electric_amount || 0) : (utils?.electric_price || 0),
                         electricityUnit: utils?.electric_unit || 0,
                         waterUnit: utils?.water_unit || 0,
-                        others: 0,
+                        others: isIssued ? (bill.other_amount || 0) : 0,
                         utilityId: utils?.id,
                         billId: bill?.id,
                         billStatus: bill?.status || 'unpaid',

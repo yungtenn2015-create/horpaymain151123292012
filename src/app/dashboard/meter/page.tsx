@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { format, subMonths } from 'date-fns'
@@ -46,7 +46,7 @@ type ViewMode = 'all' | 'floor' | 'single';
 
 import { useSearchParams } from 'next/navigation'
 
-export default function MeterReadingPage() {
+function MeterReadingContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -813,5 +813,17 @@ export default function MeterReadingPage() {
                 )}
             </div>
         </div>
+    )
+}
+
+export default function MeterReadingPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-white flex items-center justify-center p-4">
+                <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+            </div>
+        }>
+            <MeterReadingContent />
+        </Suspense>
     )
 }

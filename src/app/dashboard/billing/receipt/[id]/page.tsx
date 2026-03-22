@@ -106,23 +106,23 @@ export default function ReceiptPage() {
 
                 // 5. Prepare Receipt Items
                 const items = [
-                    { name: 'ค่าเช่าห้องพัก', amount: Number(bill.rent_amount || 0), detail: 'รายเดือน' }
+                    { name: 'ค่าเช่าห้องพัก', amount: Number(bill.room_amount || 0), detail: 'รายเดือน' }
                 ]
 
-                if (Number(bill.water_amount || 0) > 0) {
+                if (utility && Number(utility.water_price || 0) > 0) {
                     const units = utility ? (utility.water_unit - utility.prev_water_unit) : 0
                     items.push({ 
                         name: 'ค่าน้ำประปา', 
-                        amount: Number(bill.water_amount || 0), 
+                        amount: Number(utility.water_price || 0), 
                         detail: `มิเตอร์: ${utility?.prev_water_unit || 0} - ${utility?.water_unit || 0} (${units} หน่วย)` 
                     })
                 }
 
-                if (Number(bill.electric_amount || 0) > 0) {
+                if (utility && Number(utility.electric_price || 0) > 0) {
                     const units = utility ? (utility.electric_unit - utility.prev_electric_unit) : 0
                     items.push({ 
                         name: 'ค่าไฟฟ้า', 
-                        amount: Number(bill.electric_amount || 0), 
+                        amount: Number(utility.electric_price || 0), 
                         detail: `มิเตอร์: ${utility?.prev_electric_unit || 0} - ${utility?.electric_unit || 0} (${units} หน่วย)` 
                     })
                 }
