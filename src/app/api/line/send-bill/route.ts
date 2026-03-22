@@ -21,58 +21,35 @@ export async function POST(req: Request) {
       .select(`
         *,
         rooms:room_id (room_number, dorm_id),
-        tenants:tenant_id (name, line_user_id),
-        utilities:utility_id (water_price, electric_price)
+        tenants:tenant_id (name, line_user_id)
       `)
       .eq('id', billId)
       .maybeSingle();
 
-    if (billError) {
-      console.error('Database error fetching bill:', billError);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
-    }
-
-    if (!bill) {
-      console.error('Bill not found for ID:', billId);
+    if (billError || !bill) {
+      console.error('Bill not found:', billError);
       return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
     }
 
-    console.log('Bill data fetched:', JSON.stringify(bill, null, 2));
-
     if (!bill.tenants?.line_user_id) {
-       console.error('Tenant has no LINE linked for bill:', billId);
        return NextResponse.json({ error: 'Tenant has no LINE linked' }, { status: 400 });
     }
 
-    // 2. Fetch Dorm & LINE Config
-    const { data: dormConfig, error: configError } = await supabaseAdmin
-      .from('line_oa_configs')
-      .select('*')
-      .eq('dorm_id', bill.rooms.dorm_id)
-      .maybeSingle();
-
-    if (configError) {
-        console.error('Database error fetching LINE config:', configError);
-        return NextResponse.json({ error: 'DB Error' }, { status: 500 });
-    }
+    // 2. Fetch Dorm & settings
+    const [ { data: dorm }, { data: settings }, { data: dormConfig } ] = await Promise.all([
+      supabaseAdmin.from('dorms').select('name').eq('id', bill.rooms.dorm_id).single(),
+      supabaseAdmin.from('dorm_settings').select('*').eq('dorm_id', bill.rooms.dorm_id).maybeSingle(),
+      supabaseAdmin.from('line_oa_configs').select('*').eq('dorm_id', bill.rooms.dorm_id).maybeSingle()
+    ]);
 
     if (!dormConfig) {
-      console.error('LINE OA not configured for dorm:', bill.rooms.dorm_id);
-      return NextResponse.json({ error: 'LINE OA not configured for this dorm' }, { status: 400 });
+      return NextResponse.json({ error: 'LINE OA not configured' }, { status: 400 });
     }
 
     // 3. Construct Flex Message
-    const { data: dorm } = await supabaseAdmin
-      .from('dorms')
-      .select('name')
-      .eq('id', bill.rooms.dorm_id)
-      .single();
-
-    const flexMessage = createBillFlexMessage(bill, dorm?.name || 'หอพัก');
-    console.log('Flex message constructed for room:', bill.rooms.room_number);
+    const flexMessage = createBillFlexMessage(bill, dorm?.name || 'หอพัก', settings);
 
     // 4. Send via LINE Messaging API
-    console.log('Pushing to LINE User ID:', bill.tenants.line_user_id);
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
@@ -86,8 +63,6 @@ export async function POST(req: Request) {
     });
 
     const result = await response.json();
-    console.log('LINE API response status:', response.status);
-    console.log('LINE API response body:', JSON.stringify(result, null, 2));
 
     // 5. Log notification
     await supabaseAdmin.from('line_notification_logs').insert({
@@ -105,72 +80,75 @@ export async function POST(req: Request) {
   }
 }
 
-function createBillFlexMessage(bill: any, dormName: string) {
-  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-  const liffUrl = `https://liff.line.me/${liffId}?billId=${bill.id}`;
-  
+function createBillFlexMessage(bill: any, dormName: string, bankSettings: any) {
   const roomAmount = Number(bill.room_amount) || 0;
-  const waterAmount = Number(bill.utilities?.water_price) || 0;
-  const electricAmount = Number(bill.utilities?.electric_price) || 0;
+  const waterAmount = Number(bill.water_amount) || 0;
+  const electricAmount = Number(bill.electric_amount) || 0;
   const otherAmount = Number(bill.other_amount) || 0;
   const totalAmount = Number(bill.total_amount) || 0;
-  
-  // Format Month Year (Thai)
-  // bill.billing_month is string "YYYY-MM-DD"
-  const date = new Date(bill.billing_month);
-  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  const monthStr = months[date.getMonth()];
-  const yearStr = (date.getFullYear() + 543).toString().slice(-2);
+
+  const billingMonth = bill.billing_month ? 
+    new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : 
+    '-';
 
   return {
     type: "flex",
-    altText: `ใบแจ้งหนี้เดือน ${monthStr} ${yearStr} - ห้อง ${bill.rooms.room_number}`,
+    altText: `แจ้งค่าเช่าห้องพักเดือน ${billingMonth}`,
     contents: {
       type: "bubble",
       size: "mega",
       header: {
         type: "box",
         layout: "vertical",
+        backgroundColor: "#10B981",
+        paddingAll: "20px",
         contents: [
           {
             type: "text",
-            text: "INVOICE",
-            color: "#ffffff",
+            text: "แจ้งค่าเช่าห้องพัก",
+            color: "#FFFFFF",
             weight: "bold",
-            size: "sm"
+            size: "xl"
           },
           {
             type: "text",
             text: dormName,
-            color: "#ffffff",
-            size: "xl",
-            weight: "bold",
-            margin: "sm"
-          },
-          {
-            type: "text",
-            text: `ห้อง ${bill.rooms.room_number}`,
-            color: "#ffffffcc",
+            color: "#ECFDF5",
             size: "sm",
-            weight: "bold"
+            marginTop: "4px"
           }
-        ],
-        backgroundColor: "#059669",
-        paddingAll: "25px"
+        ]
       },
       body: {
         type: "box",
         layout: "vertical",
+        paddingAll: "20px",
         contents: [
           {
             type: "box",
             layout: "horizontal",
             contents: [
-                { type: "text", text: "ประจำเดือน", size: "sm", color: "#8c8c8c" },
-                { type: "text", text: `${monthStr} 25${yearStr}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+              {
+                type: "text",
+                text: "ประจำเดือน",
+                color: "#6B7280",
+                size: "sm"
+              },
+              {
+                type: "text",
+                text: billingMonth,
+                color: "#111827",
+                weight: "bold",
+                size: "sm",
+                align: "end"
+              }
             ]
           },
-          { type: "separator", margin: "xl" },
+          {
+            type: "separator",
+            margin: "xl",
+            color: "#F3F4F6"
+          },
           {
             type: "box",
             layout: "vertical",
@@ -181,71 +159,157 @@ function createBillFlexMessage(bill: any, dormName: string) {
                 type: "box",
                 layout: "horizontal",
                 contents: [
-                  { type: "text", text: "ค่าเช่าห้อง", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${roomAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  {
+                    type: "text",
+                    text: "ค่าเช่าห้อง",
+                    color: "#6B7280",
+                    size: "md"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${roomAmount.toLocaleString()}`,
+                    color: "#111827",
+                    weight: "bold",
+                    align: "end"
+                  }
                 ]
               },
               {
                 type: "box",
                 layout: "horizontal",
                 contents: [
-                  { type: "text", text: "ค่าน้ำประปา", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${waterAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  {
+                    type: "text",
+                    text: "ค่าน้ำประปา",
+                    color: "#6B7280",
+                    size: "md"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${waterAmount.toLocaleString()}`,
+                    color: "#111827",
+                    weight: "bold",
+                    align: "end"
+                  }
                 ]
               },
               {
                 type: "box",
                 layout: "horizontal",
                 contents: [
-                  { type: "text", text: "ค่าไฟฟ้า", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${electricAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  {
+                    type: "text",
+                    text: "ค่าไฟฟ้า",
+                    color: "#6B7280",
+                    size: "md"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${electricAmount.toLocaleString()}`,
+                    color: "#111827",
+                    weight: "bold",
+                    align: "end"
+                  }
                 ]
               },
-              {
+              ...(otherAmount > 0 ? [{
                 type: "box",
                 layout: "horizontal",
                 contents: [
-                  { type: "text", text: "อื่นๆ", size: "sm", color: "#555555" },
-                  { type: "text", text: `฿${otherAmount.toLocaleString()}`, size: "sm", color: "#111111", align: "end", weight: "bold" }
+                  {
+                    type: "text",
+                    text: "อื่นๆ",
+                    color: "#6B7280",
+                    size: "md"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${otherAmount.toLocaleString()}`,
+                    color: "#111827",
+                    weight: "bold",
+                    align: "end"
+                  }
                 ]
-              }
+              }] : [])
             ]
           },
-          { type: "separator", margin: "xl" },
           {
             type: "box",
             layout: "horizontal",
             margin: "xl",
             contents: [
-              { type: "text", text: "ยอดรวมทั้งสิ้น", weight: "bold", size: "lg", color: "#111111" },
-              { type: "text", text: `฿${totalAmount.toLocaleString()}`, weight: "bold", size: "lg", align: "end", color: "#059669" }
+              {
+                type: "text",
+                text: "ยอดรวมทั้งสิ้น",
+                color: "#111827",
+                weight: "bold",
+                size: "lg"
+              },
+              {
+                type: "text",
+                text: `฿${totalAmount.toLocaleString()}`,
+                color: "#10B981",
+                weight: "bold",
+                size: "xl",
+                align: "end"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "xxl",
+            backgroundColor: "#F9FAFB",
+            paddingAll: "16px",
+            cornerRadius: "12px",
+            contents: [
+              {
+                type: "text",
+                text: "บัญชีโอนชำระเงิน",
+                color: "#374151",
+                weight: "bold",
+                size: "sm",
+                marginBottom: "8px"
+              },
+              {
+                type: "text",
+                text: `${bankSettings?.bank_name || '-'}`,
+                color: "#111827",
+                weight: "bold",
+                size: "sm"
+              },
+              {
+                type: "text",
+                text: `${bankSettings?.bank_account_no || '-'}`,
+                color: "#10B981",
+                weight: "bold",
+                size: "lg",
+                margin: "4px 0"
+              },
+              {
+                type: "text",
+                text: `${bankSettings?.bank_account_name || dormName}`,
+                color: "#6B7280",
+                size: "sm"
+              }
+            ]
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "xl",
+            contents: [
+              {
+                type: "text",
+                text: "⚠️ โอนแล้วส่งสลิปแจ้งในแชทนี้ได้เลยค่ะ",
+                color: "#EF4444",
+                size: "xs",
+                align: "center",
+                weight: "bold"
+              }
             ]
           }
-        ],
-        paddingAll: "25px"
-      },
-      footer: {
-        type: "box",
-        layout: "vertical",
-        contents: [
-          {
-            type: "button",
-            action: {
-              type: "uri",
-              label: "ดูรายละเอียด / จ่ายเงิน",
-              uri: liffUrl
-            },
-            style: "primary",
-            color: "#059669",
-            height: "md"
-          }
-        ],
-        paddingAll: "20px"
-      },
-      styles: {
-        footer: {
-          separator: true
-        }
+        ]
       }
     }
   };

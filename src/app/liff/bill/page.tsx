@@ -229,6 +229,12 @@ function LIFFBillContent() {
                 </div>
                 <h2 className="text-xl font-black text-gray-800 mb-2">เกิดข้อผิดพลาด</h2>
                 <p className="text-gray-500 font-bold mb-6">{error}</p>
+                
+                <div className="mb-6 p-4 bg-gray-100 rounded-lg text-[10px] text-gray-400 font-mono break-all text-left">
+                    <p>DEBUG INFO:</p>
+                    <p>URL: {typeof window !== 'undefined' ? window.location.href : 'loading...'}</p>
+                </div>
+
                 <button onClick={() => window.location.reload()} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-black">ลองใหม่อีกครั้ง</button>
             </div>
         )

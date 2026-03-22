@@ -99,62 +99,71 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
     }
   }
 
-  if (type === 'message' && event.message.type === 'text') {
-    const text = event.message.text.trim();
-    
-    // Pattern: [RoomNum] [10-digit Phone] (e.g., "101 0812345678")
-    const verifyPattern = /^(\w+)\s+(\d{10})$/;
-    const match = text.match(verifyPattern);
+  if (type === 'message') {
+    if (event.message.type === 'text') {
+      const text = event.message.text.trim();
+      
+      // Pattern: [RoomNum] [10-digit Phone] (e.g., "101 0812345678")
+      const verifyPattern = /^(\w+)\s+(\d{10})$/;
+      const match = text.match(verifyPattern);
 
-    if (match) {
-      const roomNum = match[1];
-      const phoneNum = match[2];
+      if (match) {
+        const roomNum = match[1];
+        const phoneNum = match[2];
 
-      const { data: rooms } = await supabaseAdmin
-        .from('rooms')
-        .select('id, room_number, dorm_id')
-        .eq('dorm_id', config.dorm_id)
-        .eq('room_number', roomNum)
-        .single();
-
-      if (rooms) {
-        // Find the active tenant in this room matching THIS phone number
-        const { data: tenant } = await supabaseAdmin
-          .from('tenants')
-          .select('id, name')
-          .eq('room_id', rooms.id)
-          .eq('phone', phoneNum)
-          .eq('status', 'active')
+        const { data: rooms } = await supabaseAdmin
+          .from('rooms')
+          .select('id, room_number, dorm_id')
+          .eq('dorm_id', config.dorm_id)
+          .eq('room_number', roomNum)
           .single();
 
-        if (tenant) {
-          // Link the tenant
-          const { error: updateError } = await supabaseAdmin
+        if (rooms) {
+          // Find the active tenant in this room matching THIS phone number
+          const { data: tenant } = await supabaseAdmin
             .from('tenants')
-            .update({ line_user_id: lineUserId })
-            .eq('id', tenant.id);
+            .select('id, name')
+            .eq('room_id', rooms.id)
+            .eq('phone', phoneNum)
+            .eq('status', 'active')
+            .single();
 
-          if (updateError) {
-            await replyText(replyToken, config.access_token, `เกิดข้อผิดพลาดในการผูกบัญชี กรุณาลองใหม่อีกครั้งหรือติดต่อเจ้าหน้าที่`);
+          if (tenant) {
+            // Link the tenant
+            const { error: updateError } = await supabaseAdmin
+              .from('tenants')
+              .update({ line_user_id: lineUserId })
+              .eq('id', tenant.id);
+
+            if (updateError) {
+              await replyText(replyToken, config.access_token, `เกิดข้อผิดพลาดในการผูกบัญชี กรุณาลองใหม่อีกครั้งหรือติดต่อเจ้าหน้าที่`);
+            } else {
+              await replyText(replyToken, config.access_token, `ยืนยันตัวตนสำเร็จ! 🎉คุณ ${tenant.name} ห้อง ${rooms.room_number} จะเริ่มรับแจ้งเตือนบิลผ่านทาง LINE ตั้งแต่รอบหน้าเป็นต้นไปครับ`);
+            }
           } else {
-            await replyText(replyToken, config.access_token, `ยืนยันตัวตนสำเร็จ! 🎉คุณ ${tenant.name} ห้อง ${rooms.room_number} จะเริ่มรับแจ้งเตือนบิลผ่านทาง LINE ตั้งแต่รอบหน้าเป็นต้นไปครับ`);
+            await replyText(replyToken, config.access_token, `ไม่พบข้อมูลที่ตรงกับห้อง ${roomNum} และเบอร์โทรที่ระบุ กรุณาตรวจสอบเบอร์โทรศัพท์ที่ให้ไว้กับทางหอพักอีกครั้งครับ`);
           }
         } else {
-          await replyText(replyToken, config.access_token, `ไม่พบข้อมูลที่ตรงกับห้อง ${roomNum} และเบอร์โทรที่ระบุ กรุณาตรวจสอบเบอร์โทรศัพท์ที่ให้ไว้กับทางหอพักอีกครั้งครับ`);
+          await replyText(replyToken, config.access_token, `ไม่พบหมายเลขห้อง ${roomNum} ในระบบของเราครับ`);
         }
-      } else {
-        await replyText(replyToken, config.access_token, `ไม่พบหมายเลขห้อง ${roomNum} ในระบบของเราครับ`);
+      } 
+      else if (text.toLowerCase() === 'id') {
+         await replyText(replyToken, config.access_token, `LINE ID ของคุณคือ: ${lineUserId}`);
       }
-    } 
-    else if (text.toLowerCase() === 'id') {
-       await replyText(replyToken, config.access_token, `LINE ID ของคุณคือ: ${lineUserId}`);
-    }
-    else {
-      // Optional: Help message for unrecognized inputs
-      const helpMsg = `ดูเหมือนคุณพิมพ์ข้อมูลไม่ครบถ้วน
+      else {
+        // Optional: Help message for unrecognized inputs
+        const helpMsg = `ดูเหมือนคุณพิมพ์ข้อมูลไม่ครบถ้วน
 กรุณาพิมพ์: เลขห้อง [เว้นวรรค] เบอร์โทรศัพท์
 (ตัวอย่าง: 101 0812345678)`;
-      await replyText(replyToken, config.access_token, helpMsg);
+        await replyText(replyToken, config.access_token, helpMsg);
+      }
+    } 
+    else if (event.message.type === 'image') {
+      // Handle Slip acknowledgment
+      const ackMsg = `ได้รับรูปภาพใบโอนเงินเรียบร้อยแล้วครับ! 😊
+เจ้าหน้าที่กำลังดำเนินการตรวจสอบยอดเงิน 
+รบกวนรอซักครู่ครับ`;
+      await replyText(replyToken, config.access_token, ackMsg);
     }
   }
 
