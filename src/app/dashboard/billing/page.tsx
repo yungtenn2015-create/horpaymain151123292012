@@ -349,8 +349,13 @@ export default function BillingPage() {
                                                         className="flex items-center justify-between p-3 cursor-pointer active:bg-gray-50 transition-colors"
                                                     >
                                                         <div className="flex items-center gap-3 w-20">
-                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-sm ${statusColor}`}>
+                                                            <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-sm ${statusColor}`}>
                                                                 {item.roomNumber}
+                                                                {item.lineUserId && (
+                                                                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                                                                        <ChatBubbleLeftRightIcon className="w-2.5 h-2.5 text-white stroke-[3]" />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
 

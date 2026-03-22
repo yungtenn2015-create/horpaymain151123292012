@@ -137,8 +137,7 @@ function createBillFlexMessage(bill: any, dormName: string) {
             text: "INVOICE",
             color: "#ffffff",
             weight: "bold",
-            size: "sm",
-            letterSpacing: "0.2em"
+            size: "sm"
           },
           {
             type: "text",
