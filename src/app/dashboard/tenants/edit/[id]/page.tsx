@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { 
-    ArrowLeftIcon, 
-    UserCircleIcon, 
-    PhoneIcon, 
-    TruckIcon, 
+import {
+    ArrowLeftIcon,
+    UserCircleIcon,
+    PhoneIcon,
+    TruckIcon,
     ExclamationTriangleIcon,
     CheckCircleIcon
 } from '@heroicons/react/24/outline'
@@ -35,7 +35,7 @@ export default function EditTenantPage() {
     const fetchTenantData = async () => {
         setLoading(true)
         const supabase = createClient()
-        
+
         try {
             const { data, error } = await supabase
                 .from('tenants')
@@ -111,11 +111,11 @@ export default function EditTenantPage() {
                     </div>
                     <h2 className="text-2xl font-black text-gray-800 mb-2">บันทึกเรียบร้อย!</h2>
                     <p className="text-gray-500 mb-8">ข้อมูลผู้เช่าได้รับการอัปเดตแล้ว</p>
-                    <button 
+                    <button
                         onClick={() => router.push('/dashboard/tenants')}
                         className="w-full bg-green-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-green-100 transition-all active:scale-95"
                     >
-                        กลับไปหน้าโครงการ
+                        กลับไปหน้าหลัก
                     </button>
                 </div>
             </div>
@@ -125,12 +125,12 @@ export default function EditTenantPage() {
     return (
         <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
             <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
-                
+
                 {/* Header */}
                 <header className="bg-gradient-to-br from-gray-800 to-gray-900 pt-12 pb-10 px-6 rounded-b-[2.5rem] relative shadow-lg shrink-0">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3" />
                     <div className="flex items-center gap-4 relative z-10">
-                        <button 
+                        <button
                             onClick={() => router.back()}
                             className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-[1rem] flex items-center justify-center text-white border border-white/20"
                         >
@@ -231,14 +231,14 @@ export default function EditTenantPage() {
 
                 {/* Footer */}
                 <div className="px-6 py-6 border-t border-gray-100 bg-gray-50">
-                    <button 
+                    <button
                         onClick={handleUpdate}
                         disabled={submitting}
                         className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-green-100 transition-all active:scale-95 disabled:opacity-50"
                     >
                         {submitting ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
                     </button>
-                    <button 
+                    <button
                         onClick={() => router.back()}
                         className="w-full mt-3 bg-white border-2 border-gray-200 text-gray-400 font-bold py-3 rounded-2xl hover:bg-gray-100 transition-all"
                     >

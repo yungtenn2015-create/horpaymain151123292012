@@ -6,13 +6,15 @@ import { format, parseISO } from 'date-fns'
 import { th } from 'date-fns/locale'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
+import ReceiptView from '@/src/components/ReceiptView'
 import {
     ChevronLeftIcon,
     PrinterIcon,
     ShareIcon,
     ArrowDownTrayIcon,
     CheckBadgeIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline'
 
 // Helper function for Thai Baht Text (Simplified version)
@@ -44,7 +46,10 @@ export default function ReceiptPage() {
     const supabase = createClient()
     const [loading, setLoading] = useState(true)
     const [data, setData] = useState<any>(null)
+    const [slipUrl, setSlipUrl] = useState<string | null>(null)
     const [message, setMessage] = useState('')
+    const [billStatus, setBillStatus] = useState<string>('')
+    const [verifying, setVerifying] = useState(false)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -62,84 +67,104 @@ export default function ReceiptPage() {
                     console.error('Bill not found', billError)
                     return
                 }
+                setBillStatus(bill.status)
 
-                // 2. Fetch Room & Tenant Info
-                const { data: room } = await supabase
+                // 2. Fetch Slip from payments table
+                const { data: payment } = await supabase
+                    .from('payments')
+                    .select('slip_url')
+                    .eq('bill_id', bill.id)
+                    .order('payment_date', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+                
+                if (payment?.slip_url) {
+                    setSlipUrl(payment.slip_url)
+                }
+
+                // 3. Fetch Room Info
+                const { data: room, error: roomError } = await supabase
                     .from('rooms')
-                    .select(`
-                        room_number,
-                        dorm_id,
-                        tenants:lease_contracts(
-                            tenant_name,
-                            status
-                        )
-                    `)
+                    .select('room_number, dorm_id')
                     .eq('id', bill.room_id)
                     .single()
 
-                const activeTenant = (room?.tenants as any[])?.find((t: any) => t.status === 'active') || 
-                                    (room?.tenants as any[])?.find((t: any) => t)
+                if (roomError) console.error('Error fetching room:', roomError)
 
-                // 3. Fetch Utility Info for meter readings
+                // 3.5 Fetch Tenant Info directly from bill
+                const { data: tenant, error: tenantError } = await supabase
+                    .from('tenants')
+                    .select('name')
+                    .eq('id', bill.tenant_id)
+                    .single()
+                
+                if (tenantError) console.error('Error fetching tenant:', tenantError)
+
+                // 4. Fetch Utility Info for meter readings
                 let utility = null
                 if (bill.utility_id) {
-                    const { data: u } = await supabase
+                    const { data: u, error: uError } = await supabase
                         .from('utilities')
                         .select('*')
                         .eq('id', bill.utility_id)
                         .single()
+                    if (uError) console.error('Error fetching utilities:', uError)
                     utility = u
                 }
 
-                // 4. Fetch Dorm & Settings
-                const { data: dorm } = await supabase
-                    .from('dorms')
-                    .select('*')
-                    .eq('id', room?.dorm_id)
-                    .single()
+                // 5. Fetch Dorm & Settings
+                let dorm = null
+                let settings = null
+                
+                if (room?.dorm_id) {
+                    const [{ data: d }, { data: s }] = await Promise.all([
+                        supabase.from('dorms').select('*').eq('id', room.dorm_id).single(),
+                        supabase.from('dorm_settings').select('*').eq('dorm_id', room.dorm_id).single()
+                    ])
+                    dorm = d
+                    settings = s
+                }
 
-                const { data: settings } = await supabase
-                    .from('dorm_settings')
-                    .select('*')
-                    .eq('dorm_id', room?.dorm_id)
-                    .single()
-
-                // 5. Prepare Receipt Items
+                // 6. Build Items List
                 const items = [
-                    { name: 'ค่าเช่าห้องพัก', amount: Number(bill.room_amount || 0), detail: 'รายเดือน' }
+                    { name: 'ค่าเช่าห้องพัก', amount: Number(bill.room_amount || 0) }
                 ]
 
-                if (utility && Number(utility.water_price || 0) > 0) {
-                    const units = utility ? (utility.water_unit - utility.prev_water_unit) : 0
-                    items.push({ 
-                        name: 'ค่าน้ำประปา', 
-                        amount: Number(utility.water_price || 0), 
-                        detail: `มิเตอร์: ${utility?.prev_water_unit || 0} - ${utility?.water_unit || 0} (${units} หน่วย)` 
+                // Water Logic
+                const isFlatWater = settings?.water_billing_type === 'flat' || 
+                                   (Number(bill.water_amount) > 0 && Number(utility?.water_unit || 0) === 0)
+                
+                if (bill.water_amount > 0) {
+                    items.push({
+                        name: 'ค่าน้ำประปา',
+                        amount: Number(bill.water_amount),
+                        detail: isFlatWater ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} - ${utility?.curr_water_meter || 0} (${utility?.water_unit || 0} หน่วย)`
                     })
                 }
 
-                if (utility && Number(utility.electric_price || 0) > 0) {
-                    const units = utility ? (utility.electric_unit - utility.prev_electric_unit) : 0
-                    items.push({ 
-                        name: 'ค่าไฟฟ้า', 
-                        amount: Number(utility.electric_price || 0), 
-                        detail: `มิเตอร์: ${utility?.prev_electric_unit || 0} - ${utility?.electric_unit || 0} (${units} หน่วย)` 
+                if (bill.electric_amount > 0) {
+                    items.push({
+                        name: 'ค่าไฟฟ้า',
+                        amount: Number(bill.electric_amount),
+                        detail: `มิเตอร์: ${utility?.prev_electric_meter || 0} - ${utility?.curr_electric_meter || 0} (${utility?.electric_unit || 0} หน่วย)`
                     })
                 }
 
-                if (Number(bill.other_amount || 0) > 0) {
-                    items.push({ name: 'ค่าใช้จ่ายอื่นๆ', amount: Number(bill.other_amount || 0), detail: 'เพิ่มเติม' })
+                if (bill.other_amount > 0) {
+                    items.push({ name: 'ค่าใช้จ่ายอื่นๆ', amount: Number(bill.other_amount) })
                 }
 
-                // 6. Format Date Strings
+                // 7. Format Date Strings
                 const billingDate = parseISO(bill.billing_month)
                 const formattedMonth = format(billingDate, 'MMMM yyyy', { locale: th })
                 const formattedDate = format(new Date(bill.created_at), 'd MMMM yyyy', { locale: th })
+                const monthYearCode = format(billingDate, 'yyyyMM')
                 
                 const dueDate = bill.due_date ? format(parseISO(bill.due_date), 'd MMMM yyyy', { locale: th }) : '-'
 
                 setData({
-                    receiptId: `REC-${bill.id.slice(0, 8).toUpperCase()}`,
+                    id: bill.id,
+                    receiptId: `REC-${room?.room_number || '000'}-${monthYearCode}`,
                     date: formattedDate,
                     month: formattedMonth,
                     dueDate: dueDate,
@@ -147,7 +172,7 @@ export default function ReceiptPage() {
                     address: dorm?.address || '-',
                     dormPhone: dorm?.contact_number || '-',
                     roomNumber: room?.room_number || '-',
-                    tenantName: activeTenant?.tenant_name || 'ไม่ระบุชื่อ',
+                    tenantName: tenant?.name || 'ไม่ระบุชื่อ',
                     bankName: settings?.bank_name || '-',
                     bankNo: settings?.bank_account_no || '-',
                     bankAccount: settings?.bank_account_name || dorm?.name || '-',
@@ -201,6 +226,44 @@ export default function ReceiptPage() {
         window.open(lineUrl, '_blank')
     }
 
+    const handleUpdateStatus = async (status: 'paid' | 'unpaid') => {
+        if (!data?.id || verifying) return
+        setVerifying(true)
+        try {
+            const { error } = await supabase
+                .from('bills')
+                .update({ 
+                    status,
+                    paid_at: status === 'paid' ? new Date().toISOString() : null
+                })
+                .eq('id', data.id)
+
+            if (error) throw error
+            
+            // 2. Update payment status if exists
+            await supabase
+                .from('payments')
+                .update({ status: status === 'paid' ? 'approved' : 'rejected' })
+                .eq('bill_id', data.id)
+
+            setBillStatus(status)
+            if (status === 'paid') {
+                // Send LINE notification
+                await fetch('/api/line/confirm-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ billId: data.id })
+                })
+            }
+            setMessage(status === 'paid' ? 'ยืนยันใบเสร็จสำเร็จ!' : 'ยกเลิกการชำระเงินสำเร็จ!')
+            setTimeout(() => setMessage(''), 3000)
+        } catch (err: any) {
+            alert(err.message)
+        } finally {
+            setVerifying(false)
+        }
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
@@ -224,127 +287,62 @@ export default function ReceiptPage() {
             </nav>
 
             {/* ── RECEIPT CARD ── */}
-            <div
-                ref={receiptRef}
-                className="max-w-xl mx-auto bg-white sm:rounded-[2.5rem] shadow-2xl shadow-gray-200/50 overflow-hidden relative print:shadow-none print:rounded-none"
-            >
-
-                {/* Decoration Circles (Ticket Style) */}
-                <div className="absolute top-1/2 -left-4 w-8 h-8 bg-gray-100/50 rounded-full z-10 print:hidden" />
-                <div className="absolute top-1/2 -right-4 w-8 h-8 bg-gray-100/50 rounded-full z-10 print:hidden" />
-
-                <div className="p-6 sm:p-8">
-                    <div className="text-center mb-10 pt-0">
-                        <h2 className="text-2xl font-black text-gray-900 leading-tight mb-1">{data.dormName}</h2>
-                        <p className="text-[13px] text-gray-600 font-extrabold max-w-[340px] mx-auto leading-relaxed mb-4">
-                            {data.address} {data.dormPhone && `| โทร: ${data.dormPhone}`}
-                        </p>
-                        <div className="inline-flex items-center gap-2 px-6 py-2 bg-emerald-50 rounded-2xl border border-emerald-100/50">
-                            <span className="text-base font-black text-emerald-600">ใบเสร็จประจำเดือน</span>
-                            <span className="text-base font-black text-emerald-600">{data.month}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between items-center mb-4 pb-3 border-b border-dashed border-gray-100">
-                        <div>
-                            <p className="text-[12px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1.5">เลขที่ใบเสร็จ</p>
-                            <p className="text-base font-black text-gray-800 leading-none">{data.receiptId}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[12px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1.5">วันที่ออกบิล</p>
-                            <p className="text-base font-black text-gray-800 leading-none">{data.date}</p>
-                        </div>
-                    </div>
-
-                    {/* Compact Info Grid: Enlarged Typography */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-400 font-black text-base shadow-sm ring-1 ring-gray-100/50 flex-shrink-0">#</div>
-                            <div>
-                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest italic leading-none mb-1">ห้องพัก</p>
-                                <p className="text-xl font-black text-gray-800 leading-none">{data.roomNumber}</p>
-                            </div>
-                        </div>
-                        <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center gap-3 overflow-hidden">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-400 font-black text-base shadow-sm ring-1 ring-gray-100/50 flex-shrink-0">👤</div>
-                            <div className="truncate">
-                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest italic leading-none mb-1">ผู้เช่า</p>
-                                <p className="text-lg font-black text-gray-800 truncate leading-none">{data.tenantName}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Table: Larger Typography for Details */}
-                    <div className="space-y-2 mb-4 bg-gray-50/50 rounded-3xl p-4 border border-gray-100/50">
-                        {data.items.map((item: any, i: number) => (
-                            <div key={i} className="flex justify-between items-center py-0.5">
-                                <div>
-                                    <p className="text-[15px] font-black text-gray-800">{item.name}</p>
-                                    {item.detail && <p className="text-[12px] font-bold text-gray-400 mt-0.5">{item.detail}</p>}
-                                </div>
-                                <p className="text-[15px] font-black text-gray-900">฿{(Number(item.amount) || 0).toLocaleString()}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Total: Highly Visible and Large */}
-                    <div className="bg-emerald-500 rounded-2xl p-4 mb-4 text-white shadow-xl shadow-emerald-100 flex items-center justify-between">
-                        <div>
-                            <p className="text-[12px] font-black text-emerald-100 uppercase tracking-widest mb-1">ยอดรวมสุทธิ</p>
-                            <p className="text-sm font-bold leading-tight italic opacity-95">{bahtText(Number(data.total) || 0)}</p>
-                        </div>
-                        <p className="text-3xl font-black">฿{(Number(data.total) || 0).toLocaleString()}</p>
-                    </div>
-
-                    {/* RESTACKED PAYMENT INFO: OWNER NAME FOCUS */}
-                    <div className="bg-emerald-50/50 rounded-[2rem] p-4 border border-emerald-100 flex flex-col items-center">
-                        <p className="text-[12px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">ช่องทางการชำระเงิน / โอนเข้าบัญชี</p>
-
-                        <div className="text-center mb-4">
-                            <p className="text-2xl font-black text-emerald-600 uppercase tracking-widest leading-tight mb-2">{data.bankName}</p>
-                            <h3 className="text-xl font-black text-emerald-600 tracking-tight leading-none">ชื่อบัญชี : {data.bankAccount}</h3>
-                        </div>
-
-                        <div className="w-full bg-white rounded-2xl p-4 border border-emerald-100 flex flex-col items-center shadow-sm">
-                            <p className="text-2xl font-black text-emerald-600 tracking-widest sm:text-3xl font-mono leading-none py-1">
-                                {data.bankNo}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Message: Integrated with padding */}
-                <div className="bg-gray-50/50 p-4 text-center border-t border-gray-100">
-                    <p className="text-lg text-red-500 underline underline-offset-4 decoration-red-500">
-                        กรุณาชำระเงินภายในวันที่ <span className="text-lg text-red-500 underline underline-offset-4 decoration-red-500">{data.dueDate}</span>
-                    </p>
-                    <p className="text-[10px] font-bold text-gray-300 italic uppercase">Powered by HorPay - Smart Dorm Management</p>
-                </div>
-            </div>
+            <ReceiptView ref={receiptRef} data={data} slipUrl={slipUrl} />
 
             {/* ── ACTION BUTTONS (HIDDEN ON PRINT) ── */}
-            <div className="max-w-xl mx-auto px-6 mt-10 grid grid-cols-2 gap-4 pb-20 print:hidden">
+            <div className="max-w-xl mx-auto px-6 mt-10 space-y-4 pb-20 print:hidden">
+                {message && (
+                    <div className="bg-emerald-500 text-white p-4 rounded-2xl text-center font-black animate-bounce">
+                        {message}
+                    </div>
+                )}
+
+                {/* Verification Section */}
+                {billStatus === 'waiting_verify' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => handleUpdateStatus('paid')}
+                            disabled={verifying}
+                            className="h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-100 transition-all active:scale-[0.98]"
+                        >
+                            <CheckBadgeIcon className="w-6 h-6" />
+                            {verifying ? 'กำลังบันทึก...' : 'อนุมัติ / รับเงิน'}
+                        </button>
+                        <button
+                            onClick={() => handleUpdateStatus('unpaid')}
+                            disabled={verifying}
+                            className="h-16 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl font-black text-lg flex items-center justify-center gap-3 border border-red-100 transition-all active:scale-[0.98]"
+                        >
+                            <XMarkIcon className="w-6 h-6" />
+                            ปฏิเสธการโอน
+                        </button>
+                    </div>
+                )}
+
                 <button
                     onClick={handleShareLine}
-                    className="col-span-2 h-16 bg-[#06C755] hover:bg-[#05b34d] text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-green-100 transition-all active:scale-[0.98]"
+                    className="w-full h-16 bg-[#06C755] hover:bg-[#05b34d] text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-green-100 transition-all active:scale-[0.98]"
                 >
                     <ShareIcon className="w-6 h-6" />
                     แชร์ไปยัง LINE
                 </button>
-                <button
-                    onClick={handlePrint}
-                    className="h-14 bg-white border border-gray-200 text-gray-700 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
-                >
-                    <PrinterIcon className="w-5 h-5" />
-                    พิมพ์ใบเสร็จ
-                </button>
-                <button
-                    onClick={handleSaveImage}
-                    className="h-14 bg-white border border-gray-200 text-gray-700 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
-                >
-                    <ArrowDownTrayIcon className="w-5 h-5 font-black" />
-                    บันทึกรูปภาพ
-                </button>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={handlePrint}
+                        className="h-14 bg-white border border-gray-200 text-gray-700 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
+                    >
+                        <PrinterIcon className="w-5 h-5" />
+                        พิมพ์ใบเสร็จ
+                    </button>
+                    <button
+                        onClick={handleSaveImage}
+                        className="h-14 bg-white border border-gray-200 text-gray-700 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-95"
+                    >
+                        <ArrowDownTrayIcon className="w-5 h-5 font-black" />
+                        บันทึกรูปภาพ
+                    </button>
+                </div>
             </div>
 
             <style jsx global>{`

@@ -217,6 +217,7 @@ function BillingContent() {
     const [verifying, setVerifying] = useState<string | null>(null)
     const [confirmVerify, setConfirmVerify] = useState<any | null>(null)
     const [confirmRevert, setConfirmRevert] = useState<any | null>(null)
+    const [confirmIssueAll, setConfirmIssueAll] = useState<any[] | null>(null)
 
     const handleVerifyPayment = async (item: any) => {
         if (verifying || !item.billId) return
@@ -396,11 +397,16 @@ function BillingContent() {
     const handleIssueAll = async () => {
         const readyRooms = filteredData.filter(d => d.status === 'ready')
         if (readyRooms.length === 0 || issuing) return
+        setConfirmIssueAll(readyRooms)
+    }
 
-        if (!confirm(`ยืนยันออกบิลทั้งหมด ${readyRooms.length} ห้อง?`)) return
-
+    const executeIssueAll = async () => {
+        if (!confirmIssueAll || issuing) return
+        const roomsToIssue = [...confirmIssueAll]
+        setConfirmIssueAll(null)
+        
         setIssuing('all')
-        for (const item of readyRooms) {
+        for (const item of roomsToIssue) {
             await handleIssueBill(item)
         }
         setIssuing(null)
@@ -918,6 +924,41 @@ function BillingContent() {
                                     className="flex-1 py-4 bg-blue-500 text-white font-black rounded-2xl shadow-lg shadow-blue-100 active:scale-95 transition-all font-noto"
                                 >
                                     ยืนยันเปลี่ยน
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── CUSTOM CONFIRM ISSUE ALL MODAL ── */}
+                {confirmIssueAll && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+                        <div 
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                            onClick={() => setConfirmIssueAll(null)}
+                        />
+                        <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                            <div className="p-8 text-center border-b border-gray-50">
+                                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <BanknotesIcon className="w-10 h-10 text-emerald-500" />
+                                </div>
+                                <h3 className="text-xl font-black text-gray-900 mb-2 font-noto">ยืนยันการออกบิล?</h3>
+                                <p className="text-sm font-bold text-gray-400 px-4 font-noto">
+                                    คุณต้องการออกบิลพร้อมกันทั้งหมด <span className="text-emerald-600 font-black">{confirmIssueAll.length} ห้อง</span> ใช่หรือไม่?
+                                </p>
+                            </div>
+                            <div className="p-6 bg-gray-50 flex gap-3">
+                                <button
+                                    onClick={() => setConfirmIssueAll(null)}
+                                    className="flex-1 py-4 bg-white border border-gray-200 text-gray-400 font-black rounded-2xl hover:bg-gray-100 transition-colors font-noto"
+                                >
+                                    ยังก่อน
+                                </button>
+                                <button
+                                    onClick={executeIssueAll}
+                                    className="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg shadow-emerald-100 active:scale-95 transition-all font-noto"
+                                >
+                                    ยืนยันออกบิล
                                 </button>
                             </div>
                         </div>
