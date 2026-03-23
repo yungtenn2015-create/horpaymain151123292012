@@ -80,6 +80,8 @@ export default function DashboardPage() {
     const [dbError, setDbError] = useState('') // added error state
     const [isMenuOpen, setIsMenuOpen] = useState(false) // for user dropdown
     const [pendingRoomIds, setPendingRoomIds] = useState<Set<string>>(new Set())
+    const [waitingVerifyRoomIds, setWaitingVerifyRoomIds] = useState<Set<string>>(new Set())
+    const [unpaidRoomIds, setUnpaidRoomIds] = useState<Set<string>>(new Set())
     const [stats, setStats] = useState({
         total: 0,
         occupied: 0,
@@ -339,6 +341,8 @@ export default function DashboardPage() {
             let electricAmt = 0;
             let counts = { paid: 0, waiting_verify: 0, unpaid: 0 };
             const pendingIdsSet = new Set<string>();
+            const waitingVerifyIdsSet = new Set<string>();
+            const unpaidIdsSet = new Set<string>();
             
             // Map to track the "Best" status for each room this month
             // Priority: paid > waiting_verify > unpaid
@@ -379,14 +383,18 @@ export default function DashboardPage() {
                 } else if (status === 'waiting_verify') {
                     counts.waiting_verify++;
                     pendingIdsSet.add(roomId);
+                    waitingVerifyIdsSet.add(roomId);
                 } else {
                     counts.unpaid++;
                     pendingIdsSet.add(roomId);
+                    unpaidIdsSet.add(roomId);
                 }
             });
 
             console.log("Room Stats (Grouped):", counts);
             setPendingRoomIds(pendingIdsSet);
+            setWaitingVerifyRoomIds(waitingVerifyIdsSet);
+            setUnpaidRoomIds(unpaidIdsSet);
 
             setStats({
                 total: activeRooms.length,
@@ -736,7 +744,7 @@ export default function DashboardPage() {
                                         <BanknotesIcon className="w-5 h-5 stroke-[2]" />
                                     </div>
                                     <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องค้างชำระ</p>
+                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ยอดค้าง/รอตรวจ</p>
                                         <p className="text-2xl font-black text-gray-800 leading-none">{stats.pendingPayments}</p>
                                     </div>
                                 </div>
@@ -776,7 +784,7 @@ export default function DashboardPage() {
                             {/* ── Latest Status ── */}
                             <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
                                 <div className="flex items-center justify-between mb-5 px-1">
-                                    <h2 className="text-sm font-black text-gray-800 tracking-tight">ห้องพักค้างชำระล่าสุด</h2>
+                                    <h2 className="text-sm font-black text-gray-800 tracking-tight">สถานะบิลล่าสุด</h2>
                                     <button
                                         onClick={() => setActiveTab('rooms')}
                                         className="text-[12px] font-black text-green-600 uppercase tracking-widest hover:text-green-700 transition-colors"
@@ -805,9 +813,15 @@ export default function DashboardPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-8 px-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
-                                                        <span className="text-[10px] font-black uppercase text-red-600">ค้างชำระ</span>
-                                                    </div>
+                                                    {waitingVerifyRoomIds.has(room.id) ? (
+                                                        <div className="h-8 px-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                                            <span className="text-[10px] font-black uppercase text-blue-600">รอตรวจสอบ</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-8 px-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+                                                            <span className="text-[10px] font-black uppercase text-red-600">ค้างชำระ</span>
+                                                        </div>
+                                                    )}
                                                     <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-red-600 transition-colors" />
                                                 </div>
                                             </div>
@@ -1028,7 +1042,8 @@ export default function DashboardPage() {
 
                                         <div className="grid grid-cols-2 gap-3">
                                             {rooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
-                                                const isUnpaid = pendingRoomIds.has(room.id);
+                                                const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
+                                                const isUnpaid = unpaidRoomIds.has(room.id);
                                                 const isOccupied = room.status === 'occupied';
 
                                                 // Color & Info Logic
@@ -1042,7 +1057,17 @@ export default function DashboardPage() {
                                                     shadow: 'shadow-gray-100'
                                                 };
 
-                                                if (isUnpaid) {
+                                                if (isWaitingVerify) {
+                                                    theme = {
+                                                        bg: 'bg-white',
+                                                        border: 'border-blue-100',
+                                                        iconBg: 'bg-blue-50 text-blue-600',
+                                                        badge: 'bg-blue-500 text-white',
+                                                        status: 'รอตรวจสอบ',
+                                                        icon: ClockIcon,
+                                                        shadow: 'shadow-blue-50'
+                                                    };
+                                                } else if (isUnpaid) {
                                                     theme = {
                                                         bg: 'bg-white',
                                                         border: 'border-red-100',

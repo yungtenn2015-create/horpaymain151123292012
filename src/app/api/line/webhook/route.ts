@@ -88,14 +88,74 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
       
       await replyText(replyToken, config.access_token, `สวัสดีครับเจ้าของหอ ${config.dorms?.name || ''}! ระบบผูกบัญชีเจ้าของสำหรับรับแจ้งเตือนสลิปเรียบร้อยแล้วครับ`);
     } else {
-      // Improved Welcome Message for Tenants
-      const welcomeMsg = `ยินดีต้อนรับสู่ ${config.dorms?.name || 'หอพักของเรา'}! 😊
+      // Phase 2, Step 4: Improved Welcome Message for Tenants (Flex Message)
+      const welcomeFlex = {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: `${config.dorms?.name || 'ยินดีต้อนรับ'}`,
+              weight: 'bold',
+              size: 'xl',
+              color: '#1e3a8a'
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: 'ไลน์นี้ใช้สำหรับแจ้งเตือนชำระค่าห้อง',
+              wrap: true,
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: 'ลงทะเบียนเพื่อเชื่อมบิลค่าห้องแจ้งเตือนในไลน์',
+              wrap: true,
+              size: 'sm'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#f3f4f6',
+              paddingAll: 'lg',
+              cornerRadius: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: 'กรุณาพิมพ์: เลขห้อง-เบอร์โทรศัพท์',
+                  weight: 'bold',
+                  size: 'sm',
+                  color: '#4b5563'
+                },
+                {
+                  type: 'text',
+                  text: 'ตัวอย่าง: 101-0123456789',
+                  size: 'xs',
+                  color: '#6b7280',
+                  margin: 'sm'
+                }
+              ]
+            },
+            {
+              type: 'text',
+              text: 'พิมพ์เสร็จแล้วส่งมาได้เลยค่ะ 😊',
+              size: 'sm',
+              wrap: true,
+              margin: 'md'
+            }
+          ]
+        }
+      };
 
-เพื่อรับใบแจ้งหนี้ผ่านทาง LINE กรุณายืนยันตัวตนโดยพิมพ์:
-"เลขห้อง" ตามด้วย "เบอร์โทรศัพท์"
-(ตัวอย่าง: 101 0812345678)`;
-      
-      await replyText(replyToken, config.access_token, welcomeMsg);
+      await replyFlex(replyToken, config.access_token, 'ยินดีต้อนรับสู่ Horpay', welcomeFlex);
     }
   }
 
@@ -103,8 +163,8 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
     if (event.message.type === 'text') {
       const text = event.message.text.trim();
       
-      // Pattern: [RoomNum] [10-digit Phone] (e.g., "101 0812345678")
-      const verifyPattern = /^(\w+)\s+(\d{10})$/;
+      // Pattern: [RoomNum]-[10-digit Phone] (e.g., "101-0812345678")
+      const verifyPattern = /^(\w+)-(\d{10})$/;
       const match = text.match(verifyPattern);
 
       if (match) {
@@ -138,7 +198,55 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
             if (updateError) {
               await replyText(replyToken, config.access_token, `เกิดข้อผิดพลาดในการผูกบัญชี กรุณาลองใหม่อีกครั้งหรือติดต่อเจ้าหน้าที่`);
             } else {
-              await replyText(replyToken, config.access_token, `ยืนยันตัวตนสำเร็จ! 🎉คุณ ${tenant.name} ห้อง ${rooms.room_number} จะเริ่มรับแจ้งเตือนบิลผ่านทาง LINE ตั้งแต่รอบหน้าเป็นต้นไปครับ`);
+              const successFlex = {
+                type: 'bubble',
+                body: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: 'ลงทะเบียนสำเร็จ 🎉',
+                      weight: 'bold',
+                      size: 'xl',
+                      color: '#059669'
+                    },
+                    {
+                      type: 'separator',
+                      margin: 'md'
+                    },
+                    {
+                      type: 'box',
+                      layout: 'vertical',
+                      margin: 'md',
+                      spacing: 'sm',
+                      contents: [
+                        {
+                          type: 'text',
+                          text: `ยินดีต้อนรับคุณ ${tenant.name}`,
+                          wrap: true,
+                          weight: 'bold'
+                        },
+                        {
+                          type: 'text',
+                          text: `ห้องพัก: ${rooms.room_number}`,
+                          size: 'sm',
+                          color: '#4b5563'
+                        }
+                      ]
+                    },
+                    {
+                      type: 'text',
+                      text: 'คุณจะเริ่มรับแจ้งเตือนบิลผ่านทาง LINE ตั้งแต่รอบหน้าเป็นต้นไปครับ',
+                      wrap: true,
+                      size: 'xs',
+                      color: '#6b7280',
+                      margin: 'md'
+                    }
+                  ]
+                }
+              };
+              await replyFlex(replyToken, config.access_token, 'ลงทะเบียนสำเร็จ', successFlex);
             }
           } else {
             await replyText(replyToken, config.access_token, `ไม่พบข้อมูลที่ตรงกับห้อง ${roomNum} และเบอร์โทรที่ระบุ กรุณาตรวจสอบเบอร์โทรศัพท์ที่ให้ไว้กับทางหอพักอีกครั้งครับ`);
@@ -151,11 +259,56 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
          await replyText(replyToken, config.access_token, `LINE ID ของคุณคือ: ${lineUserId}`);
       }
       else {
-        // Optional: Help message for unrecognized inputs
-        const helpMsg = `ดูเหมือนคุณพิมพ์ข้อมูลไม่ครบถ้วน
-กรุณาพิมพ์: เลขห้อง [เว้นวรรค] เบอร์โทรศัพท์
-(ตัวอย่าง: 101 0812345678)`;
-        await replyText(replyToken, config.access_token, helpMsg);
+        // Help message for unrecognized inputs (Flex Message)
+        const helpFlex = {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'md',
+            contents: [
+              {
+                type: 'text',
+                text: 'รูปแบบไม่ถูกต้อง ⚠️',
+                weight: 'bold',
+                size: 'lg',
+                color: '#d97706'
+              },
+              {
+                type: 'text',
+                text: 'กรุณาพิมพ์ข้อมูลในรูปแบบที่กำหนดเพื่อลงทะเบียน',
+                wrap: true,
+                size: 'sm'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#fffbeb',
+                paddingAll: 'md',
+                cornerRadius: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'เลขห้อง-เบอร์โทรศัพท์',
+                    weight: 'bold',
+                    size: 'sm',
+                    align: 'center',
+                    color: '#92400e'
+                  },
+                  {
+                    type: 'text',
+                    text: '(ตัวอย่าง: 101-0812345678)',
+                    size: 'xs',
+                    align: 'center',
+                    color: '#78350f',
+                    margin: 'xs'
+                  }
+                ]
+              }
+            ]
+          }
+        };
+        await replyFlex(replyToken, config.access_token, 'วิธีการลงทะเบียน', helpFlex);
       }
     } 
     else if (event.message.type === 'image') {
@@ -169,6 +322,26 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
   if (type === 'postback') {
     // Logic will be added in Phase 6
   }
+}
+
+async function replyFlex(replyToken: string, accessToken: string, altText: string, flexContents: any) {
+  const url = 'https://api.line.me/v2/bot/message/reply';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ 
+        type: 'flex', 
+        altText: altText,
+        contents: flexContents 
+      }]
+    })
+  });
+  return res.json();
 }
 
 async function replyText(replyToken: string, accessToken: string, text: string) {
