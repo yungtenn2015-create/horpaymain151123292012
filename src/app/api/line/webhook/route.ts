@@ -303,7 +303,7 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
                   text: 'ไม่พบหมายเลขห้อง ⚠️',
                   weight: 'bold',
                   size: 'lg',
-                  color: '#ef4444'
+                  color: '#d97706'
                 },
                 {
                   type: 'text',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import {
@@ -28,7 +28,7 @@ interface Room {
     deleted_at: string | null;
 }
 
-export default function ManageRoomsPage() {
+function RoomsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const roomIdParam = searchParams.get('roomId')
@@ -856,5 +856,17 @@ export default function ManageRoomsPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function ManageRoomsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+            </div>
+        }>
+            <RoomsContent />
+        </Suspense>
     )
 }

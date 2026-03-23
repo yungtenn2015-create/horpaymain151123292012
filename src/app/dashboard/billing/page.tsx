@@ -292,7 +292,7 @@ function BillingContent() {
             const { error } = await supabase
                 .from('bills')
                 .update({
-                    status: 'waiting_verify',
+                    status: 'unpaid',
                     paid_at: null
                 })
                 .eq('id', item.billId)
@@ -327,21 +327,19 @@ function BillingContent() {
                     utility_amount: item.water + item.electricity,
                     other_amount: item.others,
                     total_amount: total,
-                    due_date: format(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), dueDay), `yyyy-MM-${String(dueDay).padStart(2, '0')}`),
-                    status: 'waiting_verify'
+                    due_date: format(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, dueDay), `yyyy-MM-${String(dueDay).padStart(2, '0')}`),
+                    status: 'unpaid'
                 })
                 .select()
                 .single()
 
             if (billError) {
-                // Handle duplicate key error specially
                 if (billError.code === '23505') {
                     throw new Error('ไม่สามารถออกบิลซ้ำได้: ผู้เช่าคนนี้มีบิลในห้องนี้/เดือนนี้อยู่แล้ว หากต้องการออกใหม่กรุณาลบบิลเดิมออกก่อน')
                 }
                 throw billError
             }
 
-            // 2. Call LINE Notification API if tenant has LINE linked
             // 2. Call LINE Notification API if tenant has LINE linked AND toggle is ON
             const shouldSendLine = item.lineUserId && sendToLineMap[item.roomId]
             if (shouldSendLine) {
@@ -352,7 +350,6 @@ function BillingContent() {
                 })
             }
 
-            // 3. Refresh
             await fetchData()
         } catch (err: any) {
             alert(err.message || 'เกิดข้อผิดพลาดในการออกบิล')
@@ -854,11 +851,11 @@ function BillingContent() {
                                                                 </button>
                                                             ) : isIssued ? (
                                                                 <>
-                                                                    {item.status === 'waiting_verify' && (
+                                                                    {(item.status === 'waiting_verify' || item.status === 'issued') && (
                                                                         <button
                                                                             onClick={() => handleVerifyPayment(item)}
                                                                             disabled={!!verifying}
-                                                                            className="flex-1 h-10 bg-blue-600 text-white rounded-xl font-black text-[12px] flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                                                                            className={`flex-1 h-10 ${item.status === 'waiting_verify' ? 'bg-blue-600' : 'bg-emerald-600'} text-white rounded-xl font-black text-[12px] flex items-center justify-center gap-2 shadow-lg shadow-blue-100`}
                                                                         >
                                                                             {verifying === item.roomId ? (
                                                                                 <ArrowPathIcon className="w-4 h-4 animate-spin" />
@@ -918,10 +915,9 @@ function BillingContent() {
                                                                 <>
                                                                     <button
                                                                         onClick={() => handlePreviewBill(item)}
-                                                                        className="w-12 h-12 bg-white border border-gray-200 text-gray-500 rounded-[1.2rem] flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
-                                                                        title="ดูตัวอย่างบิล"
+                                                                        className="h-12 px-5 bg-white border border-gray-200 text-gray-600 rounded-[1.2rem] flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95 shadow-sm font-black text-xs whitespace-nowrap"
                                                                     >
-                                                                        <EyeIcon className="w-5 h-5" />
+                                                                        ตัวอย่างบิล
                                                                     </button>
                                                                     <button
                                                                         onClick={() => handleIssueBill(item)}

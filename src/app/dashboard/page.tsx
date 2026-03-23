@@ -13,6 +13,7 @@ import {
     PlusIcon,
     Cog6ToothIcon,
     DocumentPlusIcon,
+    ExclamationTriangleIcon,
     BanknotesIcon,
     UsersIcon,
     UserIcon,
@@ -82,6 +83,7 @@ export default function DashboardPage() {
     const [pendingRoomIds, setPendingRoomIds] = useState<Set<string>>(new Set())
     const [waitingVerifyRoomIds, setWaitingVerifyRoomIds] = useState<Set<string>>(new Set())
     const [unpaidRoomIds, setUnpaidRoomIds] = useState<Set<string>>(new Set())
+    const [overdueRoomIds, setOverdueRoomIds] = useState<Set<string>>(new Set())
     const [stats, setStats] = useState({
         total: 0,
         occupied: 0,
@@ -126,7 +128,8 @@ export default function DashboardPage() {
         billStatusCounts: {
             paid: 0,
             waiting_verify: 0,
-            unpaid: 0
+            unpaid: 0,
+            overdue: 0
         },
         historicalRevenue: [] as { month: string, amount: number }[]
     })
@@ -320,6 +323,7 @@ export default function DashboardPage() {
                 .from('bills')
                 .select('*, utilities(*)')
                 .in('room_id', activeRooms.map(r => r.id))
+                .neq('status', 'cancelled')
                 .gte('billing_month', dateStr);
 
             if (billsErr) throw billsErr;
@@ -339,30 +343,47 @@ export default function DashboardPage() {
             let waterAmt = 0;
             let electric = 0;
             let electricAmt = 0;
-            let counts = { paid: 0, waiting_verify: 0, unpaid: 0 };
+            let counts = { paid: 0, waiting_verify: 0, unpaid: 0, overdue: 0 };
             const pendingIdsSet = new Set<string>();
             const waitingVerifyIdsSet = new Set<string>();
             const unpaidIdsSet = new Set<string>();
+            const overdueIdsSet = new Set<string>();
             
             // Map to track the "Best" status for each room this month
-            // Priority: paid > waiting_verify > unpaid
+            // Priority: paid > waiting_verify > overdue > unpaid
             const roomBestStatus = new Map<string, string>();
 
             monthBills?.forEach(b => {
                 const totalAmt = Number(b.total_amount) || 0;
                 const s = String(b.status || '').toLowerCase().trim();
+                let dueDate = b.due_date ? new Date(b.due_date) : null;
+                
+                // Hot-fix for March 2026: The system accidentally set due_date to 2026-03-05
+                // but it should be 2026-04-05 based on the dorm's policy (next month's 5th).
+                if (b.billing_month === '2026-03-01' && b.due_date === '2026-03-05') {
+                    dueDate = new Date('2026-04-05');
+                }
+
+                const isOverdue = dueDate && dueDate < now && s !== 'paid' && s !== 'waiting_verify';
+                
                 const currentBest = roomBestStatus.get(b.room_id);
 
                 if (s === 'paid') {
                     roomBestStatus.set(b.room_id, 'paid');
                     collected += totalAmt;
-                } else if (s === 'pending' || s === 'waiting_verify') {
+                } else if (s === 'waiting_verify') {
                     if (currentBest !== 'paid') {
                         roomBestStatus.set(b.room_id, 'waiting_verify');
                     }
                     pending += totalAmt;
-                } else {
+                } else if (isOverdue || s === 'overdue') {
                     if (currentBest !== 'paid' && currentBest !== 'waiting_verify') {
+                        roomBestStatus.set(b.room_id, 'overdue');
+                    }
+                    pending += totalAmt;
+                } else {
+                    // Just Issued / Unpaid
+                    if (currentBest !== 'paid' && currentBest !== 'waiting_verify' && currentBest !== 'overdue') {
                         roomBestStatus.set(b.room_id, 'unpaid');
                     }
                     pending += totalAmt;
@@ -384,6 +405,10 @@ export default function DashboardPage() {
                     counts.waiting_verify++;
                     pendingIdsSet.add(roomId);
                     waitingVerifyIdsSet.add(roomId);
+                } else if (status === 'overdue') {
+                    counts.overdue++;
+                    pendingIdsSet.add(roomId);
+                    overdueIdsSet.add(roomId);
                 } else {
                     counts.unpaid++;
                     pendingIdsSet.add(roomId);
@@ -395,6 +420,7 @@ export default function DashboardPage() {
             setPendingRoomIds(pendingIdsSet);
             setWaitingVerifyRoomIds(waitingVerifyIdsSet);
             setUnpaidRoomIds(unpaidIdsSet);
+            setOverdueRoomIds(overdueIdsSet);
 
             setStats({
                 total: activeRooms.length,
@@ -818,9 +844,13 @@ export default function DashboardPage() {
                                                         <div className="h-8 px-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
                                                             <span className="text-[10px] font-black uppercase text-blue-600">รอตรวจสอบ</span>
                                                         </div>
+                                                    ) : overdueRoomIds.has(room.id) ? (
+                                                        <div className="h-8 px-3 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center">
+                                                            <span className="text-[10px] font-black uppercase text-red-700">เกินกำหนด</span>
+                                                        </div>
                                                     ) : (
-                                                        <div className="h-8 px-3 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
-                                                            <span className="text-[10px] font-black uppercase text-red-600">ค้างชำระ</span>
+                                                        <div className="h-8 px-3 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                                                            <span className="text-[10px] font-black uppercase text-orange-600">ยังไม่จ่าย</span>
                                                         </div>
                                                     )}
                                                     <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-red-600 transition-colors" />
@@ -994,13 +1024,28 @@ export default function DashboardPage() {
                                             className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                                <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
                                                     <BellIcon className="w-4 h-4" />
                                                 </div>
-                                                <span className="text-sm font-bold text-gray-700 group-hover:text-red-600 transition-colors">ค้างชำระ</span>
+                                                <span className="text-sm font-bold text-gray-700 group-hover:text-orange-600 transition-colors">ยังไม่จ่าย</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm font-black text-red-600">{overviewData.billStatusCounts.unpaid} ห้อง</span>
+                                                <span className="text-sm font-black text-orange-600">{overviewData.billStatusCounts.unpaid} ห้อง</span>
+                                                <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-orange-400 transition-colors" />
+                                            </div>
+                                        </div>
+                                        <div 
+                                            onClick={() => router.push('/dashboard/billing')}
+                                            className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                                    <ExclamationTriangleIcon className="w-4 h-4" />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-700 group-hover:text-red-600 transition-colors">เกินกำหนด</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black text-red-600">{(overviewData.billStatusCounts as any).overdue || 0} ห้อง</span>
                                                 <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-red-400 transition-colors" />
                                             </div>
                                         </div>
