@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     // 1. Calculate "Yesterday"
     const yesterday = subDays(new Date(), 1);
     const dateStr = format(yesterday, 'yyyy-MM-dd');
-    
+
     console.log('Checking for overdue bills with due_date:', dateStr);
 
     // 2. Fetch Unpaid Bills due yesterday
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       }
 
       // Fetch Dorm & settings for each (or group by dorm_id to optimize)
-      const [ { data: dorm }, { data: settings }, { data: dormConfig } ] = await Promise.all([
+      const [{ data: dorm }, { data: settings }, { data: dormConfig }] = await Promise.all([
         supabaseAdmin.from('dorms').select('name, contact_number').eq('id', bill.rooms.dorm_id).single(),
         supabaseAdmin.from('dorm_settings').select('*').eq('dorm_id', bill.rooms.dorm_id).maybeSingle(),
         supabaseAdmin.from('line_oa_configs').select('*').eq('dorm_id', bill.rooms.dorm_id).maybeSingle()
@@ -84,20 +84,20 @@ export async function GET(req: Request) {
 
       // Log notification
       await supabaseAdmin.from('line_notification_logs').insert({
-          dorm_id: bill.rooms.dorm_id,
-          receiver_id: bill.tenants.line_user_id,
-          message_type: 'overdue_flex',
-          status: response.ok ? 'sent' : 'failed',
-          error_message: response.ok ? null : JSON.stringify(lineResult)
+        dorm_id: bill.rooms.dorm_id,
+        receiver_id: bill.tenants.line_user_id,
+        message_type: 'overdue_flex',
+        status: response.ok ? 'sent' : 'failed',
+        error_message: response.ok ? null : JSON.stringify(lineResult)
       });
 
       results.push({ billId: bill.id, status: response.ok ? 'sent' : 'failed', lineResult });
     }
 
-    return NextResponse.json({ 
-      message: `Processed ${overdueBills.length} bills`, 
+    return NextResponse.json({
+      message: `Processed ${overdueBills.length} bills`,
       date: dateStr,
-      results 
+      results
     });
 
   } catch (error: any) {
@@ -117,16 +117,16 @@ function createOverdueFlexMessage(bill: any, dorm: any, bankSettings: any) {
 
   const roomNumber = bill.rooms?.room_number || '-';
 
-  const billingMonth = bill.billing_month ? 
-    new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : 
+  const billingMonth = bill.billing_month ?
+    new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) :
     '-';
 
-  const dormLabel = dorm?.contact_number ? 
-    `${dormName} (โทร: ${dorm?.contact_number})` : 
+  const dormLabel = dorm?.contact_number ?
+    `${dormName} (โทร: ${dorm?.contact_number})` :
     dormName;
 
-  const dueDate = bill.due_date ? 
-    new Date(bill.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) : 
+  const dueDate = bill.due_date ?
+    new Date(bill.due_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) :
     '-';
 
   return {
@@ -164,7 +164,7 @@ function createOverdueFlexMessage(bill: any, dorm: any, bankSettings: any) {
         contents: [
           {
             type: "text",
-            text: "บิลค่าห้องของคุณเกินกำหนดชำระแล้ว กรุณาชำระเงินโดยเร็วที่สุดค่ะ",
+            text: "บิลค่าห้องของคุณเกินกำหนดชำระแล้วค่ะ",
             color: "#92400E",
             weight: "bold",
             size: "sm",
