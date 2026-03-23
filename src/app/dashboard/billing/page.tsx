@@ -15,8 +15,11 @@ import {
     PrinterIcon,
     ShareIcon,
     Squares2X2Icon,
-    ChatBubbleLeftRightIcon
+    ChatBubbleLeftRightIcon,
+    XMarkIcon,
+    EyeIcon
 } from '@heroicons/react/24/outline'
+import ReceiptView from '@/src/components/ReceiptView'
 
 interface Room {
     id: string;
@@ -51,6 +54,9 @@ function BillingContent() {
     const [filterFloor, setFilterFloor] = useState<number | 'all'>('all')
     const [filterLineStatus, setFilterLineStatus] = useState<'all' | 'linked' | 'unlinked'>('all')
     const [filterWorkingStatus, setFilterWorkingStatus] = useState<'all' | 'pending_meter' | 'ready' | 'issued'>('all')
+    const [dormSettings, setDormSettings] = useState<any>(null)
+    const [showPreview, setShowPreview] = useState(false)
+    const [previewData, setPreviewData] = useState<any>(null)
 
     const thaiMonths = [
         'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -100,14 +106,15 @@ function BillingContent() {
             const dorm = dorms[0]
             setDormName(dorm.name)
 
-            // 1.1 Get Dorm Settings for Due Day
+            // 1.1 Get Dorm Settings
             const { data: settingsData } = await supabase
                 .from('dorm_settings')
-                .select('billing_due_day')
+                .select('*')
                 .eq('dorm_id', dorm.id)
                 .single()
 
             if (settingsData) {
+                setDormSettings(settingsData)
                 setDueDay(settingsData.billing_due_day || 5)
             }
 
@@ -143,6 +150,7 @@ function BillingContent() {
                     .select('*')
                     .in('room_id', roomIds)
                     .eq('billing_month', monthStart)
+                    .neq('status', 'cancelled')
 
                 // 5. Get Lease Contracts for Rent Price
                 // Better to fetch only active contracts for these rooms
@@ -181,10 +189,14 @@ function BillingContent() {
                         tenantName: activeTenant?.name,
                         lineUserId: activeTenant?.line_user_id,
                         rent: isIssued ? (bill.room_amount || 0) : (contract?.rent_price || room.base_price),
-                        water: isIssued ? (bill.water_amount || 0) : (utils?.water_price || 0),
-                        electricity: isIssued ? (bill.electric_amount || 0) : (utils?.electric_price || 0),
+                        electricity: utils?.electric_price || 0,
+                        water: utils?.water_price || 0,
                         electricityUnit: utils?.electric_unit || 0,
                         waterUnit: utils?.water_unit || 0,
+                        electricityPrev: utils?.prev_electric_meter || 0,
+                        electricityCurr: utils?.curr_electric_meter || 0,
+                        waterPrev: utils?.prev_water_meter || 0,
+                        waterCurr: utils?.curr_water_meter || 0,
                         others: isIssued ? (bill.other_amount || 0) : 0,
                         utilityId: utils?.id,
                         billId: bill?.id,
@@ -367,13 +379,15 @@ function BillingContent() {
         try {
             const { error } = await supabase
                 .from('bills')
-                .delete()
+                .update({
+                    status: 'cancelled'
+                })
                 .eq('id', item.billId)
 
             if (error) throw error
             await fetchData()
         } catch (err: any) {
-            alert(err.message || 'เกิดข้อผิดพลาดในการลบบิล')
+            alert(err.message || 'เกิดข้อผิดพลาดในการยกเลิกบิล')
         } finally {
             setDeleting(null)
         }
@@ -399,6 +413,70 @@ function BillingContent() {
         } finally {
             setResending(null)
         }
+    }
+
+    const handlePreviewBill = (item: any) => {
+        // Format data to match ReceiptView expectation
+        const billingMonthDate = selectedDate
+        const formattedMonth = thaiMonths[billingMonthDate.getMonth()] + ' ' + (billingMonthDate.getFullYear() + 543)
+        const formattedDate = format(new Date(), 'd MMMM yyyy')
+        
+        // Due Date
+        const due = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), dueDay)
+        const formattedDueDate = `${due.getDate()} ${thaiMonths[due.getMonth()]} ${due.getFullYear() + 543}`
+
+        const waterRate = dormSettings?.water_rate_per_unit || 0
+        const electricRate = dormSettings?.electric_rate_per_unit || 0
+        const waterBillingType = dormSettings?.water_billing_type || 'per_unit'
+        const waterFlatRate = dormSettings?.water_flat_rate || 0
+
+        // Calculate dynamic amounts if they are 0 (indicates not yet saved in DB)
+        const waterAmt = item.water > 0 ? item.water : (waterBillingType === 'flat' ? waterFlatRate : (item.waterUnit * waterRate))
+        const electricAmt = item.electricity > 0 ? item.electricity : (item.electricityUnit * electricRate)
+
+        const itemsArr: any[] = [
+            { name: 'ค่าเช่าห้องพัก', amount: Number(item.rent || 0) }
+        ]
+
+        if (waterAmt > 0 || item.waterUnit > 0) {
+            itemsArr.push({
+                name: 'ค่าน้ำประปา',
+                amount: Number(waterAmt || 0),
+                detail: waterBillingType === 'flat' ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${item.waterPrev || 0} → ${item.waterCurr || 0} หน่วย`
+            })
+        }
+        
+        if (electricAmt > 0 || item.electricityUnit > 0) {
+            itemsArr.push({
+                name: 'ค่าไฟฟ้า',
+                amount: Number(electricAmt || 0),
+                detail: `มิเตอร์: ${item.electricityPrev || 0} → ${item.electricityCurr || 0} หน่วย`
+            })
+        }
+
+        if (item.others > 0) {
+            itemsArr.push({ name: 'ค่าใช้จ่ายอื่นๆ', amount: Number(item.others) })
+        }
+
+        const data = {
+            receiptId: `PREVIEW-${item.roomNumber}`,
+            date: formattedDate,
+            month: formattedMonth,
+            dueDate: formattedDueDate,
+            dormName: dormName,
+            address: dormSettings?.address || '-',
+            dormPhone: dormSettings?.contact_number || '-',
+            roomNumber: item.roomNumber,
+            tenantName: item.tenantName || 'ไม่ระบุชื่อ',
+            bankName: dormSettings?.bank_name || '-',
+            bankNo: dormSettings?.bank_account_no || '-',
+            bankAccount: dormSettings?.bank_account_name || dormName,
+            items: itemsArr,
+            total: item.rent + waterAmt + electricAmt + item.others
+        }
+
+        setPreviewData(data)
+        setShowPreview(true)
     }
 
     const handleIssueAll = async () => {
@@ -837,18 +915,27 @@ function BillingContent() {
                                                                     </button>
                                                                 </>
                                                             ) : (
-                                                                <button
-                                                                    onClick={() => handleIssueBill(item)}
-                                                                    disabled={!!issuing}
-                                                                    className="flex-1 h-12 bg-emerald-500 text-white rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 disabled:opacity-50"
-                                                                >
-                                                                    {issuing === item.roomId ? (
-                                                                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                                                                    ) : (
-                                                                        <BanknotesIcon className="w-4 h-4" />
-                                                                    )}
-                                                                    กดออกบิลห้องนี้
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handlePreviewBill(item)}
+                                                                        className="w-12 h-12 bg-white border border-gray-200 text-gray-500 rounded-[1.2rem] flex items-center justify-center hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                                                                        title="ดูตัวอย่างบิล"
+                                                                    >
+                                                                        <EyeIcon className="w-5 h-5" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleIssueBill(item)}
+                                                                        disabled={!!issuing}
+                                                                        className="flex-1 h-12 bg-emerald-500 text-white rounded-[1.2rem] font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-95 disabled:opacity-50"
+                                                                    >
+                                                                        {issuing === item.roomId ? (
+                                                                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                                                        ) : (
+                                                                            <BanknotesIcon className="w-4 h-4" />
+                                                                        )}
+                                                                        กดออกบิลห้องนี้
+                                                                    </button>
+                                                                </>
                                                             )}
                                                         </div>
                                                     </div>
@@ -891,7 +978,7 @@ function BillingContent() {
                                 </div>
                                 <h3 className="text-xl font-black text-gray-900 mb-2 font-noto">ยกเลิกบิลห้อง {confirmDelete.roomNumber}?</h3>
                                 <p className="text-sm font-bold text-gray-400 px-4 font-noto">
-                                    รายการนี้จะถูกลบออก แต่คุณสามารถกดออกบิลใหม่ได้
+                                    บิลใบนี้จะถูกยกเลิก และเปลี่ยนสถานะเป็น "ยกเลิกแล้ว" คุณสามารถออกบิลใหม่ได้ทันที
                                 </p>
                             </div>
                             <div className="p-6 bg-gray-50 flex gap-3">
@@ -1012,6 +1099,55 @@ function BillingContent() {
                                 >
                                     ยืนยันออกบิล
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── PREVIEW MODAL ── */}
+                {showPreview && previewData && (
+                    <div className="fixed inset-0 z-[120] flex flex-col md:py-10">
+                        <div 
+                            className="absolute inset-0 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300" 
+                            onClick={() => setShowPreview(false)}
+                        />
+                        
+                        {/* Close button for mobile (sticky) */}
+                        <div className="relative z-10 flex justify-end p-4 md:hidden">
+                            <button 
+                                onClick={() => setShowPreview(false)}
+                                className="w-10 h-10 bg-white/20 backdrop-blur-lg rounded-full flex items-center justify-center text-white"
+                            >
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-10">
+                            <div className="max-w-xl mx-auto relative">
+                                {/* Close button for desktop */}
+                                <button 
+                                    onClick={() => setShowPreview(false)}
+                                    className="hidden md:flex absolute -right-16 top-0 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-lg rounded-2xl items-center justify-center text-white transition-all"
+                                >
+                                    <XMarkIcon className="w-8 h-8" />
+                                </button>
+                                
+                                <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-black/50 overflow-hidden transform animate-in slide-in-from-bottom-10 duration-500">
+                                    <div className="bg-amber-500 py-3 px-6 text-center">
+                                        <p className="text-white text-xs font-black uppercase tracking-[0.2em]">
+                                            ตัวอย่างบิล (ยังไม่ได้บันทึก)
+                                        </p>
+                                    </div>
+                                    <ReceiptView data={previewData} />
+                                    <div className="p-6 bg-gray-50 text-center flex justify-center">
+                                        <button 
+                                            onClick={() => setShowPreview(false)}
+                                            className="px-10 py-4 bg-gray-900 text-white rounded-2xl font-black shadow-xl active:scale-95 transition-all"
+                                        >
+                                            ปิดหน้าต่าง
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

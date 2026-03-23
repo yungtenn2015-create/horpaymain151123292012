@@ -257,10 +257,66 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
               await replyFlex(replyToken, config.access_token, 'ลงทะเบียนสำเร็จ', successFlex);
             }
           } else {
-            await replyText(replyToken, config.access_token, `ไม่พบข้อมูลที่ตรงกับห้อง ${roomNum} และเบอร์โทรที่ระบุ กรุณาตรวจสอบเบอร์โทรศัพท์ที่ให้ไว้กับทางหอพักอีกครั้งครับ`);
+            const mismatchFlex = {
+              type: 'bubble',
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'ข้อมูลไม่ถูกต้อง ⚠️',
+                    weight: 'bold',
+                    size: 'lg',
+                    color: '#d97706'
+                  },
+                  {
+                    type: 'text',
+                    text: `ไม่พบข้อมูลที่ตรงกับห้อง ${roomNum} และเบอร์โทรที่ระบุค่ะ`,
+                    wrap: true,
+                    size: 'sm',
+                    margin: 'md',
+                    weight: 'bold'
+                  },
+                  {
+                    type: 'text',
+                    text: 'กรุณาตรวจสอบเบอร์โทรศัพท์ที่ให้ไว้กับทางหอพัก หรือติดต่อเจ้าหน้าที่เพื่อแก้ไขข้อมูลนะคะ',
+                    wrap: true,
+                    size: 'sm',
+                    margin: 'xs',
+                    color: '#6b7280'
+                  }
+                ]
+              }
+            };
+            await replyFlex(replyToken, config.access_token, 'ข้อมูลไม่ถูกต้อง', mismatchFlex);
           }
         } else {
-          await replyText(replyToken, config.access_token, `ไม่พบหมายเลขห้อง ${roomNum} ในระบบของเราครับ`);
+          const roomNotFoundFlex = {
+            type: 'bubble',
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: 'ไม่พบหมายเลขห้อง ⚠️',
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#ef4444'
+                },
+                {
+                  type: 'text',
+                  text: `ไม่พบหมายเลขห้อง ${roomNum} ในระบบของเราค่ะ กรุณาลองตรวจสอบหมายเลขห้องอีกครั้ง`,
+                  wrap: true,
+                  size: 'sm',
+                  margin: 'md',
+                  color: '#4b5563'
+                }
+              ]
+            }
+          };
+          await replyFlex(replyToken, config.access_token, 'ไม่พบหมายเลขห้อง', roomNotFoundFlex);
         }
       }
       else if (text.toLowerCase() === 'id') {

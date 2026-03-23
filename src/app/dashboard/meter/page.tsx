@@ -341,15 +341,20 @@ function MeterReadingContent() {
                 const currWaterVal = (utilityFilter === 'all' || utilityFilter === 'water') ? parseInt(inf.currWater) : pWaterNum
                 const currElecVal = (utilityFilter === 'all' || utilityFilter === 'electric') ? parseInt(inf.currElectric) : pElecNum
                 
+                const currentElectricPrice = (currElecVal - pElecNum) * electricRate
+                const currentWaterPrice = waterBillingType === 'flat_rate' ? waterFlatRate : (currWaterVal - pWaterNum) * waterRate
+
                 return {
                     room_id: r.id,
                     meter_date: `${selectedMonth}-01`, // Default to 1st of the month
                     prev_electric_meter: pElecNum,
                     curr_electric_meter: currElecVal,
                     electric_unit: currElecVal - pElecNum,
+                    electric_price: currentElectricPrice,
                     prev_water_meter: pWaterNum,
                     curr_water_meter: currWaterVal,
-                    water_unit: currWaterVal - pWaterNum
+                    water_unit: currWaterVal - pWaterNum,
+                    water_price: currentWaterPrice
                 }
             })
 

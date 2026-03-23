@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import {
     ArrowLeftIcon,
@@ -30,6 +30,8 @@ interface Room {
 
 export default function ManageRoomsPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const roomIdParam = searchParams.get('roomId')
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [rooms, setRooms] = useState<Room[]>([])
@@ -110,6 +112,18 @@ export default function ManageRoomsPage() {
             setLoading(false)
         }
     }
+
+    useEffect(() => {
+        if (!loading && roomIdParam && rooms.length > 0) {
+            const room = rooms.find(r => r.id === roomIdParam)
+            if (room && room.status === 'occupied') {
+                openMoveModal(room)
+                // Remove the param from URL without refreshing to keep it clean
+                const newPath = window.location.pathname
+                window.history.replaceState(null, '', newPath)
+            }
+        }
+    }, [loading, roomIdParam, rooms])
 
     const handleEdit = (room: Room) => {
         setEditingRoomId(room.id)
@@ -521,15 +535,6 @@ export default function ManageRoomsPage() {
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                {room.status === 'occupied' && (
-                                                                    <button 
-                                                                        onClick={() => openMoveModal(room)}
-                                                                        className="w-10 h-10 bg-gray-50 hover:bg-green-50 text-gray-400 hover:text-green-600 rounded-xl transition-all flex items-center justify-center border border-transparent hover:border-green-100"
-                                                                        title="ย้ายห้อง"
-                                                                    >
-                                                                        <ArrowsRightLeftIcon className="w-5 h-5" />
-                                                                    </button>
-                                                                )}
                                                                 <button 
                                                                     onClick={() => handleEdit(room)}
                                                                     className="w-10 h-10 bg-gray-50 hover:bg-green-50 text-gray-400 hover:text-green-600 rounded-xl transition-all flex items-center justify-center border border-transparent hover:border-green-100"

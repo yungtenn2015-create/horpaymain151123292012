@@ -17,7 +17,10 @@ import {
     UserIcon,
     ExclamationTriangleIcon,
     PencilSquareIcon,
-    BanknotesIcon
+    BanknotesIcon,
+    ArrowRightOnRectangleIcon,
+    ArrowsRightLeftIcon,
+    ClockIcon
 } from '@heroicons/react/24/outline'
 
 interface Tenant {
@@ -41,6 +44,7 @@ interface Tenant {
         start_date: string;
         end_date: string | null;
     }[];
+    planned_move_out_date?: string | null;
 }
 
 export default function TenantsPage() {
@@ -51,6 +55,11 @@ export default function TenantsPage() {
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [copyToast, setCopyToast] = useState(false)
+    const [showMoveOutModal, setShowMoveOutModal] = useState(false)
+    const [isMovingOut, setIsMovingOut] = useState(false)
+    const [showNoticeModal, setShowNoticeModal] = useState(false)
+    const [noticeDate, setNoticeDate] = useState('')
+    const [isSubmittingNotice, setIsSubmittingNotice] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -59,7 +68,7 @@ export default function TenantsPage() {
     const fetchData = async () => {
         setLoading(true)
         const supabase = createClient()
-        
+
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) {
@@ -96,6 +105,93 @@ export default function TenantsPage() {
         }
     }
 
+    const handleMoveOut = async () => {
+        if (!selectedTenant || isMovingOut) return
+        setIsMovingOut(true)
+        const supabase = createClient()
+
+        try {
+            // 1. Update Tenant status to 'inactive'
+            const { error: tError } = await supabase
+                .from('tenants')
+                .update({ status: 'inactive' })
+                .eq('id', selectedTenant.id)
+            if (tError) throw tError
+
+            // 2. Update Room status to 'available'
+            const { error: rError } = await supabase
+                .from('rooms')
+                .update({ status: 'available' })
+                .eq('id', selectedTenant.room_id)
+            if (rError) throw rError
+
+            // 3. Update Lease Contract to 'closed' and set end_date
+            const { error: lError } = await supabase
+                .from('lease_contracts')
+                .update({
+                    status: 'closed',
+                    end_date: new Date().toISOString()
+                })
+                .eq('tenant_id', selectedTenant.id)
+                .eq('status', 'active')
+            if (lError) throw lError
+
+            setShowMoveOutModal(false)
+            setSelectedTenant(null)
+            fetchData()
+        } catch (err: any) {
+            setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการแจ้งย้ายออก')
+        } finally {
+            setIsMovingOut(false)
+        }
+    }
+
+    const handleSetNotice = async () => {
+        if (!selectedTenant || !noticeDate || isSubmittingNotice) return
+        setIsSubmittingNotice(true)
+        const supabase = createClient()
+
+        try {
+            const { error } = await supabase
+                .from('tenants')
+                .update({ planned_move_out_date: noticeDate })
+                .eq('id', selectedTenant.id)
+
+            if (error) throw error
+
+            setShowNoticeModal(false)
+            setNoticeDate('')
+            setSelectedTenant(null)
+            fetchData()
+        } catch (err: any) {
+            setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+        } finally {
+            setIsSubmittingNotice(false)
+        }
+    }
+
+    const handleCancelNotice = async () => {
+        if (!selectedTenant || isSubmittingNotice) return
+        setIsSubmittingNotice(true)
+        const supabase = createClient()
+
+        try {
+            const { error } = await supabase
+                .from('tenants')
+                .update({ planned_move_out_date: null })
+                .eq('id', selectedTenant.id)
+
+            if (error) throw error
+
+            setSelectedTenant(null)
+            fetchData()
+        } catch (err: any) {
+            setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+        } finally {
+            setIsSubmittingNotice(false)
+        }
+    }
+
     const handleCopyPhone = (phone: string) => {
         if (!phone) return
         navigator.clipboard.writeText(phone)
@@ -124,13 +220,13 @@ export default function TenantsPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
             <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
-                
+
                 {/* ── Fixed Header ── */}
                 <div className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
                     <div className="px-6 py-4 sm:py-6">
                         <div className="flex items-center justify-between mb-4 sm:mb-6">
                             <div className="flex items-center gap-3">
-                                <button 
+                                <button
                                     onClick={() => router.push('/dashboard')}
                                     className="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 transition-all active:scale-95"
                                 >
@@ -160,7 +256,7 @@ export default function TenantsPage() {
                                 className="block w-full pl-12 pr-12 py-4 bg-gray-50 border-2 border-transparent focus:bg-white focus:border-blue-500 rounded-2xl transition-all font-bold text-sm outline-none shadow-sm hover:bg-gray-100/50"
                             />
                             {searchQuery && (
-                                <button 
+                                <button
                                     onClick={() => setSearchQuery('')}
                                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
                                 >
@@ -182,7 +278,7 @@ export default function TenantsPage() {
 
                     {filteredTenants.length > 0 ? (
                         filteredTenants.map((tenant) => (
-                            <button 
+                            <button
                                 key={tenant.id}
                                 onClick={() => setSelectedTenant(tenant)}
                                 className="bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50 flex items-center justify-between group hover:border-blue-100 hover:shadow-xl hover:shadow-blue-50/50 transition-all duration-300 w-full text-left"
@@ -233,12 +329,12 @@ export default function TenantsPage() {
                 {selectedTenant && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedTenant(null)} />
-                        
+
                         <div className="relative w-full sm:max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[800px] animate-in slide-in-from-bottom duration-500">
                             {/* Modal Header */}
                             <div className="bg-gradient-to-br from-blue-500 to-blue-600 px-8 pt-10 pb-12 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                                <button 
+                                <button
                                     onClick={() => setSelectedTenant(null)}
                                     className="absolute top-4 right-4 w-12 h-12 sm:w-14 sm:h-14 bg-white/10 hover:bg-white/20 active:scale-95 rounded-2xl flex items-center justify-center text-white transition-all z-20"
                                 >
@@ -254,14 +350,16 @@ export default function TenantsPage() {
                                         <h2 className="text-2xl font-black text-white leading-tight">{selectedTenant.name}</h2>
                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500 text-white rounded-full text-[10px] font-black uppercase mt-2 shadow-lg shadow-blue-500/20">
                                             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                                            กำลังเข้าพัก
+                                            {selectedTenant.planned_move_out_date
+                                                ? `รอย้ายออก (${new Date(selectedTenant.planned_move_out_date).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })})`
+                                                : 'กำลังเข้าพัก'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 bg-white -mt-6 rounded-t-[2.5rem] relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)]">
+                            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 bg-white rounded-t-[2.5rem] relative z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.05)]">
                                 {/* Basic Info */}
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between group">
@@ -275,7 +373,7 @@ export default function TenantsPage() {
                                             </div>
                                         </div>
                                         {selectedTenant.phone && (
-                                            <button 
+                                            <button
                                                 onClick={() => handleCopyPhone(selectedTenant.phone!)}
                                                 className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-90"
                                             >
@@ -295,6 +393,20 @@ export default function TenantsPage() {
                                             </p>
                                         </div>
                                     </div>
+
+                                    {selectedTenant.planned_move_out_date && (
+                                        <div className="flex items-center gap-4 bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
+                                                <ClockIcon className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[11px] font-black text-amber-600 uppercase tracking-widest">กำหนดวันย้ายออก</p>
+                                                <p className="text-lg font-black text-amber-900 tracking-tight">
+                                                    {new Date(selectedTenant.planned_move_out_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Vehicle Info */}
@@ -346,18 +458,209 @@ export default function TenantsPage() {
 
                             {/* Modal Footer */}
                             <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
-                                <button 
+                                <button
                                     onClick={() => router.push(`/dashboard/tenants/edit/${selectedTenant.id}`)}
-                                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-black py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
+                                    className="flex-1 bg-white border-2 border-blue-500 text-blue-600 font-black py-3 rounded-2xl transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 hover:bg-blue-50 text-sm"
                                 >
                                     <PencilSquareIcon className="w-5 h-5" />
-                                    แก้ไขข้อมูล
+                                    แก้ไข
                                 </button>
-                                <button 
+
+                                {selectedTenant.planned_move_out_date ? (
+                                    <>
+                                        <button
+                                            onClick={handleCancelNotice}
+                                            className="flex-1 bg-white border-2 border-amber-500 text-amber-600 font-black py-3 rounded-2xl transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 hover:bg-amber-50 text-sm px-1"
+                                        >
+                                            <XMarkIcon className="w-5 h-5 shrink-0" />
+                                            <span className="truncate">ยกเลิกย้าย</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowMoveOutModal(true)}
+                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl transition-all active:scale-95 shadow-lg shadow-red-100 flex items-center justify-center gap-2 text-sm"
+                                        >
+                                            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                                            ออกจริง
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setNoticeDate(new Date().toISOString().split('T')[0])
+                                                setShowNoticeModal(true)
+                                            }}
+                                            className="flex-1 bg-white border-2 border-amber-500 text-amber-600 font-black py-3 rounded-2xl transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 hover:bg-amber-50 text-sm"
+                                        >
+                                            <ClockIcon className="w-5 h-5" />
+                                            แจ้งออก
+                                        </button>
+                                        <button
+                                            onClick={() => setShowMoveOutModal(true)}
+                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-2xl transition-all active:scale-95 shadow-lg shadow-red-100 flex items-center justify-center gap-2 text-sm"
+                                        >
+                                            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                                            ย้ายออก
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                            <div className="px-8 pb-8 bg-gray-50 flex items-center gap-3">
+                                <button
                                     onClick={() => setSelectedTenant(null)}
-                                    className="flex-[0.4] py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center"
+                                    className="flex-1 py-4 bg-gray-200 hover:bg-gray-300 text-gray-600 font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center"
                                 >
-                                    ปิด
+                                    ปิดหน้าต่าง
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Notice Move Out Modal ── */}
+                {showNoticeModal && selectedTenant && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 text-left">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowNoticeModal(false)} />
+                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="bg-amber-500 p-8 text-white relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+                                <ClockIcon className="w-12 h-12 mb-2 relative z-10" />
+                                <h3 className="text-2xl font-black tracking-tight relative z-10">แจ้งย้ายออกล่วงหน้า</h3>
+                                <p className="text-amber-50 text-[11px] font-bold relative z-10">ห้อง {selectedTenant.rooms.room_number} - {selectedTenant.name}</p>
+                            </div>
+                            <div className="p-8 space-y-6">
+                                <div className="space-y-4">
+                                    {/* Monthly Header */}
+                                    <div className="flex items-center justify-between px-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">เดือน/ปี พ.ศ.</span>
+                                            <span className="text-xl font-black text-gray-800">
+                                                {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][parseInt(noticeDate.split('-')[1]) - 1]} {parseInt(noticeDate.split('-')[0]) + 543}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const parts = noticeDate.split('-')
+                                                    let m = parseInt(parts[1]) - 1
+                                                    let y = parseInt(parts[0])
+                                                    if (m < 1) { m = 12; y-- }
+                                                    setNoticeDate(`${y}-${m.toString().padStart(2, '0')}-${parts[2]}`)
+                                                }}
+                                                className="w-10 h-10 bg-gray-50 hover:bg-amber-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-amber-600 transition-all border border-gray-100"
+                                            >
+                                                <ChevronRightIcon className="w-5 h-5 rotate-180" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const parts = noticeDate.split('-')
+                                                    let m = parseInt(parts[1]) + 1
+                                                    let y = parseInt(parts[0])
+                                                    if (m > 12) { m = 1; y++ }
+                                                    setNoticeDate(`${y}-${m.toString().padStart(2, '0')}-${parts[2]}`)
+                                                }}
+                                                className="w-10 h-10 bg-gray-50 hover:bg-amber-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-amber-600 transition-all border border-gray-100"
+                                            >
+                                                <ChevronRightIcon className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Grid of Days */}
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'].map(d => (
+                                            <div key={d} className="text-[10px] font-black text-gray-300 text-center uppercase py-2">{d}</div>
+                                        ))}
+                                        {(() => {
+                                            const parts = noticeDate.split('-')
+                                            const y = parseInt(parts[0])
+                                            const m = parseInt(parts[1])
+                                            const firstDay = new Date(y, m - 1, 1).getDay() // 0 is Sun
+                                            const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1 // Mon is 0
+                                            const daysInMonth = new Date(y, m, 0).getDate()
+
+                                            return (
+                                                <>
+                                                    {Array.from({ length: adjustedFirstDay }).map((_, i) => (
+                                                        <div key={`empty-${i}`} />
+                                                    ))}
+                                                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                                                        const d = i + 1
+                                                        const isSelected = parseInt(parts[2]) === d
+                                                        const isToday = new Date().getDate() === d && new Date().getMonth() === (m - 1) && new Date().getFullYear() === y
+
+                                                        return (
+                                                            <button
+                                                                key={d}
+                                                                onClick={() => {
+                                                                    setNoticeDate(`${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`)
+                                                                }}
+                                                                className={`w-full aspect-square rounded-xl text-sm font-black transition-all flex items-center justify-center
+                                                                    ${isSelected
+                                                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
+                                                                        : isToday
+                                                                            ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                                                                            : 'text-gray-600 hover:bg-amber-50'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {d}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </>
+                                            )
+                                        })()}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-3 pt-2">
+                                    <button
+                                        onClick={handleSetNotice}
+                                        disabled={isSubmittingNotice}
+                                        className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl shadow-lg shadow-amber-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <ClockIcon className="w-5 h-5" />
+                                        {isSubmittingNotice ? 'กำลังบันทึก...' : 'บันทึกวันที่จะย้ายออก'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowNoticeModal(false)}
+                                        className="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 font-black rounded-2xl transition-all active:scale-95"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Move Out Confirmation Modal ── */}
+                {showMoveOutModal && selectedTenant && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMoveOutModal(false)} />
+                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="p-8 text-center space-y-4">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <ArrowRightOnRectangleIcon className="w-10 h-10 text-red-500" />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-800 tracking-tight">ยืนยันการย้ายออก?</h3>
+                                <p className="text-gray-400 text-sm font-bold leading-relaxed px-4">
+                                    คุณต้องการบันทึกการย้ายออกของ <span className="text-gray-800">{selectedTenant.name}</span> (ห้อง {selectedTenant.rooms.room_number}) ใช่หรือไม่?
+                                </p>
+                            </div>
+                            <div className="p-8 bg-gray-50 flex flex-col gap-3">
+                                <button
+                                    onClick={handleMoveOut}
+                                    disabled={isMovingOut}
+                                    className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl transition-all active:scale-95 shadow-lg shadow-red-100 flex items-center justify-center"
+                                >
+                                    {isMovingOut ? 'กำลังบันทึก...' : 'ยืนยันแจ้งย้ายออก'}
+                                </button>
+                                <button
+                                    onClick={() => setShowMoveOutModal(false)}
+                                    className="w-full py-4 bg-white border-2 border-gray-100 text-gray-400 font-black rounded-2xl transition-all active:scale-95"
+                                >
+                                    ยกเลิก
                                 </button>
                             </div>
                         </div>

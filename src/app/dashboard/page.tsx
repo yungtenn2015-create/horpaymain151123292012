@@ -798,6 +798,7 @@ export default function DashboardPage() {
                                         rooms.filter(r => pendingRoomIds.has(r.id)).slice(0, 5).map((room) => (
                                             <div
                                                 key={room.id}
+                                                onClick={() => router.push('/dashboard/billing')}
                                                 className="bg-white px-5 py-4 rounded-2xl border-2 border-red-50 shadow-sm flex items-center justify-between group hover:border-red-300 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
                                             >
                                                 <div className="flex items-center gap-4">
