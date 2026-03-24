@@ -55,7 +55,7 @@ export default function DashboardLayout({
             </main>
 
             {/* Bottom Navigation */}
-            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[84px] bg-white border-t border-gray-100 flex items-center justify-around px-6 z-50 rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[92px] bg-white border-t border-gray-100 flex items-center justify-around px-6 z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)]">
                 {navItems.map((item) => {
                     const isActive = activeId === item.id
                     const Icon = isActive ? item.solidIcon : item.icon
@@ -63,12 +63,12 @@ export default function DashboardLayout({
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item.path)}
-                            className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${isActive ? 'text-green-600' : 'text-gray-400'}`}
+                            className={`flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'text-green-600' : 'text-slate-500'}`}
                         >
-                            <div className={`p-2 rounded-xl transition-all ${isActive ? 'bg-green-50' : 'bg-transparent'}`}>
-                                <Icon className="w-6 h-6" />
+                            <div className={`p-2.5 rounded-2xl transition-all ${isActive ? 'bg-green-50 shadow-sm' : 'bg-transparent'}`}>
+                                <Icon className="w-7 h-7" />
                             </div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                            <span className={`text-[12px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-90'}`}>
                                 {item.name}
                             </span>
                         </button>

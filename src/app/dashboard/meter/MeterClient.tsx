@@ -119,7 +119,10 @@ export default function MeterClient() {
 
             const { data: roomsData, error: roomsError } = await supabase
                 .from('rooms')
-                .select('*')
+                .select(`
+                    *,
+                    tenants(id, name, status)
+                `)
                 .eq('dorm_id', currentDormId)
                 .eq('status', 'occupied')
                 .is('deleted_at', null)
@@ -157,28 +160,34 @@ export default function MeterClient() {
 
                         const { data: billsData } = await supabase
                             .from('bills')
-                            .select('room_id')
+                            .select('room_id, tenant_id')
                             .in('room_id', roomIds)
                             .eq('billing_month', `${selectedMonth}-01`)
 
                         const billedMap: Record<string, boolean> = {}
-                        billsData?.forEach(b => {
-                            billedMap[b.room_id] = true
+                        roomsData.forEach((r: any) => {
+                            const activeTenant = (r.tenants as any[])?.find(t => t.status === 'active')
+                            const hasBill = billsData?.some(b => b.room_id === r.id && b.tenant_id === activeTenant?.id)
+                            if (hasBill) {
+                                billedMap[r.id] = true
+                            }
                         })
                         setRoomsWithBills(billedMap)
 
                         const latestPrev: Record<string, { water: string, electric: string, isInitial: boolean }> = {}
                         const existingInputs: Record<string, { currWater: string, currElectric: string }> = {}
 
-                        roomsData.forEach((r: Room) => {
+                        roomsData.forEach((r: any) => {
+                            const activeTenant = (r.tenants as any[])?.find(t => t.status === 'active')
                             const roomUtils = utilsData?.filter(u => u.room_id === r.id) || []
-                            const currentTargetMonth = selectedMonth
-                            const currRec = roomUtils.find((u: any) => u.meter_date.startsWith(currentTargetMonth))
+                            
+                            // Find current and previous records specifically for THIS tenant
+                            const currRec = roomUtils.find((u: any) => u.meter_date.startsWith(selectedMonth) && u.tenant_id === activeTenant?.id)
 
                             const [yearNum, monthNum] = selectedMonth.split('-').map(Number)
                             const prevDate = new Date(yearNum, monthNum - 2, 1)
                             const prevMonthTarget = format(prevDate, 'yyyy-MM')
-                            const pRec = roomUtils.find((u: any) => u.meter_date.startsWith(prevMonthTarget))
+                            const pRec = roomUtils.find((u: any) => u.meter_date.startsWith(prevMonthTarget) && u.tenant_id === activeTenant?.id)
                             const hasPrecedingRecord = !!pRec
 
                             let prevWater = '0'
@@ -197,10 +206,12 @@ export default function MeterClient() {
                                 prevElec = pRec.curr_electric_meter.toString()
                                 existingInputs[r.id] = { currWater: '', currElectric: '' }
                             } else {
-                                const priorRecs = roomUtils.filter((u: any) => u.meter_date < `${currentTargetMonth}-01`)
-                                if (priorRecs.length > 0) {
-                                    prevWater = priorRecs[0].curr_water_meter.toString()
-                                    prevElec = priorRecs[0].curr_electric_meter.toString()
+                                // If no reading for this tenant yet, check if there's any reading at all for this room
+                                // that we can use as a "starting point" (though ideally we use tenant check-in meter)
+                                const priorRecsForTenant = roomUtils.filter((u: any) => u.meter_date < `${selectedMonth}-01` && u.tenant_id === activeTenant?.id)
+                                if (priorRecsForTenant.length > 0) {
+                                    prevWater = priorRecsForTenant[0].curr_water_meter.toString()
+                                    prevElec = priorRecsForTenant[0].curr_electric_meter.toString()
                                 } else {
                                     prevWater = ''
                                     prevElec = ''
@@ -290,8 +301,11 @@ export default function MeterClient() {
                 const currentElectricPrice = (currElecVal - pElecNum) * electricRate
                 const currentWaterPrice = waterBillingType === 'flat_rate' ? waterFlatRate : (currWaterVal - pWaterNum) * waterRate
 
+                const activeTenant = (r as any).tenants?.find((t: any) => t.status === 'active')
+
                 return {
                     room_id: r.id,
+                    tenant_id: activeTenant?.id, // CRITICAL FIX: Save tenant id to utility record
                     meter_date: `${selectedMonth}-01`,
                     prev_electric_meter: pElecNum,
                     curr_electric_meter: currElecVal,
@@ -322,7 +336,7 @@ export default function MeterClient() {
         try {
             const { error } = await supabase
                 .from('utilities')
-                .upsert(toSave, { onConflict: 'room_id, meter_date' })
+                .upsert(toSave, { onConflict: 'room_id, meter_date, tenant_id' })
 
             if (error) throw error
 

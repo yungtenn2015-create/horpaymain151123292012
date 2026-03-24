@@ -98,6 +98,8 @@ export default function DashboardClient() {
     const [waitingVerifyRoomIds, setWaitingVerifyRoomIds] = useState<Set<string>>(new Set())
     const [unpaidRoomIds, setUnpaidRoomIds] = useState<Set<string>>(new Set())
     const [overdueRoomIds, setOverdueRoomIds] = useState<Set<string>>(new Set())
+    const [selectedFloor, setSelectedFloor] = useState<string>('all')
+    const [selectedStatus, setSelectedStatus] = useState<string>('all')
     const [stats, setStats] = useState({
         total: 0,
         occupied: 0,
@@ -391,10 +393,35 @@ export default function DashboardClient() {
             const roomBestStatus = new Map<string, string>();
 
             monthBills?.forEach(b => {
+                const room = activeRooms.find(r => r.id === b.room_id);
+                if (!room) return;
+
                 const totalAmt = Number(b.total_amount) || 0;
                 const s = String(b.status || '').toLowerCase().trim();
-                let dueDate = b.due_date ? new Date(b.due_date) : null;
+                
+                // 1. Accumulate REVENUE for the entire dorm (including moved-out tenants)
+                if (s === 'paid') {
+                    collected += totalAmt;
+                } else if (s !== 'cancelled') {
+                    pending += totalAmt;
+                }
 
+                // 2. Accumulate UTILITIES for the entire dorm
+                if (b.utilities) {
+                    water += (b.utilities.curr_water_meter - b.utilities.prev_water_meter) || 0;
+                    electric += (b.utilities.curr_electric_meter - b.utilities.prev_electric_meter) || 0;
+                    waterAmt += Number(b.utilities.water_price) || 0;
+                    electricAmt += Number(b.utilities.electric_price) || 0;
+                }
+
+                // 3. Update ROOM STATUS & COUNTS (ONLY for current active tenants)
+                // This fix ensures the "Pending" list and "Counts" match actual occupancy.
+                const activeTenant = (room.tenants as any[])?.find(t => t.status === 'active');
+                const isCurrentTenantBill = activeTenant && b.tenant_id === activeTenant.id;
+                
+                if (!isCurrentTenantBill) return;
+
+                let dueDate = b.due_date ? new Date(b.due_date) : null;
                 // Hot-fix for March 2026: The system accidentally set due_date to 2026-03-05
                 // but it should be 2026-04-05 based on the dorm's policy (next month's 5th).
                 if (b.billing_month === '2026-03-01' && b.due_date === '2026-03-05') {
@@ -402,35 +429,23 @@ export default function DashboardClient() {
                 }
 
                 const isOverdue = dueDate && dueDate < now && s !== 'paid' && s !== 'waiting_verify';
-
                 const currentBest = roomBestStatus.get(b.room_id);
 
                 if (s === 'paid') {
                     roomBestStatus.set(b.room_id, 'paid');
-                    collected += totalAmt;
                 } else if (s === 'waiting_verify') {
                     if (currentBest !== 'paid') {
                         roomBestStatus.set(b.room_id, 'waiting_verify');
                     }
-                    pending += totalAmt;
                 } else if (isOverdue || s === 'overdue') {
                     if (currentBest !== 'paid' && currentBest !== 'waiting_verify') {
                         roomBestStatus.set(b.room_id, 'overdue');
                     }
-                    pending += totalAmt;
                 } else {
                     // Just Issued / Unpaid
                     if (currentBest !== 'paid' && currentBest !== 'waiting_verify' && currentBest !== 'overdue') {
                         roomBestStatus.set(b.room_id, 'unpaid');
                     }
-                    pending += totalAmt;
-                }
-
-                if (b.utilities) {
-                    water += (b.utilities.curr_water_meter - b.utilities.prev_water_meter) || 0;
-                    electric += (b.utilities.curr_electric_meter - b.utilities.prev_electric_meter) || 0;
-                    waterAmt += Number(b.utilities.water_price) || 0;
-                    electricAmt += Number(b.utilities.electric_price) || 0;
                 }
             });
 
@@ -685,16 +700,16 @@ export default function DashboardClient() {
                                 <div className="relative z-10 flex justify-between items-center mb-10 px-1">
                                     <span className="text-xl sm:text-2xl font-black tracking-tight text-white">HORPAY</span>
                                     <div className="flex items-center gap-2.5">
-                                        <button className="relative w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 shadow-sm">
-                                            <span className="material-symbols-outlined text-[22px]">notifications</span>
-                                            <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-400 rounded-full border-2 border-[#10b981]" />
+                                        <button className="relative w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 shadow-sm">
+                                            <span className="material-symbols-outlined text-[26px]">notifications</span>
+                                            <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-[#10b981]" />
                                         </button>
                                         <div className="relative">
                                             <div
                                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                                className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-primary shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-white/20 overflow-hidden"
+                                                className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-white/20 overflow-hidden"
                                             >
-                                                <span className="material-symbols-outlined text-[22px]">person</span>
+                                                <span className="material-symbols-outlined text-[26px]">person</span>
                                             </div>
 
                                             {/* Dropdown Menu (Existing Logic Kept) */}
@@ -747,10 +762,10 @@ export default function DashboardClient() {
 
                                 {/* Greeting */}
                                 <div className="relative z-10 text-white">
-                                    <p className="text-white/80 text-sm font-medium flex items-center gap-2">
+                                    <p className="text-white text-sm font-bold flex items-center gap-2">
                                         สวัสดีคุณ {userName} 👋
                                     </p>
-                                    <h1 className="text-3xl font-headline font-extrabold mt-1 tracking-tight truncate max-w-[280px]">
+                                    <h1 className="text-4xl font-headline font-extrabold mt-1 tracking-tight truncate max-w-[300px]">
                                         {dorm?.name || 'หอพักของฉัน'}
                                     </h1>
                                 </div>
@@ -774,13 +789,13 @@ export default function DashboardClient() {
                                     { icon: 'group', label: 'มีผู้เช่า', value: stats.occupied, color: 'bg-teal-50 text-teal-500' },
                                     { icon: 'payments', label: 'ยอดค้าง/รอตรวจ', value: stats.pendingPayments, color: 'bg-orange-50 text-orange-500' },
                                 ].map((item) => (
-                                    <div key={item.label} className="bg-white p-4 rounded-2xl shadow-sm flex items-center gap-3 transform hover:-translate-y-1 transition-all duration-300">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color}`}>
-                                            <span className="material-symbols-outlined">{item.icon}</span>
+                                    <div key={item.label} className="bg-white p-5 rounded-3xl shadow-sm flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.color}`}>
+                                            <span className="material-symbols-outlined text-[28px]">{item.icon}</span>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.label}</p>
-                                            <p className="text-xl font-headline font-bold text-slate-800">{item.value}</p>
+                                            <p className="text-[12px] text-slate-800 font-black uppercase tracking-wider">{item.label}</p>
+                                            <p className="text-2xl font-headline font-bold text-slate-800">{item.value}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -801,12 +816,12 @@ export default function DashboardClient() {
                                         <button
                                             key={item.label}
                                             onClick={() => router.push(item.path)}
-                                            className="flex flex-col items-center gap-2 group active:scale-95 transition-all"
+                                            className="flex flex-col items-center gap-3 group active:scale-95 transition-all"
                                         >
-                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${item.color} group-hover:shadow-md`}>
-                                                <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+                                            <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center border-2 transition-all ${item.color} group-hover:shadow-md`}>
+                                                <span className="material-symbols-outlined text-3xl">{item.icon}</span>
                                             </div>
-                                            <span className="text-[11px] font-bold text-slate-600">{item.label}</span>
+                                            <span className="text-[13px] font-black text-slate-800 transition-colors group-hover:text-primary">{item.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -833,11 +848,11 @@ export default function DashboardClient() {
                                                 className="bg-white px-5 py-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-primary/30 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="relative w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 overflow-hidden">
+                                                    <div className="relative w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 overflow-hidden">
                                                         <span className="material-symbols-outlined">home</span>
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1.5">ห้อง {room.room_number}</p>
+                                                        <p className="text-[10px] font-black text-slate-800 uppercase leading-none mb-1.5">ห้อง {room.room_number}</p>
                                                         <h3 className="text-sm font-black text-gray-800 tracking-tight leading-none">
                                                             {room.tenants?.[0]?.name || 'ไม่พบรายชื่อ'}
                                                         </h3>
@@ -857,7 +872,7 @@ export default function DashboardClient() {
                                                             <span className="text-[10px] font-black uppercase text-orange-600">รอชำระ</span>
                                                         </div>
                                                     )}
-                                                    <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors text-sm">chevron_right</span>
+                                                    <span className="material-symbols-outlined text-slate-500 group-hover:text-primary transition-colors text-sm">chevron_right</span>
                                                 </div>
                                             </div>
                                         ))
@@ -1063,12 +1078,61 @@ export default function DashboardClient() {
                 {/* ── Rooms Tab Content (Premium Redesign) ── */}
                 {activeTab === 'rooms' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full px-6 pt-12 pb-32">
-                        <div className="flex items-center justify-between mb-8">
-                            <div>
+                        <div className="flex flex-col gap-6 mb-8">
+                            <div className="flex items-center justify-between">
                                 <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
                                     <span className="text-4xl">🏢</span> สถานะห้องพัก
                                 </h1>
-                                <p className="text-black-400 font-bold text-sm mt-1">มีทั้งหมด {rooms.length} ห้อง</p>
+                                <span className="bg-gray-100 text-gray-400 font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-full border border-gray-100">
+                                    ทั้งหมด {rooms.length} ห้อง
+                                </span>
+                            </div>
+
+                            {/* Filters UI */}
+                            <div className="space-y-4">
+                                {/* Floor Filter */}
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">เลือกชั้น</p>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                        <button
+                                            onClick={() => setSelectedFloor('all')}
+                                            className={`px-5 py-2.5 rounded-2xl font-black text-xs transition-all whitespace-nowrap border-2 ${selectedFloor === 'all' ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-100' : 'bg-white border-gray-100 text-gray-400 hover:border-green-200'}`}
+                                        >
+                                            ทุกชั้น
+                                        </button>
+                                        {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
+                                            <button
+                                                key={floor}
+                                                onClick={() => setSelectedFloor(floor)}
+                                                className={`px-5 py-2.5 rounded-2xl font-black text-xs transition-all whitespace-nowrap border-2 ${selectedFloor === floor ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-100' : 'bg-white border-gray-100 text-gray-400 hover:border-green-200'}`}
+                                            >
+                                                ชั้น {floor}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Status Filter */}
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">สถานะห้อง</p>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                        {[
+                                            { id: 'all', label: 'ทั้งหมด' },
+                                            { id: 'available', label: 'ว่าง' },
+                                            { id: 'occupied', label: 'มีคนพัก' },
+                                            { id: 'waiting_verify', label: 'รอตรวจสลิป' },
+                                            { id: 'unpaid', label: 'ค้างชำระ' }
+                                        ].map(status => (
+                                            <button
+                                                key={status.id}
+                                                onClick={() => setSelectedStatus(status.id)}
+                                                className={`px-5 py-2.5 rounded-2xl font-black text-xs transition-all whitespace-nowrap border-2 ${selectedStatus === status.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border-gray-100 text-gray-400 hover:border-blue-200'}`}
+                                            >
+                                                {status.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1076,153 +1140,188 @@ export default function DashboardClient() {
                             <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
                                 <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
                             </div>
-                        ) : (
-                            <div className="space-y-8">
-                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
-                                    <div key={floor} className="space-y-4">
-                                        <div className="flex items-center justify-between px-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-2 bg-green-500 rounded-full shadow-sm shadow-green-100" />
-                                                <h2 className="text-xl font-black text-gray-800 tracking-tight">ชั้น {floor}</h2>
+                        ) : (() => {
+                            const filteredRooms = rooms.filter(room => {
+                                const matchesFloor = selectedFloor === 'all' || room.floor === selectedFloor;
+                                
+                                let matchesStatus = true;
+                                if (selectedStatus !== 'all') {
+                                    const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
+                                    const isUnpaid = unpaidRoomIds.has(room.id);
+                                    const isOccupied = room.status === 'occupied';
+                                    const isAvailable = room.status === 'available';
+
+                                    if (selectedStatus === 'available') matchesStatus = isAvailable && !isWaitingVerify && !isUnpaid;
+                                    if (selectedStatus === 'occupied') matchesStatus = isOccupied;
+                                    if (selectedStatus === 'waiting_verify') matchesStatus = isWaitingVerify;
+                                    if (selectedStatus === 'unpaid') matchesStatus = isUnpaid;
+                                }
+
+                                return matchesFloor && matchesStatus;
+                            });
+
+                            if (filteredRooms.length === 0) {
+                                return (
+                                    <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                                        <p className="text-gray-400 font-bold">ไม่พบห้องพักที่ตรงตามเงื่อนไข</p>
+                                        <button 
+                                            onClick={() => { setSelectedFloor('all'); setSelectedStatus('all'); }}
+                                            className="mt-4 text-blue-600 font-black text-sm hover:underline"
+                                        >
+                                            ล้างตัวกรองทั้งหมด
+                                        </button>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-8">
+                                    {Array.from(new Set(filteredRooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
+                                        <div key={floor} className="space-y-4">
+                                            <div className="flex items-center justify-between px-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-2 bg-green-500 rounded-full shadow-sm shadow-green-100" />
+                                                    <h2 className="text-xl font-black text-gray-800 tracking-tight">ชั้น {floor}</h2>
+                                                </div>
+                                                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                                                    {filteredRooms.filter(r => r.floor === floor).length} ห้อง
+                                                </span>
                                             </div>
-                                            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                                                {rooms.filter(r => r.floor === floor).length} ห้อง
-                                            </span>
-                                        </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {rooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
-                                                const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
-                                                const isUnpaid = unpaidRoomIds.has(room.id);
-                                                const isOccupied = room.status === 'occupied';
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {filteredRooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
+                                                    const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
+                                                    const isUnpaid = unpaidRoomIds.has(room.id);
+                                                    const isOccupied = room.status === 'occupied';
 
-                                                // Color & Info Logic
-                                                let theme = {
-                                                    bg: 'bg-white',
-                                                    border: 'border-gray-100',
-                                                    iconBg: 'bg-green-50 text-green-600',
-                                                    badge: 'bg-green-500 text-white',
-                                                    status: 'ว่าง',
-                                                    icon: KeyIcon,
-                                                    shadow: 'shadow-gray-100'
-                                                };
-
-                                                if (isWaitingVerify) {
-                                                    theme = {
+                                                    // Color & Info Logic
+                                                    let theme = {
                                                         bg: 'bg-white',
-                                                        border: 'border-blue-100',
-                                                        iconBg: 'bg-blue-50 text-blue-600',
-                                                        badge: 'bg-blue-500 text-white',
-                                                        status: 'รอตรวจสอบ',
-                                                        icon: ClockIcon,
-                                                        shadow: 'shadow-blue-50'
+                                                        border: 'border-gray-100',
+                                                        iconBg: 'bg-green-50 text-green-600',
+                                                        badge: 'bg-green-500 text-white',
+                                                        status: 'ว่าง',
+                                                        icon: KeyIcon,
+                                                        shadow: 'shadow-gray-100'
                                                     };
-                                                } else if (isUnpaid) {
-                                                    theme = {
-                                                        bg: 'bg-white',
-                                                        border: 'border-red-100',
-                                                        iconBg: 'bg-orange-50 text-orange-600',
-                                                        badge: 'bg-orange-500 text-white',
-                                                        status: 'ค้างชำระ',
-                                                        icon: BellIcon,
-                                                        shadow: 'shadow-orange-50'
-                                                    };
-                                                } else if (isOccupied) {
-                                                    theme = {
-                                                        bg: 'bg-white',
-                                                        border: 'border-blue-100',
-                                                        iconBg: 'bg-blue-50 text-blue-600',
-                                                        badge: 'bg-blue-600 text-white',
-                                                        status: 'มีคนพัก',
-                                                        icon: BuildingOfficeIcon,
-                                                        shadow: 'shadow-blue-50'
-                                                    };
-                                                }
-                                                const activeTenant = room.tenants?.find(t => t.status === 'active');
 
-                                                return (
-                                                    <div
-                                                        key={room.id}
-                                                        className={`group relative overflow-hidden bg-white rounded-[1.5rem] border-2 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${theme.border} ${theme.shadow}`}
-                                                    >
-                                                        {/* Status Badge */}
-                                                        <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest ${theme.badge} z-20`}>
-                                                            {theme.status}
-                                                        </div>
+                                                    if (isWaitingVerify) {
+                                                        theme = {
+                                                            bg: 'bg-white',
+                                                            border: 'border-blue-100',
+                                                            iconBg: 'bg-blue-50 text-blue-600',
+                                                            badge: 'bg-blue-500 text-white',
+                                                            status: 'รอตรวจสอบ',
+                                                            icon: ClockIcon,
+                                                            shadow: 'shadow-blue-50'
+                                                        };
+                                                    } else if (isUnpaid) {
+                                                        theme = {
+                                                            bg: 'bg-white',
+                                                            border: 'border-red-100',
+                                                            iconBg: 'bg-orange-50 text-orange-600',
+                                                            badge: 'bg-orange-500 text-white',
+                                                            status: 'ค้างชำระ',
+                                                            icon: BellIcon,
+                                                            shadow: 'shadow-orange-50'
+                                                        };
+                                                    } else if (isOccupied) {
+                                                        theme = {
+                                                            bg: 'bg-white',
+                                                            border: 'border-blue-100',
+                                                            iconBg: 'bg-blue-50 text-blue-600',
+                                                            badge: 'bg-blue-600 text-white',
+                                                            status: 'มีคนพัก',
+                                                            icon: BuildingOfficeIcon,
+                                                            shadow: 'shadow-blue-50'
+                                                        };
+                                                    }
+                                                    const activeTenant = room.tenants?.find(t => t.status === 'active');
 
-                                                        {isOccupied && activeTenant?.line_user_id && (
-                                                            <div className="absolute top-7 right-0 px-2.5 py-1 bg-green-500 text-white rounded-l-lg shadow-sm z-10 animate-in slide-in-from-right duration-500 border-y border-l border-green-600/20">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
-                                                                        <CheckIcon className="w-2.5 h-2.5 text-green-600 stroke-[4]" />
-                                                                    </div>
-                                                                    <span className="text-[10px] font-black leading-none tracking-tight">LINE Verified</span>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <div className="space-y-3">
-                                                            <div className="flex items-start justify-between">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:scale-110 ${theme.iconBg}`}>
-                                                                    <theme.icon className="w-5 h-5 stroke-[2.2]" />
-                                                                </div>
+                                                    return (
+                                                        <div
+                                                            key={room.id}
+                                                            className={`group relative overflow-hidden bg-white rounded-[1.5rem] border-2 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${theme.border} ${theme.shadow}`}
+                                                        >
+                                                            {/* Status Badge */}
+                                                            <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest ${theme.badge} z-20`}>
+                                                                {theme.status}
                                                             </div>
 
-                                                            <div>
-                                                                <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">ห้องหมายเลข</p>
-                                                                <h3 className="text-xl font-black text-gray-800 tracking-tight leading-none mb-2">{room.room_number}</h3>
-
-                                                                {isOccupied && activeTenant && (
-                                                                    <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
-                                                                        <div className="flex items-center gap-2 overflow-hidden">
-                                                                            <div className="relative">
-                                                                                <UserIcon className="w-4 h-4 text-blue-500 shrink-0 bg-blue-50 rounded-md p-0.5" />
-                                                                                {activeTenant.line_user_id && (
-                                                                                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-white flex items-center justify-center">
-                                                                                        <CheckIcon className="w-1.5 h-1.5 text-white stroke-[4]" />
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className="text-[12px] font-black text-gray-700 truncate tracking-tight">
-                                                                                {activeTenant.name}
-                                                                                {activeTenant.line_user_id && <span className="ml-1 text-[8px] text-green-600 font-bold">(ตรงกัน)</span>}
-                                                                            </span>
+                                                            {isOccupied && activeTenant?.line_user_id && (
+                                                                <div className="absolute top-7 right-0 px-2.5 py-1 bg-green-500 text-white rounded-l-lg shadow-sm z-10 animate-in slide-in-from-right duration-500 border-y border-l border-green-600/20">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                                                                            <CheckIcon className="w-2.5 h-2.5 text-green-600 stroke-[4]" />
                                                                         </div>
-                                                                        {activeTenant.phone && (
-                                                                            <div className="flex items-center gap-2">
-                                                                                {activeTenant.line_user_id ? (
-                                                                                    <div className="w-4 h-4 bg-green-50 rounded-md flex items-center justify-center shrink-0">
-                                                                                        <ChatBubbleLeftRightIcon className="w-3 h-3 text-green-600" />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <DevicePhoneMobileIcon className="w-4 h-4 text-gray-400 shrink-0 bg-gray-50 rounded-md p-0.5" />
-                                                                                )}
-                                                                                <span className={`text-[11px] font-bold tracking-tighter ${activeTenant.line_user_id ? 'text-green-700' : 'text-gray-500'}`}>
-                                                                                    {activeTenant.phone}
+                                                                        <span className="text-[10px] font-black leading-none tracking-tight">LINE Verified</span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 border-white shadow-sm transition-transform group-hover:scale-110 ${theme.iconBg}`}>
+                                                                        <theme.icon className="w-5 h-5 stroke-[2.2]" />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">ห้องหมายเลข</p>
+                                                                    <h3 className="text-xl font-black text-gray-800 tracking-tight leading-none mb-2">{room.room_number}</h3>
+
+                                                                    {isOccupied && activeTenant && (
+                                                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
+                                                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                                                <div className="relative">
+                                                                                    <UserIcon className="w-4 h-4 text-blue-500 shrink-0 bg-blue-50 rounded-md p-0.5" />
+                                                                                    {activeTenant.line_user_id && (
+                                                                                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border border-white flex items-center justify-center">
+                                                                                            <CheckIcon className="w-1.5 h-1.5 text-white stroke-[4]" />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                                <span className="text-[12px] font-black text-gray-700 truncate tracking-tight">
+                                                                                    {activeTenant.name}
+                                                                                    {activeTenant.line_user_id && <span className="ml-1 text-[8px] text-green-600 font-bold">(ตรงกัน)</span>}
                                                                                 </span>
                                                                             </div>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                                            {activeTenant.phone && (
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {activeTenant.line_user_id ? (
+                                                                                        <div className="w-4 h-4 bg-green-50 rounded-md flex items-center justify-center shrink-0">
+                                                                                            <ChatBubbleLeftRightIcon className="w-3 h-3 text-green-600" />
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <DevicePhoneMobileIcon className="w-4 h-4 text-gray-400 shrink-0 bg-gray-50 rounded-md p-0.5" />
+                                                                                    )}
+                                                                                    <span className={`text-[11px] font-bold tracking-tighter ${activeTenant.line_user_id ? 'text-green-700' : 'text-gray-500'}`}>
+                                                                                        {activeTenant.phone}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
 
-                                                            <div className="pt-1.5 flex items-center justify-between">
-                                                                <span className="text-[11px] font-bold text-gray-400">
-                                                                    ฿{(room.base_price?.toLocaleString() || '0')}
-                                                                </span>
-                                                                <div className="w-5 h-5 bg-gray-50 rounded-lg flex items-center justify-center text-gray-300 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
-                                                                    <ChevronRightIcon className="w-4 h-4" />
+                                                                <div className="pt-1.5 flex items-center justify-between">
+                                                                    <span className="text-[11px] font-bold text-gray-400">
+                                                                        ฿{(room.base_price?.toLocaleString() || '0')}
+                                                                    </span>
+                                                                    <div className="w-5 h-5 bg-gray-50 rounded-lg flex items-center justify-center text-gray-300 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
+                                                                        <ChevronRightIcon className="w-4 h-4" />
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
 
@@ -1423,13 +1522,21 @@ export default function DashboardClient() {
                                                         <label className="text-[13px] font-black text-gray-500 ml-1">รูปแบบการเก็บค่าน้ำ</label>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <button
-                                                                onClick={() => setSettingsData({ ...settingsData, water_billing_type: 'per_unit' })}
+                                                                onClick={() => setSettingsData({ 
+                                                                    ...settingsData, 
+                                                                    water_billing_type: 'per_unit',
+                                                                    water_flat_rate: 0 // Reset other value
+                                                                })}
                                                                 className={`h-11 rounded-xl text-xs font-black transition-all border-2 ${settingsData.water_billing_type === 'per_unit' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}
                                                             >
                                                                 ตามหน่วย
                                                             </button>
                                                             <button
-                                                                onClick={() => setSettingsData({ ...settingsData, water_billing_type: 'flat_rate' })}
+                                                                onClick={() => setSettingsData({ 
+                                                                    ...settingsData, 
+                                                                    water_billing_type: 'flat_rate',
+                                                                    water_rate_per_unit: 0 // Reset other value
+                                                                })}
                                                                 className={`h-11 rounded-xl text-xs font-black transition-all border-2 ${settingsData.water_billing_type === 'flat_rate' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}
                                                             >
                                                                 เหมาจ่าย
@@ -1438,7 +1545,8 @@ export default function DashboardClient() {
                                                         <div className="relative">
                                                             <input
                                                                 type="number"
-                                                                value={settingsData.water_billing_type === 'per_unit' ? settingsData.water_rate_per_unit : settingsData.water_flat_rate}
+                                                                key={settingsData.water_billing_type} // Force re-render on type switch
+                                                                value={settingsData.water_billing_type === 'per_unit' ? (settingsData.water_rate_per_unit || '') : (settingsData.water_flat_rate || '')}
                                                                 onChange={(e) => {
                                                                     const val = parseFloat(e.target.value) || 0
                                                                     if (settingsData.water_billing_type === 'per_unit') {
@@ -1448,7 +1556,7 @@ export default function DashboardClient() {
                                                                     }
                                                                 }}
                                                                 className="w-full h-12 bg-white border-2 border-gray-100 rounded-xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
-                                                                placeholder="0.00"
+                                                                placeholder={settingsData.water_billing_type === 'per_unit' ? "ระบุราคาต่อหน่วย..." : "ระบุราคาเหมาจ่าย..."}
                                                             />
                                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold text-gray-400">
                                                                 บาท / {settingsData.water_billing_type === 'per_unit' ? 'หน่วย' : 'เดือน'}

@@ -42,6 +42,11 @@ export default function MoveOutClient() {
     const [showNoticeModal, setShowNoticeModal] = useState(false)
     const [noticeDate, setNoticeDate] = useState('')
     const [isSubmittingNotice, setIsSubmittingNotice] = useState(false)
+    
+    // Debt Check States
+    const [pendingBills, setPendingBills] = useState<any[]>([])
+    const [showDebtWarning, setShowDebtWarning] = useState(false)
+    const [isCheckingDebt, setIsCheckingDebt] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -81,6 +86,34 @@ export default function MoveOutClient() {
         }
     }
 
+    const handleCheckDebt = async (tenant: Tenant) => {
+        setSelectedTenant(tenant)
+        setErrorMsg('')
+        setIsCheckingDebt(true)
+        const supabase = createClient()
+
+        try {
+            const { data: bills, error } = await supabase
+                .from('bills')
+                .select('*')
+                .eq('tenant_id', tenant.id)
+                .in('status', ['unpaid', 'overdue', 'waiting_verify'])
+
+            if (error) throw error
+
+            if (bills && bills.length > 0) {
+                setPendingBills(bills)
+                setShowDebtWarning(true)
+            } else {
+                setShowMoveOutModal(true)
+            }
+        } catch (err: any) {
+            setErrorMsg('ไม่สามารถตรวจสอบหนี้ค้างชำระได้: ' + err.message)
+        } finally {
+            setIsCheckingDebt(false)
+        }
+    }
+
     const handleMoveOut = async () => {
         if (!selectedTenant || isMovingOut) return
         setIsMovingOut(true)
@@ -116,6 +149,8 @@ export default function MoveOutClient() {
             if (lError) throw lError
 
             setShowMoveOutModal(false)
+            setShowDebtWarning(false)
+            setPendingBills([])
             setSelectedTenant(null)
             fetchData()
         } catch (err: any) {
@@ -259,13 +294,15 @@ export default function MoveOutClient() {
                                         แจ้งล่วงหน้า
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            setSelectedTenant(tenant)
-                                            setShowMoveOutModal(true)
-                                        }}
-                                        className="py-3 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border border-red-100 rounded-2xl font-black text-[13px] transition-all active:scale-95 flex items-center justify-center gap-2"
+                                        onClick={() => handleCheckDebt(tenant)}
+                                        disabled={isCheckingDebt && selectedTenant?.id === tenant.id}
+                                        className="py-3 bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border border-red-100 rounded-2xl font-black text-[13px] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                                        {isCheckingDebt && selectedTenant?.id === tenant.id ? (
+                                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                                        )}
                                         ย้ายออกจริง
                                     </button>
                                 </div>
@@ -317,9 +354,9 @@ export default function MoveOutClient() {
                 {showMoveOutModal && selectedTenant && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMoveOutModal(false)} />
-                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="p-8 text-center space-y-4">
-                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-2 text-red-500">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-2 text-red-500 shadow-inner">
                                     <ArrowRightOnRectangleIcon className="w-10 h-10" />
                                 </div>
                                 <h3 className="text-2xl font-black text-gray-800 tracking-tight">ยืนยันการย้ายออก?</h3>
@@ -328,10 +365,83 @@ export default function MoveOutClient() {
                                 </p>
                             </div>
                             <div className="p-8 bg-gray-50 flex flex-col gap-3">
-                                <button onClick={handleMoveOut} disabled={isMovingOut} className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-lg shadow-red-100 transition-all active:scale-95">
+                                <button 
+                                    onClick={handleMoveOut} 
+                                    disabled={isMovingOut} 
+                                    className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-lg shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    {isMovingOut && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                     {isMovingOut ? 'กำลังบันทึก...' : 'ยืนยันการย้ายออก'}
                                 </button>
-                                <button onClick={() => setShowMoveOutModal(false)} className="w-full h-14 bg-white border border-gray-100 text-gray-400 font-black rounded-2xl">ยกเลิก</button>
+                                <button onClick={() => setShowMoveOutModal(false)} className="w-full h-14 bg-white border border-gray-100 text-gray-400 font-black rounded-2xl shadow-sm hover:bg-gray-50 transition-all">ยกเลิก</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. Debt Warning Modal */}
+                {showDebtWarning && selectedTenant && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDebtWarning(false)} />
+                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="bg-red-50 p-8 flex flex-col items-center text-center">
+                                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                    <ExclamationCircleIcon className="w-12 h-12 text-red-500" />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-800 tracking-tight">พบหนี้ค้างชำระ!</h3>
+                                <p className="text-red-600/60 text-[10px] font-black mt-1 uppercase tracking-widest">Outstanding Debt Detected</p>
+                            </div>
+                            
+                            <div className="px-8 py-6 space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
+                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 italic text-[11px] text-gray-400 font-medium text-center">
+                                    ผู้เช่า <span className="font-black text-gray-600">{selectedTenant.name}</span> ยังมีบิลที่ยังไม่ได้ชำระดังนี้:
+                                </div>
+                                
+                                {pendingBills.map(bill => (
+                                    <div key={bill.id} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">รอบบิล</p>
+                                            <p className="text-sm font-black text-gray-700 leading-none">
+                                                {new Date(bill.billing_month).toLocaleDateString('th-TH', { month: 'short', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">ยอดเงิน</p>
+                                            <p className="text-base font-black text-red-600 leading-none">
+                                                ฿{Number(bill.total_amount).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <div className="pt-2 border-t border-gray-100 flex items-center justify-between px-2">
+                                    <span className="text-sm font-black text-gray-800">รวมยอดค้างชำระทั้งหมด:</span>
+                                    <span className="text-xl font-black text-red-600">฿{pendingBills.reduce((acc, b) => acc + Number(b.total_amount), 0).toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="p-8 space-y-3 bg-gray-50">
+                                <button 
+                                    onClick={() => router.push(`/dashboard/billing?room=${selectedTenant.rooms.room_number}`)}
+                                    className="w-full h-14 bg-gray-800 hover:bg-black text-white font-black rounded-2xl shadow-lg shadow-gray-200 transition-all active:scale-95"
+                                >
+                                    ไปจุดชำระเงิน
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setShowDebtWarning(false)
+                                        setShowMoveOutModal(true)
+                                    }}
+                                    className="w-full h-14 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 font-black rounded-2xl transition-all active:scale-95"
+                                >
+                                    ยืนยันย้ายออกทั้งที่มีหนี้
+                                </button>
+                                <button 
+                                    onClick={() => setShowDebtWarning(false)}
+                                    className="w-full py-2 text-gray-400 font-bold text-xs"
+                                >
+                                    ยกเลิก
+                                </button>
                             </div>
                         </div>
                     </div>

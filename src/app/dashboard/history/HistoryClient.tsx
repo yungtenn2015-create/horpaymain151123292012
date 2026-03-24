@@ -120,9 +120,12 @@ export default function HistoryClient() {
         const supabase = createClient()
 
         try {
+            // If it's paid, revert to unpaid instead of cancelling
+            const newStatus = billToCancel.status === 'paid' ? 'unpaid' : 'cancelled'
+            
             const { error } = await supabase
                 .from('bills')
-                .update({ status: 'cancelled' })
+                .update({ status: newStatus })
                 .eq('id', billToCancel.id)
 
             if (error) throw error
@@ -132,8 +135,8 @@ export default function HistoryClient() {
             setShowCancelModal(false)
             setBillToCancel(null)
         } catch (err) {
-            console.error('Error cancelling bill:', err)
-            alert('ไม่สามารถยกเลิกบิลได้ โปรดลองอีกครั้ง')
+            console.error('Error updating bill:', err)
+            alert('ไม่สามารถอัปเดตสถานะบิลได้ โปรดลองอีกครั้ง')
         } finally {
             setCancellingId(null)
         }
@@ -162,8 +165,8 @@ export default function HistoryClient() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center font-sans">
-            <div className="w-full sm:max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative overflow-hidden sm:rounded-[2.5rem] sm:my-8 sm:min-h-[850px] border border-gray-100">
+        <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
+            <div className="w-full sm:max-w-md bg-white h-screen sm:h-[850px] shadow-2xl flex flex-col relative overflow-hidden sm:rounded-[2.5rem] border border-gray-100">
                 
                 {/* ── HEADER ── */}
                 <header className="px-6 pt-10 pb-6 bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-50">
@@ -326,7 +329,7 @@ export default function HistoryClient() {
                                                     className="text-[10px] font-black text-red-500 hover:text-red-700 transition-colors flex items-center gap-1"
                                                 >
                                                     <TrashIcon className="w-3.5 h-3.5" />
-                                                    ยกเลิกบิล
+                                                    {bill.status === 'paid' ? 'ยกเลิกยืนยันจ่าย' : 'ยกเลิกบิล'}
                                                 </button>
                                             )}
                                             <button 
@@ -343,36 +346,51 @@ export default function HistoryClient() {
                     )}
                 </main>
 
-                {/* ── CANCEL MODAL ── */}
+                {/* ── CANCEL/REVERT MODAL ── */}
                 {showCancelModal && billToCancel && (
-                    <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-red-500">
-                                <ExclamationCircleIcon className="w-12 h-12" />
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
+                        <div 
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
+                            onClick={() => {
+                                setShowCancelModal(false)
+                                setBillToCancel(null)
+                            }}
+                        />
+                        <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                            <div className="bg-white px-8 pt-10 pb-6 flex flex-col items-center text-center">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+                                    <ExclamationCircleIcon className="w-10 h-10 text-red-500" />
+                                </div>
+                                <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+                                    {billToCancel.status === 'paid' ? 'ยกเลิกยืนยันจ่าย?' : `ยกเลิกบิลห้อง ${billToCancel.room_number}?`}
+                                </h2>
+                                <p className="text-gray-400 text-xs font-bold mt-2 px-6">
+                                    {billToCancel.status === 'paid' 
+                                        ? `คุณต้องการยกเลิกการยืนยันรับเงินของห้อง ${billToCancel.room_number} ใช่หรือไม่? สถานะจะกลับเป็น 'ยังไม่จ่าย'`
+                                        : `บิลใบนี้จะถูกยกเลิก และเปลี่ยนสถานะเป็น "ยกเลิกแล้ว" คุณยังสามารถออกบิลใหม่ของรอบเดือนนี้ได้ทันทีครับ`
+                                    }
+                                </p>
                             </div>
-                            <h3 className="text-xl font-black text-center text-gray-800 mb-2">ยกเลิกบิลห้อง {billToCancel.room_number}?</h3>
-                            <p className="text-sm font-bold text-center text-gray-400 leading-relaxed mb-8">
-                                บิลใบนี้จะถูกยกเลิก และเปลี่ยนสถานะเป็น <span className="text-red-500">"ยกเลิกแล้ว"</span> <br/>
-                                คุณยังสามารถออกบิลใหม่ของรอบเดือนนี้ได้ทันทีครับ
-                            </p>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => setShowCancelModal(false)}
-                                    className="h-14 rounded-2xl bg-gray-50 text-gray-400 font-bold hover:bg-gray-100 transition-all active:scale-95"
-                                >
-                                    ย้อนกลับ
-                                </button>
-                                <button
-                                    onClick={handleCancelBill}
-                                    disabled={cancellingId === billToCancel.id}
-                                    className="h-14 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white font-black shadow-lg shadow-red-100 hover:brightness-110 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    {cancellingId === billToCancel.id ? (
-                                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        'ยืนยันยกเลิก'
-                                    )}
-                                </button>
+
+                            <div className="p-8 space-y-4">
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowCancelModal(false)
+                                            setBillToCancel(null)
+                                        }}
+                                        className="flex-1 py-4 bg-gray-50 hover:bg-gray-100 text-gray-500 font-black rounded-2xl transition-all active:scale-95"
+                                    >
+                                        ย้อนกลับ
+                                    </button>
+                                    <button
+                                        onClick={handleCancelBill}
+                                        disabled={cancellingId === billToCancel.id}
+                                        className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl shadow-lg shadow-red-100 transition-all active:scale-95 disabled:opacity-50 text-xs whitespace-nowrap"
+                                    >
+                                        {cancellingId === billToCancel.id ? 'กำลังดำเนินการ...' : (billToCancel.status === 'paid' ? 'ยืนยันยกเลิกรับเงิน' : 'ยืนยันยกเลิกบิล')}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -164,8 +164,10 @@ export default function BillingClient() {
                 const mappedBilling = roomsData.map(room => {
                     // CRITICAL FIX: Only find the ACTIVE tenant for this room
                     const activeTenant = (room.tenants as any[])?.find((t: any) => t.status === 'active')
-                    const utils = utilsData?.find(u => u.room_id === room.id)
-                    const bill = billsData?.find(b => b.room_id === room.id)
+                    
+                    // Match utils and bill strictly to the active tenant to avoid inheriting old data
+                    const utils = utilsData?.find(u => u.room_id === room.id && u.tenant_id === activeTenant?.id)
+                    const bill = billsData?.find(b => b.room_id === room.id && b.tenant_id === activeTenant?.id)
                     const contract = contractsData?.find(c => c.tenant_id === activeTenant?.id)
 
                     const isVacant = room.status === 'available' || !activeTenant
@@ -428,7 +430,7 @@ export default function BillingClient() {
         const waterFlatRate = dormSettings?.water_flat_rate || 0
 
         // Calculate dynamic amounts if they are 0 (indicates not yet saved in DB)
-        const waterAmt = item.water > 0 ? item.water : (waterBillingType === 'flat' ? waterFlatRate : (item.waterUnit * waterRate))
+        const waterAmt = item.water > 0 ? item.water : (waterBillingType === 'flat_rate' ? waterFlatRate : (item.waterUnit * waterRate))
         const electricAmt = item.electricity > 0 ? item.electricity : (item.electricityUnit * electricRate)
 
         const itemsArr: any[] = [
