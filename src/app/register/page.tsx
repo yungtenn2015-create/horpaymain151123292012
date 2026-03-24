@@ -133,7 +133,7 @@ export default function RegisterPage() {
                         </label>
                         <input
                             type="text"
-                            placeholder="สมชาย ใจดี"
+
                             value={name}
                             onChange={(e) => setName(e.target.value.slice(0, 30))}
                             maxLength={30}
@@ -148,7 +148,7 @@ export default function RegisterPage() {
                         </label>
                         <input
                             type="tel"
-                            placeholder="0812345678"
+
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                             maxLength={10}

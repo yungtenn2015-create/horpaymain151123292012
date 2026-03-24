@@ -407,12 +407,12 @@ export default function SettingsPage() {
                             </div>
                             <div>
                                 <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Channel Access Token</label>
-                                <textarea 
-                                    rows={3}
+                                <input 
+                                    type="password"
                                     value={lineConfig.access_token}
                                     onChange={(e) => setLineConfig({...lineConfig, access_token: e.target.value})}
-                                    placeholder="ใส่ Access Token ยาวๆ จาก LINE Console"
-                                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-green-500/20 transition-all resize-none text-sm break-all"
+                                    placeholder="••••••••••••••••"
+                                    className="w-full h-14 bg-gray-50 border-none rounded-2xl px-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-green-500/20 transition-all"
                                 />
                             </div>
                         </div>

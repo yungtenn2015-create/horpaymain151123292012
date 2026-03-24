@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
 import {
@@ -32,7 +32,8 @@ import {
     ChartBarIcon,
     IdentificationIcon,
     KeyIcon,
-    LockClosedIcon
+    LockClosedIcon,
+    BoltIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -70,9 +71,37 @@ interface Room {
     deleted_at: string | null;
 }
 
+interface Service {
+    id: string;
+    name: string;
+    price: number;
+}
+
 export default function DashboardPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="w-full max-w-lg bg-white min-h-[640px] rounded-[2.5rem] shadow-xl flex flex-col items-center justify-center gap-4">
+                    <div className="w-12 h-12 border-4 border-green-100 border-t-green-600 rounded-full animate-spin" />
+                    <p className="text-green-600 font-bold animate-pulse text-sm">กำลังเตรียมข้อมูล...</p>
+                </div>
+            </div>
+        }>
+            <DashboardContent />
+        </Suspense>
+    )
+}
+
+function DashboardContent() {
     const router = useRouter()
-    const [activeTab, setActiveTab] = useState('overview')
+    const searchParams = useSearchParams()
+    const activeTab = searchParams.get('tab') || 'overview'
+
+    // Helper to change tab via URL
+    const setActiveTab = (tab: string) => {
+        router.push(`/dashboard?tab=${tab}`)
+    }
+
     const [loading, setLoading] = useState(true)
     const [dorm, setDorm] = useState<Dorm | null>(null)
     const [rooms, setRooms] = useState<Room[]>([])
@@ -105,8 +134,13 @@ export default function DashboardPage() {
         bank_account_no: '',
         bank_account_name: '',
         billing_day: 30,
-        payment_due_day: 5
+        payment_due_day: 5,
+        electric_rate_per_unit: 0,
+        water_rate_per_unit: 0,
+        water_billing_type: 'per_unit' as 'per_unit' | 'flat_rate',
+        water_flat_rate: 0
     })
+    const [services, setServices] = useState<Service[]>([])
     const [lineConfig, setLineConfig] = useState({
         channel_id: '',
         channel_secret: '',
@@ -212,6 +246,24 @@ export default function DashboardPage() {
     const [isTestingConnection, setIsTestingConnection] = useState(false)
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
     const [copied, setCopied] = useState(false)
+    const [newServiceName, setNewServiceName] = useState('')
+    const [newServicePrice, setNewServicePrice] = useState('')
+
+    const addService = () => {
+        if (!newServiceName || !newServicePrice) return
+        const newService: Service = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: newServiceName,
+            price: parseFloat(newServicePrice) || 0
+        }
+        setServices([...services, newService])
+        setNewServiceName('')
+        setNewServicePrice('')
+    }
+
+    const removeService = (id: string) => {
+        setServices(services.filter(s => s.id !== id))
+    }
 
     const handleTestConnection = async () => {
         if (!lineConfig.access_token) {
@@ -259,7 +311,7 @@ export default function DashboardPage() {
 
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) {
             router.push('/login');
             return;
@@ -348,7 +400,7 @@ export default function DashboardPage() {
             const waitingVerifyIdsSet = new Set<string>();
             const unpaidIdsSet = new Set<string>();
             const overdueIdsSet = new Set<string>();
-            
+
             // Map to track the "Best" status for each room this month
             // Priority: paid > waiting_verify > overdue > unpaid
             const roomBestStatus = new Map<string, string>();
@@ -357,7 +409,7 @@ export default function DashboardPage() {
                 const totalAmt = Number(b.total_amount) || 0;
                 const s = String(b.status || '').toLowerCase().trim();
                 let dueDate = b.due_date ? new Date(b.due_date) : null;
-                
+
                 // Hot-fix for March 2026: The system accidentally set due_date to 2026-03-05
                 // but it should be 2026-04-05 based on the dorm's policy (next month's 5th).
                 if (b.billing_month === '2026-03-01' && b.due_date === '2026-03-05') {
@@ -365,7 +417,7 @@ export default function DashboardPage() {
                 }
 
                 const isOverdue = dueDate && dueDate < now && s !== 'paid' && s !== 'waiting_verify';
-                
+
                 const currentBest = roomBestStatus.get(b.room_id);
 
                 if (s === 'paid') {
@@ -471,8 +523,26 @@ export default function DashboardPage() {
                         bank_account_no: settings.bank_account_no || '',
                         bank_account_name: settings.bank_account_name || '',
                         billing_day: settings.billing_day || 30,
-                        payment_due_day: settings.payment_due_day || 5
+                        payment_due_day: settings.payment_due_day || 5,
+                        electric_rate_per_unit: settings.electric_rate_per_unit || 0,
+                        water_rate_per_unit: settings.water_rate_per_unit || 0,
+                        water_billing_type: settings.water_billing_type || 'per_unit',
+                        water_flat_rate: settings.water_flat_rate || 0
                     });
+                }
+
+                // Get Itemized Services
+                const { data: servicesData } = await supabase
+                    .from('dorm_services')
+                    .select('*')
+                    .eq('dorm_id', currentDorm.id);
+
+                if (servicesData) {
+                    setServices(servicesData.map(s => ({
+                        id: s.id,
+                        name: s.name,
+                        price: s.price
+                    })));
                 }
 
                 try {
@@ -490,7 +560,7 @@ export default function DashboardPage() {
                             owner_line_user_id: lineOa.owner_line_user_id || ''
                         });
                     }
-                } catch (e) {}
+                } catch (e) { }
 
                 setDormData({
                     name: currentDorm.name || '',
@@ -546,8 +616,23 @@ export default function DashboardPage() {
                 bank_account_no: settingsData.bank_account_no,
                 bank_account_name: settingsData.bank_account_name,
                 billing_day: settingsData.billing_day,
-                payment_due_day: settingsData.payment_due_day
+                payment_due_day: settingsData.payment_due_day,
+                electric_rate_per_unit: settingsData.electric_rate_per_unit,
+                water_rate_per_unit: settingsData.water_rate_per_unit,
+                water_billing_type: settingsData.water_billing_type,
+                water_flat_rate: settingsData.water_flat_rate
             }).eq('dorm_id', dorm.id)
+
+            // 2.5 Update Services (Delete and Re-insert)
+            await supabase.from('dorm_services').delete().eq('dorm_id', dorm.id)
+            if (services.length > 0) {
+                const servicesToInsert = services.map(s => ({
+                    dorm_id: dorm.id,
+                    name: s.name,
+                    price: s.price
+                }))
+                await supabase.from('dorm_services').insert(servicesToInsert)
+            }
 
             // 3. Update LINE Config
             const { data: existingLines } = await supabase
@@ -582,12 +667,6 @@ export default function DashboardPage() {
         }
     }
 
-    const navItems = [
-        { id: 'overview', name: 'หน้าหลัก', outlineIcon: HomeIcon, solidIcon: HomeIconSolid },
-        { id: 'stats', name: 'ภาพรวม', outlineIcon: ChartBarIcon, solidIcon: ChartBarIconSolid },
-        { id: 'rooms', name: 'สถานะห้อง', outlineIcon: Squares2X2Icon, solidIcon: Squares2X2IconSolid },
-        { id: 'tenants', name: 'ผู้เช่า', outlineIcon: UserGroupIcon, solidIcon: UserGroupIconSolid },
-    ]
 
     if (loading) {
         return (
@@ -606,128 +685,94 @@ export default function DashboardPage() {
 
                 {/* ── Dynamic Main Content ── */}
                 {activeTab === 'overview' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
-                        {/*  HEADER  */}
-                        <header className="relative pt-14 pb-20 px-6">
-                            {/* App Name at Top Center */}
-                            <div className="absolute top-5 left-0 right-0 flex justify-center z-10 pointer-events-none">
-                                <span className="text-[15px] font-black tracking-[0.5em] text-white/60 uppercase drop-shadow-lg">HORPAY</span>
+                    <div className="bg-[#fcfdfd] font-body text-slate-800 antialiased min-h-screen pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
+                        {/* Hero Section */}
+                        <div className="relative">
+                            {/* Background with clipping */}
+                            <div className="absolute inset-0 bg-primary rounded-b-[2.5rem] shadow-lg overflow-hidden z-0">
+                                <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
+                                <div className="absolute bottom-[-10%] left-[-10%] w-56 h-56 bg-white/5 rounded-full blur-2xl" />
                             </div>
 
-                            {/* ── Background Layer (for clipping and gradient) ── */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 rounded-b-[2.5rem] overflow-hidden z-0 shadow-lg shadow-green-200">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-                            </div>
+                            {/* Header Content */}
+                            <div className="relative z-50 pt-12 pb-14 px-5">
+                                {/* Header */}
+                                <div className="relative z-10 flex justify-between items-center mb-10 px-1">
+                                    <span className="text-xl sm:text-2xl font-black tracking-tight text-white">HORPAY</span>
+                                    <div className="flex items-center gap-2.5">
+                                        <button className="relative w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 shadow-sm">
+                                            <span className="material-symbols-outlined text-[22px]">notifications</span>
+                                            <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-400 rounded-full border-2 border-[#10b981]" />
+                                        </button>
+                                        <div className="relative">
+                                            <div
+                                                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                                className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-primary shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-white/20 overflow-hidden"
+                                            >
+                                                <span className="material-symbols-outlined text-[22px]">person</span>
+                                            </div>
 
-                            <div className="relative flex items-start justify-between">
-                                <div className="text-white">
-                                    <p className="text-green-100 text-[13px] font-bold tracking-widest uppercase mb-1 drop-shadow-sm">สวัสดีคุณ {userName} 👋</p>
-                                    <h1 className="text-3xl font-black tracking-tight drop-shadow-md bg-clip-text text-transparent bg-gradient-to-b from-white to-green-50">{dorm?.name || 'หอพักของฉัน'}</h1>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button className="relative w-11 h-11 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-[1.2rem] flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 shadow-sm">
-                                        <BellIcon className="w-6 h-6 stroke-[2]" />
-                                        <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-green-500" />
-                                    </button>
-                                    <div className="relative">
-                                        <div
-                                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                            className="w-12 h-12 bg-white rounded-[1.2rem] flex items-center justify-center text-green-600 shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-green-100"
-                                        >
-                                            <UserIcon className="w-7 h-7 stroke-[2]" />
+                                            {/* Dropdown Menu (Existing Logic Kept) */}
+                                            {isMenuOpen && (
+                                                <>
+                                                    <div className="absolute right-0 top-full mt-4 w-[260px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+                                                        <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
+                                                            <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">ยินดีต้อนรับ</p>
+                                                            <h3 className="text-[17px] font-black text-gray-800 tracking-tight leading-none truncate">{userName}</h3>
+                                                        </div>
+                                                        <div className="p-2.5 space-y-1">
+                                                            <button onClick={() => { setIsMenuOpen(false); setActiveTab('settings'); setActiveSettingsTab('dorm'); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">
+                                                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm">
+                                                                    <BuildingOfficeIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                                </div>
+                                                                แก้ไขข้อมูลหอพัก
+                                                            </button>
+                                                            <button onClick={() => { setIsMenuOpen(false); router.push('/dashboard/rooms'); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">
+                                                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm">
+                                                                    <Squares2X2Icon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                                </div>
+                                                                จัดการห้องพัก
+                                                            </button>
+                                                            <button onClick={() => { setIsMenuOpen(false); setActiveTab('settings'); setActiveSettingsTab('line'); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">
+                                                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm">
+                                                                    <ChatBubbleLeftRightIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                                </div>
+                                                                ตั้งค่า LINE Notification
+                                                            </button>
+                                                            <button onClick={() => { setIsMenuOpen(false); setIsChangePasswordOpen(true); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">
+                                                                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm">
+                                                                    <LockClosedIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
+                                                                </div>
+                                                                เปลี่ยนรหัสผ่าน
+                                                            </button>
+                                                            <div className="h-px bg-gray-100/60 mx-4 my-2" />
+                                                            <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-4 text-left text-red-500 hover:bg-red-50 rounded-2xl transition-all font-bold text-[14.5px] group">
+                                                                <div className="w-10 h-10 bg-red-50/50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm">
+                                                                    <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-400 group-hover:text-red-600 stroke-[2.5]" />
+                                                                </div>
+                                                                ออกจากระบบ
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-
-                                        {/* Dropdown Menu */}
-                                        {isMenuOpen && (
-                                            <>
-                                                <div className="absolute right-0 mt-4 w-[240px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-gray-50 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
-                                                    {/* Header */}
-                                                    <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
-                                                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">ยินดีต้อนรับ</p>
-                                                        <h3 className="text-[17px] font-black text-gray-800 tracking-tight leading-none">{userName}</h3>
-                                                    </div>
-
-                                                    {/* Menu Items */}
-                                                    <div className="p-2.5 space-y-1">
-                                                        <button
-                                                            onClick={() => {
-                                                                setIsMenuOpen(false);
-                                                                setActiveTab('settings');
-                                                                setActiveSettingsTab('dorm');
-                                                            }}
-                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
-                                                        >
-                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                                <BuildingOfficeIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
-                                                            </div>
-                                                            แก้ไขข้อมูลหอพัก
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => {
-                                                                setIsMenuOpen(false);
-                                                                router.push('/dashboard/rooms'); // Link to dedicated manage rooms page
-                                                            }}
-                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
-                                                        >
-                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                                <Squares2X2Icon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
-                                                            </div>
-                                                            จัดการห้องพัก
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => {
-                                                                setIsMenuOpen(false);
-                                                                setActiveTab('settings');
-                                                                setActiveSettingsTab('line');
-                                                            }}
-                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
-                                                        >
-                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                                <ChatBubbleLeftRightIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
-                                                            </div>
-                                                            ตั้งค่า LINE Notification
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => {
-                                                                setIsMenuOpen(false);
-                                                                setIsChangePasswordOpen(true);
-                                                                setPasswordError('');
-                                                                setPasswordSuccess('');
-                                                                setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
-                                                            }}
-                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group"
-                                                        >
-                                                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                                <LockClosedIcon className="w-5 h-5 text-gray-400 group-hover:text-green-600 stroke-[2.5]" />
-                                                            </div>
-                                                            เปลี่ยนรหัสผ่าน
-                                                        </button>
-
-                                                        <div className="h-px bg-gray-100/60 mx-4 my-2" />
-
-                                                        <button
-                                                            onClick={handleLogout}
-                                                            className="w-full flex items-center gap-4 px-4 py-4 text-left text-red-500 hover:bg-red-50 rounded-2xl transition-all font-bold text-[14.5px] group"
-                                                        >
-                                                            <div className="w-10 h-10 bg-red-50/50 rounded-xl flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                                <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-400 group-hover:text-red-600 stroke-[2.5]" />
-                                                            </div>
-                                                            ออกจากระบบ
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
-                        </header>
 
-                        <div className="px-6 -mt-16 relative z-20 space-y-6 pb-20">
+                                {/* Greeting */}
+                                <div className="relative z-10 text-white">
+                                    <p className="text-white/80 text-sm font-medium flex items-center gap-2">
+                                        สวัสดีคุณ {userName} 👋
+                                    </p>
+                                    <h1 className="text-3xl font-headline font-extrabold mt-1 tracking-tight truncate max-w-[280px]">
+                                        {dorm?.name || 'หอพักของฉัน'}
+                                    </h1>
+                                </div>
+                            </div>
+                        </div>
+
+                        <main className="px-5 -mt-8 relative z-20 space-y-6">
                             {/* DB Error Banner */}
                             {dbError && (
                                 <div className="bg-red-50 border-2 border-red-500 rounded-3xl p-5 mb-4 shadow-xl shadow-red-100/50">
@@ -736,84 +781,59 @@ export default function DashboardPage() {
                                 </div>
                             )}
 
-                            {/* ── Stats Grid ── */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100/50">
-                                        <Squares2X2Icon className="w-5 h-5 stroke-[2]" />
+                            {/* Summary Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {[
+                                    { icon: 'grid_view', label: 'ห้องทั้งหมด', value: stats.total, color: 'bg-emerald-50 text-emerald-500' },
+                                    { icon: 'home', label: 'ห้องว่าง', value: stats.vacant, color: 'bg-green-50 text-green-500' },
+                                    { icon: 'group', label: 'มีผู้เช่า', value: stats.occupied, color: 'bg-teal-50 text-teal-500' },
+                                    { icon: 'payments', label: 'ยอดค้าง/รอตรวจ', value: stats.pendingPayments, color: 'bg-orange-50 text-orange-500' },
+                                ].map((item) => (
+                                    <div key={item.label} className="bg-white p-4 rounded-2xl shadow-sm flex items-center gap-3 transform hover:-translate-y-1 transition-all duration-300">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color}`}>
+                                            <span className="material-symbols-outlined">{item.icon}</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.label}</p>
+                                            <p className="text-xl font-headline font-bold text-slate-800">{item.value}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องทั้งหมด</p>
-                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.total}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-50 to-green-100 text-green-600 flex items-center justify-center shrink-0 border border-green-100/50">
-                                        <HomeIcon className="w-5 h-5 stroke-[2]" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ห้องว่าง</p>
-                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.vacant}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
-                                        <UserGroupIcon className="w-5 h-5 stroke-[2]" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">มีผู้เช่า</p>
-                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.occupied}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-white p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100/50">
-                                        <BanknotesIcon className="w-5 h-5 stroke-[2]" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[11px] text-gray-400 font-bold mb-0.5 tracking-wide">ยอดค้าง/รอตรวจ</p>
-                                        <p className="text-2xl font-black text-gray-800 leading-none">{stats.pendingPayments}</p>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
 
-                            {/* ── Quick Actions ── */}
-                            <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
-                                <h2 className="text-sm font-black text-gray-800 mb-4 tracking-tight px-1 text-center">เมนูใช้งาน</h2>
-                                <div className="grid grid-cols-3 gap-y-10 gap-x-2">
+                            {/* Management Menu */}
+                            <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-50">
+                                <h2 className="text-center text-slate-800 font-bold mb-6 text-sm uppercase tracking-widest">เมนูใช้งาน</h2>
+                                <div className="grid grid-cols-3 gap-y-8">
                                     {[
-                                        { name: 'จดมิเตอร์', icon: DocumentPlusIcon, color: 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100 shadow-green-100/50', path: '/dashboard/meter' },
-                                        { name: 'จัดการบิล & การชำระเงิน', icon: BanknotesIcon, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100/50', path: '/dashboard/billing' },
-                                        { name: 'ประวัติบิล', icon: ClockIcon, color: 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100 shadow-purple-100/50', path: '/dashboard/history' },
-                                        { name: 'ข้อมูลผู้เช่า', icon: UsersIcon, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 shadow-blue-100/50', path: '/dashboard/tenants' },
-                                        { name: 'เพิ่มผู้เช่า', icon: UserGroupIcon, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100 shadow-orange-100/50', path: '/dashboard/tenants/new' },
-                                    ].map((action, i) => (
+                                        { icon: 'electric_meter', label: 'จดมิเตอร์', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', path: '/dashboard/meter' },
+                                        { icon: 'receipt_long', label: 'ออกบิล', color: 'bg-teal-50 text-teal-600 border-teal-100', path: '/dashboard/billing' },
+                                        { icon: 'history', label: 'ประวัติบิล', color: 'bg-purple-50 text-purple-600 border-purple-100', path: '/dashboard/history' },
+                                        { icon: 'badge', label: 'ข้อมูลผู้เช่า', color: 'bg-blue-50 text-blue-600 border-blue-100', path: '/dashboard/tenants' },
+                                        { icon: 'person_add', label: 'เพิ่มผู้เช่า', color: 'bg-orange-50 text-orange-600 border-orange-100', path: '/dashboard/tenants/new' },
+                                        { icon: 'logout', label: 'แจ้งออก/ย้ายออก', color: 'bg-rose-50 text-rose-600 border-rose-100', path: '/dashboard/move-out' },
+                                    ].map((item) => (
                                         <button
-                                            key={i}
-                                            onClick={() => {
-                                                if (action.path) {
-                                                    router.push(action.path);
-                                                } else {
-                                                    alert('กำลังพัฒนาระบบนี้');
-                                                }
-                                            }}
-                                            className="flex flex-col items-center gap-2.5 group active:scale-[0.95] transition-all"
+                                            key={item.label}
+                                            onClick={() => router.push(item.path)}
+                                            className="flex flex-col items-center gap-2 group active:scale-95 transition-all"
                                         >
-                                            <div className={`w-[64px] h-[64px] rounded-[1.5rem] flex items-center justify-center border-2 transition-all shadow-lg ${action.color}`}>
-                                                <action.icon className="w-7 h-7 stroke-[2.2]" />
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${item.color} group-hover:shadow-md`}>
+                                                <span className="material-symbols-outlined text-2xl">{item.icon}</span>
                                             </div>
-                                            <span className="text-[12px] font-black text-gray-700 text-center tracking-tight leading-none group-hover:text-green-600 transition-colors uppercase">{action.name}</span>
+                                            <span className="text-[11px] font-bold text-slate-600">{item.label}</span>
                                         </button>
                                     ))}
                                 </div>
-                            </div>
+                            </section>
 
-                            {/* ── Latest Status ── */}
-                            <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-gray-50">
-                                <div className="flex items-center justify-between mb-5 px-1">
-                                    <h2 className="text-sm font-black text-gray-800 tracking-tight">สถานะบิลล่าสุด</h2>
+                            {/* Billing Status */}
+                            <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-50">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-slate-800 font-bold text-sm">สถานะบิลล่าสุด</h2>
                                     <button
-                                        onClick={() => setActiveTab('rooms')}
-                                        className="text-[12px] font-black text-green-600 uppercase tracking-widest hover:text-green-700 transition-colors"
+                                        onClick={() => { setActiveTab('rooms'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                        className="text-primary text-xs font-bold uppercase tracking-widest"
                                     >
                                         ดูทั้งหมด
                                     </button>
@@ -825,12 +845,11 @@ export default function DashboardPage() {
                                             <div
                                                 key={room.id}
                                                 onClick={() => router.push('/dashboard/billing')}
-                                                className="bg-white px-5 py-4 rounded-2xl border-2 border-red-50 shadow-sm flex items-center justify-between group hover:border-red-300 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
+                                                className="bg-white px-5 py-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-primary/30 hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="relative w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 overflow-hidden">
-                                                        <div className="absolute inset-0 bg-red-500/5" />
-                                                        <HomeIconSolid className="w-5 h-5" />
+                                                    <div className="relative w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 overflow-hidden">
+                                                        <span className="material-symbols-outlined">home</span>
                                                     </div>
                                                     <div>
                                                         <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1.5">ห้อง {room.room_number}</p>
@@ -850,21 +869,21 @@ export default function DashboardPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="h-8 px-3 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                                            <span className="text-[10px] font-black uppercase text-orange-600">ยังไม่จ่าย</span>
+                                                            <span className="text-[10px] font-black uppercase text-orange-600">รอชำระ</span>
                                                         </div>
                                                     )}
-                                                    <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-red-600 transition-colors" />
+                                                    <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors text-sm">chevron_right</span>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="py-8 flex flex-col items-center justify-center text-center space-y-2 border-2 border-dashed border-gray-50 rounded-2xl">
-                                            <p className="text-xs font-bold text-gray-400">ไม่มีห้องค้างชำระ</p>
+                                        <div className="flex items-center justify-center py-6 border-2 border-dashed border-slate-100 rounded-2xl">
+                                            <p className="text-slate-400 text-sm font-medium">ไม่มีห้องค้างชำระ</p>
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                        </div>
+                            </section>
+                        </main>
                     </div>
                 )}
 
@@ -953,13 +972,13 @@ export default function DashboardPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-100">
                                         <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                                            <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
                                                 <UsersIcon className="w-4 h-4" />
                                             </div>
                                             <span className="text-[11px] font-black text-blue-900 uppercase">อัตราพัก</span>
                                         </div>
                                         <div className="flex items-end gap-2">
-                                            <span className="text-2xl font-black text-blue-600">{overviewData.occupancyRate}%</span>
+                                            <span className="text-2xl font-black text-emerald-600">{overviewData.occupancyRate}%</span>
                                             <span className="text-[10px] font-bold text-blue-400 pb-1">Occupied</span>
                                         </div>
                                     </div>
@@ -976,8 +995,8 @@ export default function DashboardPage() {
                                                 <p className="text-[10px] font-black text-orange-700">฿{overviewData.electricityAmount.toLocaleString()}</p>
                                             </div>
                                             <div className="flex justify-between items-center">
-                                                <p className="text-[11px] font-bold text-blue-600">💧 น้ำ: {overviewData.waterUnits} หน่วย</p>
-                                                <p className="text-[10px] font-black text-blue-700">฿{overviewData.waterAmount.toLocaleString()}</p>
+                                                <p className="text-[11px] font-bold text-teal-600">💧 น้ำ: {overviewData.waterUnits} หน่วย</p>
+                                                <p className="text-[10px] font-black text-teal-700">฿{overviewData.waterAmount.toLocaleString()}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -989,7 +1008,7 @@ export default function DashboardPage() {
                                         <h3 className="text-[13px] font-black text-gray-800 tracking-tight">สถานะบิลเดือนนี้</h3>
                                     </div>
                                     <div className="divide-y divide-gray-50">
-                                        <div 
+                                        <div
                                             onClick={() => router.push('/dashboard/billing')}
                                             className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                         >
@@ -1015,11 +1034,11 @@ export default function DashboardPage() {
                                                 <span className="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">รอยืนยันสลิป</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm font-black text-blue-600">{overviewData.billStatusCounts.waiting_verify} ห้อง</span>
+                                                <span className="text-sm font-black text-emerald-600">{overviewData.billStatusCounts.waiting_verify} ห้อง</span>
                                                 <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-blue-400 transition-colors" />
                                             </div>
                                         </div>
-                                        <div 
+                                        <div
                                             onClick={() => router.push('/dashboard/billing')}
                                             className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                         >
@@ -1034,7 +1053,7 @@ export default function DashboardPage() {
                                                 <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-orange-400 transition-colors" />
                                             </div>
                                         </div>
-                                        <div 
+                                        <div
                                             onClick={() => router.push('/dashboard/billing')}
                                             className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                         >
@@ -1074,7 +1093,7 @@ export default function DashboardPage() {
                             </div>
                         ) : (
                             <div className="space-y-8">
-                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, {numeric: true})).map(floor => (
+                                {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
                                     <div key={floor} className="space-y-4">
                                         <div className="flex items-center justify-between px-2">
                                             <div className="flex items-center gap-3">
@@ -1167,7 +1186,7 @@ export default function DashboardPage() {
                                                             <div>
                                                                 <p className="text-[10px] font-black text-gray-400 uppercase leading-none mb-1">ห้องหมายเลข</p>
                                                                 <h3 className="text-xl font-black text-gray-800 tracking-tight leading-none mb-2">{room.room_number}</h3>
-                                                                
+
                                                                 {isOccupied && activeTenant && (
                                                                     <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
                                                                         <div className="flex items-center gap-2 overflow-hidden">
@@ -1399,6 +1418,112 @@ export default function DashboardPage() {
                                                         />
                                                     </div>
                                                 </div>
+                                                <div className="pt-4 border-t border-gray-100 flex items-center gap-3 mb-2">
+                                                    <BoltIcon className="w-5 h-5 text-yellow-500" />
+                                                    <span className="text-sm font-black text-gray-700">ตั้งค่าค่าน้ำ-ไฟ</span>
+                                                </div>
+                                                <div className="space-y-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">ค่าไฟฟ้า (บาท / หน่วย)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={settingsData.electric_rate_per_unit}
+                                                            onChange={(e) => setSettingsData({ ...settingsData, electric_rate_per_unit: parseFloat(e.target.value) || 0 })}
+                                                            className="w-full h-12 bg-white border-2 border-gray-100 rounded-xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                            placeholder="0.00"
+                                                        />
+                                                    </div>
+                                                    <div className="h-px bg-gray-200/50" />
+                                                    <div className="space-y-3">
+                                                        <label className="text-[13px] font-black text-gray-500 ml-1">รูปแบบการเก็บค่าน้ำ</label>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <button
+                                                                onClick={() => setSettingsData({ ...settingsData, water_billing_type: 'per_unit' })}
+                                                                className={`h-11 rounded-xl text-xs font-black transition-all border-2 ${settingsData.water_billing_type === 'per_unit' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}
+                                                            >
+                                                                ตามหน่วย
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setSettingsData({ ...settingsData, water_billing_type: 'flat_rate' })}
+                                                                className={`h-11 rounded-xl text-xs font-black transition-all border-2 ${settingsData.water_billing_type === 'flat_rate' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}
+                                                            >
+                                                                เหมาจ่าย
+                                                            </button>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="number"
+                                                                value={settingsData.water_billing_type === 'per_unit' ? settingsData.water_rate_per_unit : settingsData.water_flat_rate}
+                                                                onChange={(e) => {
+                                                                    const val = parseFloat(e.target.value) || 0
+                                                                    if (settingsData.water_billing_type === 'per_unit') {
+                                                                        setSettingsData({ ...settingsData, water_rate_per_unit: val })
+                                                                    } else {
+                                                                        setSettingsData({ ...settingsData, water_flat_rate: val })
+                                                                    }
+                                                                }}
+                                                                className="w-full h-12 bg-white border-2 border-gray-100 rounded-xl px-4 font-bold text-gray-800 focus:border-green-500 transition-all outline-none"
+                                                                placeholder="0.00"
+                                                            />
+                                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold text-gray-400">
+                                                                บาท / {settingsData.water_billing_type === 'per_unit' ? 'หน่วย' : 'เดือน'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4 border-t border-gray-100 flex items-center gap-3 mb-2">
+                                                    <PlusIcon className="w-5 h-5 text-purple-500" />
+                                                    <span className="text-sm font-black text-gray-700">ค่าบริการเพิ่มเติม (รายเดือน)</span>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div className="flex gap-2">
+                                                        <div className="flex-[2] space-y-1">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="ชื่อบริการ (เช่น ค่าเน็ต)"
+                                                                value={newServiceName}
+                                                                onChange={(e) => setNewServiceName(e.target.value)}
+                                                                className="w-full h-12 bg-white border-2 border-gray-100 rounded-xl px-4 text-sm font-bold text-gray-800 outline-none focus:border-purple-500 transition-all"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1 space-y-1">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="ราคา"
+                                                                value={newServicePrice}
+                                                                onChange={(e) => setNewServicePrice(e.target.value)}
+                                                                className="w-full h-12 bg-white border-2 border-gray-100 rounded-xl px-4 text-sm font-bold text-gray-800 outline-none focus:border-purple-500 transition-all"
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            onClick={addService}
+                                                            className="w-12 h-12 bg-purple-50 text-purple-600 border-2 border-purple-100 rounded-xl flex items-center justify-center hover:bg-purple-100 transition-all active:scale-90"
+                                                        >
+                                                            <PlusIcon className="w-6 h-6" />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-2 min-h-[40px]">
+                                                        {services.map((s) => (
+                                                            <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-2xl animate-in zoom-in-95 duration-200">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-xs font-black text-gray-700">{s.name}</span>
+                                                                    <span className="text-[11px] font-bold text-green-600">{s.price.toLocaleString()} บาท/เดือน</span>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => removeService(s.id)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                                >
+                                                                    <PlusIcon className="w-5 h-5 rotate-45" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        {services.length === 0 && (
+                                                            <p className="text-center py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest border-2 border-dashed border-gray-100 rounded-2xl">ไม่มีค่าบริการเพิ่มเติม</p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </>
@@ -1443,7 +1568,7 @@ export default function DashboardPage() {
                                                                 <LockClosedIcon className="w-6 h-6" />
                                                             </div>
                                                             <p className="text-sm font-black text-gray-700">ฟีเจอร์นี้ถูกปิดใช้งานอยู่</p>
-                                                            <p className="text-[11px] font-bold text-gray-400 leading-relaxed uppercase tracking-widest">กรุณากดเปิดที่ปุ่มด้านบน<br/>เพื่อความปลอดภัยและป้องกันการกดเล่น</p>
+                                                            <p className="text-[11px] font-bold text-gray-400 leading-relaxed uppercase tracking-widest">กรุณากดเปิดที่ปุ่มด้านบน<br />เพื่อความปลอดภัยและป้องกันการกดเล่น</p>
                                                         </div>
                                                     </div>
                                                 )}
@@ -1469,7 +1594,7 @@ export default function DashboardPage() {
                                                 <div className="h-px bg-gray-100/50 my-2" />
 
                                                 <div className="space-y-2">
-                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Bot User ID (พบอัตโนมัติ)</label>
+                                                    <label className="text-[13px] font-black text-gray-500 ml-1">Bot User ID (อัตโนมัติ)</label>
                                                     <input
                                                         readOnly
                                                         type="text"
@@ -1491,11 +1616,12 @@ export default function DashboardPage() {
                                                 <div className="space-y-4">
                                                     <div className="space-y-2">
                                                         <label className="text-[13px] font-black text-gray-500 ml-1">Channel Access Token</label>
-                                                        <textarea
+                                                        <input
+                                                            type="password"
                                                             value={lineConfig.access_token}
                                                             onChange={(e) => setLineConfig({ ...lineConfig, access_token: e.target.value })}
-                                                            className="w-full h-32 bg-white border-2 border-gray-50 rounded-2xl p-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm resize-none text-sm break-all"
-                                                            placeholder="eyJhbGciOiJIUzI1NiJ9..."
+                                                            className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
+                                                            placeholder="••••••••••••••••"
                                                         />
                                                     </div>
 
@@ -1557,7 +1683,7 @@ export default function DashboardPage() {
                             <Squares2X2Icon className="w-12 h-12 stroke-[2]" />
                         </div>
                         <h2 className="text-2xl font-black text-gray-800 tracking-tight mb-3">
-                            ระบบ {navItems.find(n => n.id === activeTab)?.name || 'จัดการห้อง'}
+                            ระบบที่เลือก
                         </h2>
                         <p className="text-gray-500 text-[13px] leading-relaxed max-w-[260px] font-medium">
                             หน้านี้กำลังอยู่ระหว่างการพัฒนา รอติดตามการอัปเดตระบบเร็วๆ นี้นะครับ 🚀
@@ -1571,147 +1697,120 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* ── Modern Floating Bottom Navigation ── */}
-                <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-white/80 backdrop-blur-xl border-t border-gray-100 px-2 py-4 pb-8 flex justify-around items-center z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] rounded-t-[2.5rem] sm:rounded-b-[3rem]">
-                    {navItems.map((item) => {
-                        const isActive = activeTab === item.id;
-                        const Icon = isActive ? item.solidIcon : item.outlineIcon;
-                        return (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`relative flex flex-col items-center gap-1.5 w-[72px] transition-all duration-300 outline-none group ${isActive ? 'text-green-600 -translate-y-1' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                <div className="relative flex items-center justify-center">
-                                    {isActive && (
-                                        <div className="absolute inset-0 bg-green-100 rounded-2xl scale-[1.6] blur-sm animate-in zoom-in duration-300" />
-                                    )}
-                                    <Icon className={`w-[24px] h-[24px] relative z-10 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+
+                {/* ── Change Password Modal ── */}
+                {isChangePasswordOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
+                            onClick={() => !isSubmittingPassword && setIsChangePasswordOpen(false)}
+                        />
+                        <div className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 fade-in duration-300">
+                            {/* Header */}
+                            <div className="bg-gradient-to-br from-green-500 to-green-600 p-8 text-white relative">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                                <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                                        <LockClosedIcon className="w-6 h-6" />
+                                    </div>
+                                    เปลี่ยนรหัสผ่าน
+                                </h3>
+                                <p className="text-green-100 font-bold text-sm mt-2 opacity-80">เพื่อความปลอดภัยของข้อมูลบัญชีคุณ</p>
+                            </div>
+
+                            <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านเดิม</label>
+                                        <div className="relative group/field">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                                <KeyIcon className="w-5 h-5" />
+                                            </div>
+                                            <input
+                                                required
+                                                type="password"
+                                                value={passwordData.oldPassword}
+                                                onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                placeholder="••••••••"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-gray-100 mx-4" />
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านใหม่</label>
+                                        <div className="relative group/field">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                                <LockClosedIcon className="w-5 h-5" />
+                                            </div>
+                                            <input
+                                                required
+                                                minLength={6}
+                                                type="password"
+                                                value={passwordData.newPassword}
+                                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                placeholder="รหัสใหม่ (อย่างน้อย 6 ตัว)"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ยืนยันรหัสผ่านใหม่</label>
+                                        <div className="relative group/field">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                                <CheckCircleIcon className="w-5 h-5" />
+                                            </div>
+                                            <input
+                                                required
+                                                type="password"
+                                                value={passwordData.confirmPassword}
+                                                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                placeholder="ยืนยันรหัสใหม่อีกครั้ง"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <span className={`text-[10px] font-black tracking-tight relative z-10 ${isActive ? 'text-green-600' : 'text-gray-400'}`}>
-                                    {item.name}
-                                </span>
-                                {isActive && (
-                                    <div className="absolute -bottom-2 w-1 h-1 bg-green-600 rounded-full shadow-[0_0_8px_rgba(22,163,74,0.6)]" />
+
+                                {(passwordError || passwordSuccess) && (
+                                    <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${passwordSuccess ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                        {passwordSuccess ? <CheckCircleIcon className="w-5 h-5" /> : <BellIcon className="w-5 h-5" />}
+                                        <span className="text-xs font-black">{passwordError || passwordSuccess}</span>
+                                    </div>
                                 )}
-                            </button>
-                        );
-                    })}
-                </div>
- 
-                 {/* ── Change Password Modal ── */}
-                 {isChangePasswordOpen && (
-                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                         <div 
-                             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
-                             onClick={() => !isSubmittingPassword && setIsChangePasswordOpen(false)}
-                         />
-                         <div className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 fade-in duration-300">
-                             {/* Header */}
-                             <div className="bg-gradient-to-br from-green-500 to-green-600 p-8 text-white relative">
-                                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                                 <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                                         <LockClosedIcon className="w-6 h-6" />
-                                     </div>
-                                     เปลี่ยนรหัสผ่าน
-                                 </h3>
-                                 <p className="text-green-100 font-bold text-sm mt-2 opacity-80">เพื่อความปลอดภัยของข้อมูลบัญชีคุณ</p>
-                             </div>
- 
-                             <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
-                                 <div className="space-y-4">
-                                     <div className="space-y-1.5">
-                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านเดิม</label>
-                                         <div className="relative group/field">
-                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
-                                                 <KeyIcon className="w-5 h-5" />
-                                             </div>
-                                             <input
-                                                 required
-                                                 type="password"
-                                                 value={passwordData.oldPassword}
-                                                 onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                                                 className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
-                                                 placeholder="••••••••"
-                                             />
-                                         </div>
-                                     </div>
- 
-                                     <div className="h-px bg-gray-100 mx-4" />
- 
-                                     <div className="space-y-1.5">
-                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านใหม่</label>
-                                         <div className="relative group/field">
-                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
-                                                 <LockClosedIcon className="w-5 h-5" />
-                                             </div>
-                                             <input
-                                                 required
-                                                 minLength={6}
-                                                 type="password"
-                                                 value={passwordData.newPassword}
-                                                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                                 className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
-                                                 placeholder="รหัสใหม่ (อย่างน้อย 6 ตัว)"
-                                             />
-                                         </div>
-                                     </div>
- 
-                                     <div className="space-y-1.5">
-                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ยืนยันรหัสผ่านใหม่</label>
-                                         <div className="relative group/field">
-                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
-                                                 <CheckCircleIcon className="w-5 h-5" />
-                                             </div>
-                                             <input
-                                                 required
-                                                 type="password"
-                                                 value={passwordData.confirmPassword}
-                                                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                                 className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
-                                                 placeholder="ยืนยันรหัสใหม่อีกครั้ง"
-                                             />
-                                         </div>
-                                     </div>
-                                 </div>
- 
-                                 {(passwordError || passwordSuccess) && (
-                                     <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${passwordSuccess ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-                                         {passwordSuccess ? <CheckCircleIcon className="w-5 h-5" /> : <BellIcon className="w-5 h-5" />}
-                                         <span className="text-xs font-black">{passwordError || passwordSuccess}</span>
-                                     </div>
-                                 )}
- 
-                                 <div className="flex gap-3 pt-2">
-                                     <button
-                                         type="button"
-                                         disabled={isSubmittingPassword}
-                                         onClick={() => setIsChangePasswordOpen(false)}
-                                         className="flex-1 h-14 rounded-2xl font-black text-gray-400 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
-                                     >
-                                         ยกเลิก
-                                     </button>
-                                     <button
-                                         type="submit"
-                                         disabled={isSubmittingPassword}
-                                         className="flex-[2] h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black shadow-lg shadow-green-100 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                                     >
-                                         {isSubmittingPassword ? (
-                                             <>
-                                                 <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                                                 กำลังบันทึก...
-                                             </>
-                                         ) : (
-                                             <>บันทึกรหัสผ่านใหม่</>
-                                         )}
-                                     </button>
-                                 </div>
-                             </form>
-                         </div>
-                     </div>
-                 )}
-             </div>
-         </div>
-     );
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        disabled={isSubmittingPassword}
+                                        onClick={() => setIsChangePasswordOpen(false)}
+                                        className="flex-1 h-14 rounded-2xl font-black text-gray-400 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingPassword}
+                                        className="flex-[2] h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black shadow-lg shadow-green-100 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {isSubmittingPassword ? (
+                                            <>
+                                                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                                                กำลังบันทึก...
+                                            </>
+                                        ) : (
+                                            <>บันทึกรหัสผ่านใหม่</>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }

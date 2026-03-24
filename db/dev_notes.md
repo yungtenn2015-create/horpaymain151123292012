@@ -215,7 +215,7 @@ const { data: encrypted } = await supabase
   .rpc('encrypt_id_card', { plain_text: '1234567890123' })
 
 await supabase.from('tenants').insert({
-  name: 'สมชาย ใจดี',
+  name: '',
   id_card_number: encrypted,
 })
 ```

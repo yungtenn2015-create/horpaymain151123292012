@@ -638,19 +638,19 @@ function BillingContent() {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setFilterLineStatus('all')}
-                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'all' ? 'bg-[#06C755] text-white shadow-lg shadow-green-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'all' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
                             >
                                 ทั้งหมด
                             </button>
                             <button
                                 onClick={() => setFilterLineStatus('linked')}
-                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'linked' ? 'bg-[#06C755] text-white shadow-lg shadow-green-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'linked' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
                             >
                                 ผูกไลน์แล้ว
                             </button>
                             <button
                                 onClick={() => setFilterLineStatus('unlinked')}
-                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'unlinked' ? 'bg-[#06C755] text-white shadow-lg shadow-green-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                                className={`flex-1 py-1.5 rounded-full text-xs font-black transition-all ${filterLineStatus === 'unlinked' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
                             >
                                 ยังไม่ผูก
                             </button>
@@ -743,7 +743,7 @@ function BillingContent() {
                                                         <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-sm ${statusColor}`}>
                                                             {item.roomNumber}
                                                             {item.lineUserId && (
-                                                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#06C755] rounded-full border-2 border-white flex items-center justify-center shadow-lg transform rotate-6">
+                                                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg transform rotate-6">
                                                                     <ChatBubbleLeftRightIcon className="w-2.5 h-2.5 text-white stroke-[3]" />
                                                                 </div>
                                                             )}
