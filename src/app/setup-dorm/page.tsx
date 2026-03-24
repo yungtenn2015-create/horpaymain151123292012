@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
+import { log } from 'node:console'
 
 type Service = {
     id: string
@@ -81,18 +82,81 @@ export default function SetupDormPage() {
     // Helper functions
     const nextStep = () => setStep(s => s + 1)
     const prevStep = () => setStep(s => s - 1)
+    console.log('floors++++++', floors)
 
+    const generateRoomNumbers = () => {
+        console.log('roomNumber')
+        const updatedFloors = floors.map((f) => ({
+            ...f,
+            rooms: f.rooms.map((room, idx) => {
+                const roomNumber = `${f.floorNumber}${(idx + 1).toString().padStart(2, '0')}`;
+                console.log('roomNumber', roomNumber)
+                return {
+                    ...room,
+                    number: roomNumber // หรือ String(roomNumber)
+                };
+            })
+        }));
+
+        setFloors(updatedFloors);
+    };
+
+    // useEffect(() => {
+    //     async function fetchUser() {
+
+    //         const supabase = createClient()
+    //         const { data: { user } } = await supabase.auth.getUser()
+    //         if (user) {
+    //             setOwnerName(user.user_metadata?.name || '')
+    //             setOwnerPhone(user.user_metadata?.phone || '')
+    //         }
+    //     }
+    //     fetchUser()
+    //     generateRoomNumbers();
+
+    // }, [])
     useEffect(() => {
-        async function fetchUser() {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                setOwnerName(user.user_metadata?.name || '')
-                setOwnerPhone(user.user_metadata?.phone || '')
-            }
-        }
-        fetchUser()
-    }, [])
+        if (step !== 6) return;
+
+        setFloors(prev =>
+            prev.map((f) => {
+                let currentRooms = [...f.rooms];
+
+                // ถ้ายังไม่มีห้องเลย ให้เริ่มสร้างใหม่พร้อมเลขห้องตั้งต้น
+                if (currentRooms.length === 0) {
+                    currentRooms = Array.from({ length: f.roomCount }, (_, i) => ({
+                        number: `${f.floorNumber}${(i + 1).toString().padStart(2, '0')}`,
+                        active: true,
+                        roomType: 'fan' as const,
+                        price: ''
+                    }));
+                }
+                // ถ้าจำนวนห้องไม่ตรงกับที่ตั้งไว้ (กรณีกลับไปแก้ Step 5) ให้ปรับจำนวณ
+                else if (currentRooms.length !== f.roomCount) {
+                    if (currentRooms.length < f.roomCount) {
+                        const additional = Array.from({ length: f.roomCount - currentRooms.length }, (_, i) => ({
+                            number: `${f.floorNumber}${(currentRooms.length + i + 1).toString().padStart(2, '0')}`,
+                            active: true,
+                            roomType: 'fan' as const,
+                            price: ''
+                        }));
+                        currentRooms = [...currentRooms, ...additional];
+                    } else {
+                        currentRooms = currentRooms.slice(0, f.roomCount);
+                    }
+                }
+                // ตรวจสอบห้องที่เปิดใช้งานแต่ยังไม่มีเลขห้อง ให้เติมให้โดยไม่ทับของเดิม
+                else {
+                    currentRooms = currentRooms.map((room, i) => ({
+                        ...room,
+                        number: room.number || `${f.floorNumber}${(i + 1).toString().padStart(2, '0')}`
+                    }));
+                }
+
+                return { ...f, rooms: currentRooms };
+            })
+        );
+    }, [step]);
 
     const showModal = (config: Omit<ModalConfig, 'isOpen'>) => {
         setModalConfig({ ...config, isOpen: true })
@@ -131,19 +195,6 @@ export default function SetupDormPage() {
         setFloors(floors.map(f => f.floorNumber === floorNum ? { ...f, roomCount: count } : f))
     }
 
-    // Step 6 Logic: Generate rooms if empty
-    if (step === 6) {
-        floors.forEach(f => {
-            if (f.rooms.length === 0) {
-                f.rooms = Array.from({ length: f.roomCount }, (_, i) => ({
-                    number: '', // Don't pre-fill
-                    active: true,
-                    roomType: 'fan',
-                    price: ''
-                }))
-            }
-        })
-    }
 
     const toggleRoom = (floorNum: number, roomIndex: number) => {
         setFloors(floors.map(f => {
@@ -155,6 +206,8 @@ export default function SetupDormPage() {
             return f
         }))
     }
+
+
 
     const updateRoomNumber = (floorNumber: number, roomIndex: number, newNumber: string) => {
         if (newNumber.length > 10) return;
@@ -211,6 +264,9 @@ export default function SetupDormPage() {
     const hasDuplicates = duplicateRooms.length > 0;
     const hasEmptyActiveRooms = activeRooms.some(r => r.number.trim() === '');
     const isStep5Invalid = hasDuplicates || hasEmptyActiveRooms;
+
+    console.log('hasEmptyActiveRooms++++++', hasEmptyActiveRooms)
+    console.log('hasDuplicates++++++', hasEmptyActiveRooms)
 
     const handleFinish = async () => {
         setLoading(true)
@@ -748,29 +804,32 @@ export default function SetupDormPage() {
                                             <h3 className="font-bold text-gray-800">ชั้น {f.floorNumber}</h3>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            {f.rooms.map((room, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`flex flex-col gap-2 p-3 rounded-2xl border-2 transition-all ${room.active ? 'bg-white border-gray-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-60'}`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Room {idx + 1}</label>
+                                            {f.rooms.map((room, idx) => {
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`flex flex-col gap-2 p-3 rounded-2xl border-2 transition-all ${room.active ? 'bg-white border-gray-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-60'}`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Room {idx + 1}</label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={room.active}
+                                                                onChange={() => toggleRoom(f.floorNumber, idx)}
+                                                                className="w-4 h-4 accent-green-600"
+                                                            />
+                                                        </div>
                                                         <input
-                                                            type="checkbox"
-                                                            checked={room.active}
-                                                            onChange={() => toggleRoom(f.floorNumber, idx)}
-                                                            className="w-4 h-4 accent-green-600"
+                                                            disabled={!room.active}
+                                                            placeholder="ระบุเลขห้อง"
+                                                            value={room.number}
+                                                            onChange={(e) => updateRoomNumber(f.floorNumber, idx, e.target.value)}
+                                                            className={`font-bold text-lg outline-none rounded-lg px-2 py-1 transition-all ${room.active ? 'bg-gray-50 border-2 border-green-100 text-gray-800 focus:border-green-500 focus:bg-white' : 'bg-transparent text-gray-400'}`}
                                                         />
                                                     </div>
-                                                    <input
-                                                        disabled={!room.active}
-                                                        placeholder="ระบุเลขห้อง"
-                                                        value={room.number}
-                                                        onChange={(e) => updateRoomNumber(f.floorNumber, idx, e.target.value)}
-                                                        className={`font-bold text-lg outline-none rounded-lg px-2 py-1 transition-all ${room.active ? 'bg-gray-50 border-2 border-green-100 text-gray-800 focus:border-green-500 focus:bg-white' : 'bg-transparent text-gray-400'}`}
-                                                    />
-                                                </div>
-                                            ))}
+                                                )
+                                            }
+                                            )}
                                         </div>
                                     </div>
                                 ))}
