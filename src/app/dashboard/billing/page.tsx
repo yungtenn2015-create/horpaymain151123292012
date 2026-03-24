@@ -1,3 +1,5 @@
+
+export const dynamic = 'force-dynamic'
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
@@ -234,7 +236,7 @@ function BillingContent() {
 
     const handleVerifyPayment = async (item: any) => {
         if (verifying || !item.billId) return
-        
+
         if (!confirmVerify) {
             setConfirmVerify(item)
             return
@@ -417,7 +419,7 @@ function BillingContent() {
         const billingMonthDate = selectedDate
         const formattedMonth = thaiMonths[billingMonthDate.getMonth()] + ' ' + (billingMonthDate.getFullYear() + 543)
         const formattedDate = format(new Date(), 'd MMMM yyyy')
-        
+
         // Due Date
         const due = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), dueDay)
         const formattedDueDate = `${due.getDate()} ${thaiMonths[due.getMonth()]} ${due.getFullYear() + 543}`
@@ -442,7 +444,7 @@ function BillingContent() {
                 detail: waterBillingType === 'flat' ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${item.waterPrev || 0} → ${item.waterCurr || 0} หน่วย`
             })
         }
-        
+
         if (electricAmt > 0 || item.electricityUnit > 0) {
             itemsArr.push({
                 name: 'ค่าไฟฟ้า',
@@ -486,7 +488,7 @@ function BillingContent() {
         if (!confirmIssueAll || issuing) return
         const roomsToIssue = [...confirmIssueAll]
         setConfirmIssueAll(null)
-        
+
         setIssuing('all')
         for (const item of roomsToIssue) {
             await handleIssueBill(item)
@@ -512,7 +514,7 @@ function BillingContent() {
         } else if (filterLineStatus === 'unlinked') {
             data = data.filter(item => !item.lineUserId)
         }
-        
+
         if (filterWorkingStatus === 'pending_meter') {
             data = data.filter(item => item.status === 'pending_meter')
         } else if (filterWorkingStatus === 'ready') {
@@ -520,7 +522,7 @@ function BillingContent() {
         } else if (filterWorkingStatus === 'issued') {
             data = data.filter(item => ['issued', 'waiting_verify', 'paid'].includes(item.status))
         }
-        
+
         return data
     })()
 
@@ -963,8 +965,8 @@ function BillingContent() {
                 {/* ── CUSTOM CONFIRM DELETE MODAL ── */}
                 {confirmDelete && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-                        <div 
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                        <div
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
                             onClick={() => setConfirmDelete(null)}
                         />
                         <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -998,8 +1000,8 @@ function BillingContent() {
                 {/* ── CUSTOM CONFIRM VERIFY MODAL ── */}
                 {confirmVerify && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-                        <div 
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                        <div
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
                             onClick={() => setConfirmVerify(null)}
                         />
                         <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -1033,8 +1035,8 @@ function BillingContent() {
                 {/* ── CUSTOM CONFIRM REVERT MODAL ── */}
                 {confirmRevert && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-                        <div 
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                        <div
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
                             onClick={() => setConfirmRevert(null)}
                         />
                         <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -1068,8 +1070,8 @@ function BillingContent() {
                 {/* ── CUSTOM CONFIRM ISSUE ALL MODAL ── */}
                 {confirmIssueAll && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-                        <div 
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
+                        <div
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
                             onClick={() => setConfirmIssueAll(null)}
                         />
                         <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -1103,14 +1105,14 @@ function BillingContent() {
                 {/* ── PREVIEW MODAL ── */}
                 {showPreview && previewData && (
                     <div className="fixed inset-0 z-[120] flex flex-col md:py-10">
-                        <div 
-                            className="absolute inset-0 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300" 
+                        <div
+                            className="absolute inset-0 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300"
                             onClick={() => setShowPreview(false)}
                         />
-                        
+
                         {/* Close button for mobile (sticky) */}
                         <div className="relative z-10 flex justify-end p-4 md:hidden">
-                            <button 
+                            <button
                                 onClick={() => setShowPreview(false)}
                                 className="w-10 h-10 bg-white/20 backdrop-blur-lg rounded-full flex items-center justify-center text-white"
                             >
@@ -1121,13 +1123,13 @@ function BillingContent() {
                         <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-10">
                             <div className="max-w-xl mx-auto relative">
                                 {/* Close button for desktop */}
-                                <button 
+                                <button
                                     onClick={() => setShowPreview(false)}
                                     className="hidden md:flex absolute -right-16 top-0 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-lg rounded-2xl items-center justify-center text-white transition-all"
                                 >
                                     <XMarkIcon className="w-8 h-8" />
                                 </button>
-                                
+
                                 <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-black/50 overflow-hidden transform animate-in slide-in-from-bottom-10 duration-500">
                                     <div className="bg-amber-500 py-3 px-6 text-center">
                                         <p className="text-white text-xs font-black uppercase tracking-[0.2em]">
@@ -1136,7 +1138,7 @@ function BillingContent() {
                                     </div>
                                     <ReceiptView data={previewData} />
                                     <div className="p-6 bg-gray-50 text-center flex justify-center">
-                                        <button 
+                                        <button
                                             onClick={() => setShowPreview(false)}
                                             className="px-10 py-4 bg-gray-900 text-white rounded-2xl font-black shadow-xl active:scale-95 transition-all"
                                         >
