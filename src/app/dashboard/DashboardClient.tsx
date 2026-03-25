@@ -33,7 +33,12 @@ import {
     IdentificationIcon,
     KeyIcon,
     LockClosedIcon,
-    BoltIcon
+    BoltIcon,
+    TrashIcon,
+    PencilSquareIcon,
+    MagnifyingGlassIcon,
+    UserPlusIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -75,6 +80,23 @@ interface Service {
     id: string;
     name: string;
     price: number;
+}
+
+interface TenantContract {
+    id: string;
+    dorm_id: string;
+    name: string;
+    phone: string;
+    emergency_contact: string | null;
+    occupation: string | null;
+    car_registration: string | null;
+    motorcycle_registration: string | null;
+    address: string | null;
+    start_date: string;
+    end_date: string;
+    deposit_amount: number;
+    status: 'pending' | 'moved_in' | 'cancelled';
+    created_at: string;
 }
 
 export default function DashboardClient() {
@@ -127,6 +149,141 @@ export default function DashboardClient() {
         water_billing_type: 'per_unit' as 'per_unit' | 'flat_rate',
         water_flat_rate: 0
     })
+
+    // Label formatting for Buddhist Era
+    const formatThaiDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '';
+            const thaiYear = date.getFullYear() + 543;
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${thaiYear}`;
+        } catch (e) {
+            return '';
+        }
+    };
+
+    // --- Custom Calendar State ---
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [calendarValue, setCalendarValue] = useState('');
+    const [calendarFieldName, setCalendarFieldName] = useState<'start_date' | 'end_date' | null>(null);
+    const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+
+    const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
+    const openCustomCalendar = (fieldName: 'start_date' | 'end_date', currentValue: string) => {
+        setCalendarFieldName(fieldName);
+        setCalendarValue(currentValue);
+        setCalendarViewDate(currentValue ? new Date(currentValue) : new Date());
+        setIsCalendarOpen(true);
+    };
+
+    const handleSelectDate = (date: Date) => {
+        const yyyy = date.getFullYear();
+        const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+        const dd = date.getDate().toString().padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        setContractFormData(prev => ({ ...prev, [calendarFieldName!]: dateStr }));
+        setIsCalendarOpen(false);
+    };
+
+    const renderCustomCalendar = () => {
+        if (!isCalendarOpen) return null;
+
+        const year = calendarViewDate.getFullYear();
+        const month = calendarViewDate.getMonth();
+
+        // Days calculation
+        const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        const grid = [];
+        // Prev month days
+        for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+            grid.push({ day: daysInPrevMonth - i, month: 'prev', date: new Date(year, month - 1, daysInPrevMonth - i) });
+        }
+        // Current month days
+        for (let d = 1; d <= daysInMonth; d++) {
+            grid.push({ day: d, month: 'current', date: new Date(year, month, d) });
+        }
+        // Next month days
+        const remaining = 42 - grid.length;
+        for (let d = 1; d <= remaining; d++) {
+            grid.push({ day: d, month: 'next', date: new Date(year, month + 1, d) });
+        }
+
+        return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setIsCalendarOpen(false)} />
+                <div className="relative w-full max-w-[340px] bg-white rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-primary p-6 text-white text-center relative">
+                        <div className="flex items-center justify-between">
+                            <button
+                                onClick={() => setCalendarViewDate(new Date(year, month - 1, 1))}
+                                className="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all"
+                            >
+                                <span className="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <div className="text-center">
+                                <p className="text-[11px] font-black uppercase tracking-widest opacity-80 mb-0.5">{THAI_MONTHS[month]}</p>
+                                <h4 className="text-xl font-black">{year + 543}</h4>
+                            </div>
+                            <button
+                                onClick={() => setCalendarViewDate(new Date(year, month + 1, 1))}
+                                className="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all"
+                            >
+                                <span className="material-symbols-outlined">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6">
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                            {THAI_DAYS_SHORT.map(d => (
+                                <div key={d} className="text-center text-[11px] font-black text-gray-400 uppercase tracking-widest py-2">{d}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {grid.map((item, idx) => {
+                                const isToday = new Date().toDateString() === item.date.toDateString();
+                                const isSelected = calendarValue === `${item.date.getFullYear()}-${(item.date.getMonth() + 1).toString().padStart(2, '0')}-${item.date.getDate().toString().padStart(2, '0')}`;
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleSelectDate(item.date)}
+                                        className={`h-11 rounded-xl font-bold text-[14px] transition-all flex items-center justify-center
+                                            ${item.month === 'current' ? 'text-gray-900 hover:bg-primary/10' : 'text-gray-300'}
+                                            ${isToday ? 'bg-emerald-50 text-primary border border-primary/20' : ''}
+                                            ${isSelected ? '!bg-primary !text-white !shadow-lg !shadow-primary/30 active:scale-90 scale-105 z-10' : ''}
+                                        `}
+                                    >
+                                        {item.day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                onClick={() => handleSelectDate(new Date())}
+                                className="flex-1 py-3.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-2xl font-black text-[12px] transition-all uppercase tracking-widest"
+                            >
+                                วันนี้
+                            </button>
+                            <button
+                                onClick={() => setIsCalendarOpen(false)}
+                                className="flex-1 py-3.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-2xl font-black text-[12px] transition-all uppercase tracking-widest"
+                            >
+                                ตกลง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
     const [services, setServices] = useState<Service[]>([])
     const [lineConfig, setLineConfig] = useState({
         channel_id: '',
@@ -166,6 +323,28 @@ export default function DashboardClient() {
         newPassword: '',
         confirmPassword: ''
     })
+
+    // --- Contract Recording States (NEW) ---
+    const [contracts, setContracts] = useState<TenantContract[]>([])
+    const [fetchingContracts, setFetchingContracts] = useState(false)
+    const [isContractFormOpen, setIsContractFormOpen] = useState(false)
+    const [isSubmittingContract, setIsSubmittingContract] = useState(false)
+    const [editingContract, setEditingContract] = useState<TenantContract | null>(null)
+    const [contractSuccess, setContractSuccess] = useState('')
+    const [contractError, setContractError] = useState('')
+    const [contractFormData, setContractFormData] = useState({
+        name: '',
+        phone: '',
+        emergency_contact: '',
+        occupation: '',
+        car_registration: '',
+        motorcycle_registration: '',
+        address: '',
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: '',
+        deposit_amount: ''
+    })
+    const [contractSearchQuery, setContractSearchQuery] = useState('')
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -227,6 +406,133 @@ export default function DashboardClient() {
             setIsSubmittingPassword(false)
         }
     }
+
+    // --- Contract Management Logic (NEW) ---
+    const fetchContracts = useCallback(async () => {
+        if (!dorm?.id) return
+        setFetchingContracts(true)
+        setContractError('')
+        const supabase = createClient()
+        try {
+            const { data, error } = await supabase
+                .from('tenant_contracts')
+                .select('*')
+                .eq('dorm_id', dorm.id)
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setContracts(data || [])
+        } catch (err: any) {
+            console.error('Error fetching contracts:', err.message || err.code || err, err)
+            setContractError(err.message?.includes('relation') ? 'กรุณารัน SQL Migration เพื่อสร้างตารางบันทึกสัญญา' : 'ไม่สามารถโหลดข้อมูลสัญญาได้')
+        } finally {
+            setFetchingContracts(false)
+        }
+    }, [dorm?.id])
+
+    useEffect(() => {
+        if (activeTab === 'tenants') {
+            fetchContracts()
+        }
+    }, [activeTab, fetchContracts])
+
+    const handleSaveContract = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!dorm?.id) return
+
+        setIsSubmittingContract(true)
+        setContractError('')
+        setContractSuccess('')
+
+        const supabase = createClient()
+        try {
+            const payload = {
+                dorm_id: dorm.id,
+                name: contractFormData.name,
+                phone: contractFormData.phone,
+                emergency_contact: contractFormData.emergency_contact || null,
+                occupation: contractFormData.occupation || null,
+                car_registration: contractFormData.car_registration || null,
+                motorcycle_registration: contractFormData.motorcycle_registration || null,
+                address: contractFormData.address || null,
+                start_date: contractFormData.start_date,
+                end_date: contractFormData.end_date,
+                deposit_amount: Number(contractFormData.deposit_amount) || 0,
+                status: editingContract ? editingContract.status : 'pending'
+            }
+
+            if (editingContract) {
+                const { error } = await supabase
+                    .from('tenant_contracts')
+                    .update(payload)
+                    .eq('id', editingContract.id)
+                if (error) throw error
+            } else {
+                const { error } = await supabase
+                    .from('tenant_contracts')
+                    .insert([payload])
+                if (error) throw error
+            }
+
+            setContractSuccess(editingContract ? 'แก้ไขสัญญาสำเร็จ' : 'บันทึกสัญญาสำเร็จ')
+            setTimeout(() => {
+                setIsContractFormOpen(false)
+                setEditingContract(null)
+                setContractFormData({
+                    name: '',
+                    phone: '',
+                    emergency_contact: '',
+                    occupation: '',
+                    car_registration: '',
+                    motorcycle_registration: '',
+                    address: '',
+                    start_date: new Date().toISOString().split('T')[0],
+                    end_date: '',
+                    deposit_amount: ''
+                })
+                setContractSuccess('')
+            }, 1500)
+            fetchContracts()
+        } catch (err: any) {
+            setContractError(err.message || 'เกิดข้อผิดพลาดในการบันทึก')
+        } finally {
+            setIsSubmittingContract(false)
+        }
+    }
+
+    const handleDeleteContract = async (id: string) => {
+        if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบบันทึกสัญญานี้?')) return
+
+        const supabase = createClient()
+        try {
+            const { error } = await supabase
+                .from('tenant_contracts')
+                .delete()
+                .eq('id', id)
+            if (error) throw error
+            fetchContracts()
+        } catch (err: any) {
+            alert('ไม่สามารถลบข้อมูลได้: ' + err.message)
+        }
+    }
+
+    const openEditContract = (contract: TenantContract) => {
+        setEditingContract(contract)
+        setContractFormData({
+            name: contract.name,
+            phone: contract.phone,
+            emergency_contact: contract.emergency_contact || '',
+            occupation: contract.occupation || '',
+            car_registration: contract.car_registration || '',
+            motorcycle_registration: contract.motorcycle_registration || '',
+            address: contract.address || '',
+            start_date: contract.start_date,
+            end_date: contract.end_date,
+            deposit_amount: String(contract.deposit_amount)
+        })
+        setIsContractFormOpen(true)
+    }
+
 
     // LINE Settings Helpers
     const [showLineConfig, setShowLineConfig] = useState(false)
@@ -398,7 +704,7 @@ export default function DashboardClient() {
 
                 const totalAmt = Number(b.total_amount) || 0;
                 const s = String(b.status || '').toLowerCase().trim();
-                
+
                 // 1. Accumulate REVENUE for the entire dorm (including moved-out tenants)
                 if (s === 'paid') {
                     collected += totalAmt;
@@ -418,7 +724,7 @@ export default function DashboardClient() {
                 // This fix ensures the "Pending" list and "Counts" match actual occupancy.
                 const activeTenant = (room.tenants as any[])?.find(t => t.status === 'active');
                 const isCurrentTenantBill = activeTenant && b.tenant_id === activeTenant.id;
-                
+
                 if (!isCurrentTenantBill) return;
 
                 let dueDate = b.due_date ? new Date(b.due_date) : null;
@@ -668,6 +974,408 @@ export default function DashboardClient() {
     }
 
 
+    const renderContractsTab = () => {
+        return (
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+                {/* Header Section */}
+                <div className="px-6 pt-12 mb-6 flex items-end justify-between">
+                    <div>
+                        <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+                            <span className="text-4xl">📄</span> บันทึกสัญญา
+                        </h1>
+                        <p className="text-gray-400 font-bold text-sm mt-1">จัดการข้อมูลผู้เช่าและสัญญาเบื้องต้น</p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            setEditingContract(null);
+                            setContractFormData({
+                                name: '', phone: '', emergency_contact: '', occupation: '',
+                                car_registration: '', motorcycle_registration: '', address: '',
+                                start_date: new Date().toISOString().split('T')[0], end_date: '',
+                                deposit_amount: ''
+                            });
+                            setIsContractFormOpen(true);
+                        }}
+                        className="h-14 px-6 bg-green-600 hover:bg-green-700 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-green-100/50 transition-all active:scale-95 group font-black"
+                    >
+                        <PlusIcon className="w-6 h-6 stroke-[3]" />
+                        เพิ่ม
+                    </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="px-6 mb-4">
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                        </div>
+                        <input
+                            type="text"
+                            value={contractSearchQuery}
+                            onChange={(e) => setContractSearchQuery(e.target.value)}
+                            className="w-full h-14 bg-white border-2 border-gray-100 rounded-2xl pl-12 pr-4 font-bold text-gray-900 focus:border-green-500 focus:bg-white transition-all outline-none shadow-sm"
+                            placeholder="ค้นหาตาม ชื่อ หรือ เบอร์โทรศัพท์..."
+                        />
+                    </div>
+                </div>
+
+                {/* List Area */}
+                <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-4 pt-2">
+                    {contractError && (
+                        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0" />
+                            <p>{contractError}</p>
+                        </div>
+                    )}
+                    {fetchingContracts ? (
+                        <div className="py-20 flex flex-col items-center justify-center gap-4">
+                            <div className="w-10 h-10 border-4 border-green-100 border-t-green-600 rounded-full animate-spin" />
+                            <p className="text-gray-400 font-bold text-sm">กำลังโหลดข้อมูล...</p>
+                        </div>
+                    ) : (() => {
+                        const filtered = contracts.filter(c => {
+                            const query = contractSearchQuery.toLowerCase();
+                            return (
+                                c.name.toLowerCase().includes(query) ||
+                                c.phone.includes(query)
+                            );
+                        });
+
+                        if (filtered.length === 0) {
+                            return (
+                                <div className="py-24 flex flex-col items-center justify-center text-center space-y-4">
+                                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
+                                        <MagnifyingGlassIcon className="w-10 h-10" />
+                                    </div>
+                                    <p className="text-gray-400 font-bold text-sm italic">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <>
+                                {filtered.map((contract) => (
+                                    <div
+                                        key={contract.id}
+                                        className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-green-100 transition-all group relative overflow-hidden"
+                                    >
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-green-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+
+                                        <div className="flex items-start justify-between relative z-10">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 border border-green-100 group-hover:bg-green-600 group-hover:text-white transition-colors duration-300">
+                                                    <UserIcon className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-black text-gray-800 tracking-tight group-hover:text-green-700 transition-colors">{contract.name}</h3>
+                                                    <p className="text-xs font-bold text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                                        <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
+                                                        {contract.phone}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openEditContract(contract)}
+                                                    className="w-10 h-10 bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                                                    title="แก้ไข"
+                                                >
+                                                    <PencilSquareIcon className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteContract(contract.id)}
+                                                    className="w-10 h-10 bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                                                    title="ลบ"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 mt-5 relative z-10">
+                                            <div className="p-3 bg-gray-50 rounded-2xl flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">เงินประกัน</span>
+                                                <span className="text-sm font-black text-gray-800">฿{contract.deposit_amount.toLocaleString()}</span>
+                                            </div>
+                                            <div className="p-3 bg-gray-50 rounded-2xl flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ระยะเวลา</span>
+                                                <span className="text-sm font-black text-gray-800">
+                                                    {new Date(contract.start_date).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })} - {new Date(contract.end_date).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between relative z-10">
+                                            <div className="flex items-center gap-3">
+                                                {contract.car_registration && (
+                                                    <div className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black flex items-center gap-1">
+                                                        🚗 {contract.car_registration}
+                                                    </div>
+                                                )}
+                                                {contract.motorcycle_registration && (
+                                                    <div className="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black flex items-center gap-1">
+                                                        🛵 {contract.motorcycle_registration}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => router.push(`/dashboard/tenants/new?from_contract=${contract.id}`)}
+                                                className="text-[11px] font-black text-green-600 hover:text-green-700 flex items-center gap-1 group/btn"
+                                            >
+                                                ย้ายเข้าพักจริง
+                                                <ChevronRightIcon className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        );
+                    })()}
+                </div>
+
+                {renderContractFormModal()}
+            </div>
+        );
+    }
+
+    const renderContractFormModal = () => {
+        if (!isContractFormOpen) return null;
+        return (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                <div
+                    className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300"
+                    onClick={() => !isSubmittingContract && setIsContractFormOpen(false)}
+                />
+                <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+                    {/* Header */}
+                    <div className="bg-gradient-to-br from-primary to-emerald-600 p-8 text-white relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+
+                        <button
+                            type="button"
+                            onClick={() => setIsContractFormOpen(false)}
+                            className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 z-10"
+                        >
+                            <XMarkIcon className="w-6 h-6 stroke-[2.5]" />
+                        </button>
+
+                        <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                                <DocumentPlusIcon className="w-6 h-6" />
+                            </div>
+                            {editingContract ? 'แก้ไขข้อมูลสัญญา' : 'บันทึกข้อมูลสัญญาใหม่'}
+                        </h3>
+                        <p className="text-emerald-100 font-bold text-sm mt-2 opacity-80">กรอกข้อมูลผู้เช่าเพื่อเตรียมทำสัญญาเช่า</p>
+                    </div>
+
+                    <form onSubmit={handleSaveContract} className="flex-1 overflow-y-auto p-8 pb-32 space-y-6 custom-scrollbar bg-white">
+                        {contractError && (
+                            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-[13px] font-bold flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                                {contractError}
+                            </div>
+                        )}
+                        {contractSuccess && (
+                            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-emerald-600 text-[13px] font-bold flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                                {contractSuccess}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            {/* Full Name */}
+                            <div className="sm:col-span-2 space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={contractFormData.name}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, name: e.target.value })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="ใส่ชื่อผู้เช่า..."
+                                />
+                            </div>
+
+                            {/* Phone */}
+                            <div className="space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+                                <input
+                                    required
+                                    type="text"
+                                    maxLength={10}
+                                    value={contractFormData.phone}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, phone: e.target.value.replace(/\D/g, '') })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="08XXXXXXXX"
+                                />
+                            </div>
+
+                            {/* Occupation */}
+                            <div className="space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">อาชีพ</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.occupation}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, occupation: e.target.value })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="ระบุอาชีพ..."
+                                />
+                            </div>
+
+                            {/* Address */}
+                            <div className="sm:col-span-2 space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ที่อยู่ตามบัตรประชาชน</label>
+                                <textarea
+                                    rows={2}
+                                    value={contractFormData.address}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, address: e.target.value })}
+                                    className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none resize-none"
+                                    placeholder="ใส่ที่อยู่ตามบัตร..."
+                                />
+                            </div>
+
+                            {/* Car Reg */}
+                            <div className="space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนรถยนต์</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.car_registration}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, car_registration: e.target.value })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="เช่น กข 1234 กทม."
+                                />
+                            </div>
+
+                            {/* Motor Reg */}
+                            <div className="space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนมอเตอร์ไซค์</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.motorcycle_registration}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, motorcycle_registration: e.target.value })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="เช่น 1กข 1234..."
+                                />
+                            </div>
+
+                            {/* Emergency */}
+                            <div className="sm:col-span-2 space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ผู้ติดต่อฉุกเฉิน</label>
+                                <input
+                                    type="text"
+                                    value={contractFormData.emergency_contact}
+                                    onChange={(e) => setContractFormData({ ...contractFormData, emergency_contact: e.target.value })}
+                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    placeholder="ชื่อและเบอร์โทร..."
+                                />
+                            </div>
+
+                            <div className="sm:col-span-2 h-px bg-gray-100 my-2" />
+
+                            {/* Premium Date Pickers */}
+                            <div className="space-y-2 group/date1">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่เริ่มสัญญา <span className="text-red-500">*</span></label>
+                                <div
+                                    className="relative h-14 transition-all cursor-pointer"
+                                    onClick={() => openCustomCalendar('start_date', contractFormData.start_date)}
+                                >
+                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-2xl group-focus-within/date1:bg-white group-focus-within/date1:border-primary/30 group-focus-within/date1:shadow-lg group-focus-within/date1:shadow-primary/5 transition-all" />
+                                    <div className="absolute inset-0 px-5 flex items-center justify-between pointer-events-none">
+                                        <div className="flex items-center gap-3">
+                                            <CalendarDaysIcon className="w-5 h-5 text-primary" />
+                                            <span className={`font-bold text-sm ${contractFormData.start_date ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                {contractFormData.start_date ? formatThaiDate(contractFormData.start_date) : 'วว/ดด/พ.ศ.'}
+                                            </span>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                                            <ChevronRightIcon className="w-4 h-4 text-gray-300" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 group/date2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่สิ้นสุดสัญญา <span className="text-red-500">*</span></label>
+
+                                {/* Quick Duration Chips */}
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    {[
+                                        { label: '1 เดือน', m: 1 },
+                                        { label: '3 เดือน', m: 3 },
+                                        { label: '6 เดือน', m: 6 },
+                                        { label: '1 ปี', m: 12 },
+                                        { label: '2 ปี', m: 24 }
+                                    ].map((opt) => (
+                                        <button
+                                            key={opt.label}
+                                            type="button"
+                                            onClick={() => {
+                                                if (!contractFormData.start_date) return;
+                                                const d = new Date(contractFormData.start_date);
+                                                d.setMonth(d.getMonth() + opt.m);
+                                                setContractFormData({ ...contractFormData, end_date: d.toISOString().split('T')[0] });
+                                            }}
+                                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-black rounded-lg border border-emerald-100 transition-all active:scale-95 uppercase tracking-wider"
+                                        >
+                                            + {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div
+                                    className="relative h-14 transition-all cursor-pointer"
+                                    onClick={() => openCustomCalendar('end_date', contractFormData.end_date)}
+                                >
+                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-2xl group-focus-within/date2:bg-white group-focus-within/date2:border-primary/30 group-focus-within/date2:shadow-lg group-focus-within/date2:shadow-primary/5 transition-all" />
+                                    <div className="absolute inset-0 px-5 flex items-center justify-between pointer-events-none">
+                                        <div className="flex items-center gap-3">
+                                            <CalendarDaysIcon className="w-5 h-5 text-red-500" />
+                                            <span className={`font-bold text-sm ${contractFormData.end_date ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                {contractFormData.end_date ? formatThaiDate(contractFormData.end_date) : 'วว/ดด/พ.ศ.'}
+                                            </span>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                                            <ChevronRightIcon className="w-4 h-4 text-gray-300" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Deposit */}
+                            <div className="sm:col-span-2 space-y-2">
+                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">เงินมัดจำ/ประกัน <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <div className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400">฿</div>
+                                    <input
+                                        required
+                                        type="number"
+                                        value={contractFormData.deposit_amount}
+                                        onChange={(e) => setContractFormData({ ...contractFormData, deposit_amount: e.target.value })}
+                                        className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl pl-10 pr-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-4">
+                            <button
+                                type="submit"
+                                disabled={isSubmittingContract}
+                                className="w-full h-16 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-2xl font-black text-lg shadow-xl shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {isSubmittingContract ? (
+                                    <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                                ) : (
+                                    <><PlusIcon className="w-6 h-6 stroke-[3]" />{editingContract ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูลสัญญา'}</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -683,6 +1391,7 @@ export default function DashboardClient() {
         <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
             <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col relative pb-24 border-gray-100 sm:border">
 
+                {renderCustomCalendar()}
                 {/* ── Dynamic Main Content ── */}
                 {activeTab === 'overview' && (
                     <div className="bg-[#fcfdfd] font-body text-slate-800 antialiased min-h-screen pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
@@ -697,7 +1406,7 @@ export default function DashboardClient() {
                             {/* Header Content */}
                             <div className="relative z-50 pt-12 pb-14 px-5">
                                 {/* Header */}
-                                <div className="relative z-10 flex justify-between items-center mb-10 px-1">
+                                <div className="relative z-20 flex justify-between items-center mb-10 px-1">
                                     <span className="text-xl sm:text-2xl font-black tracking-tight text-white">HORPAY</span>
                                     <div className="flex items-center gap-2.5">
                                         <button className="relative w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 shadow-sm">
@@ -761,7 +1470,7 @@ export default function DashboardClient() {
                                 </div>
 
                                 {/* Greeting */}
-                                <div className="relative z-10 text-white">
+                                <div className="relative z-0 text-white">
                                     <p className="text-white text-sm font-bold flex items-center gap-2">
                                         สวัสดีคุณ {userName} 👋
                                     </p>
@@ -1143,7 +1852,7 @@ export default function DashboardClient() {
                         ) : (() => {
                             const filteredRooms = rooms.filter(room => {
                                 const matchesFloor = selectedFloor === 'all' || room.floor === selectedFloor;
-                                
+
                                 let matchesStatus = true;
                                 if (selectedStatus !== 'all') {
                                     const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
@@ -1164,12 +1873,7 @@ export default function DashboardClient() {
                                 return (
                                     <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
                                         <p className="text-gray-400 font-bold">ไม่พบห้องพักที่ตรงตามเงื่อนไข</p>
-                                        <button 
-                                            onClick={() => { setSelectedFloor('all'); setSelectedStatus('all'); }}
-                                            className="mt-4 text-blue-600 font-black text-sm hover:underline"
-                                        >
-                                            ล้างตัวกรองทั้งหมด
-                                        </button>
+
                                     </div>
                                 );
                             }
@@ -1522,8 +2226,8 @@ export default function DashboardClient() {
                                                         <label className="text-[13px] font-black text-gray-500 ml-1">รูปแบบการเก็บค่าน้ำ</label>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <button
-                                                                onClick={() => setSettingsData({ 
-                                                                    ...settingsData, 
+                                                                onClick={() => setSettingsData({
+                                                                    ...settingsData,
                                                                     water_billing_type: 'per_unit',
                                                                     water_flat_rate: 0 // Reset other value
                                                                 })}
@@ -1532,8 +2236,8 @@ export default function DashboardClient() {
                                                                 ตามหน่วย
                                                             </button>
                                                             <button
-                                                                onClick={() => setSettingsData({ 
-                                                                    ...settingsData, 
+                                                                onClick={() => setSettingsData({
+                                                                    ...settingsData,
                                                                     water_billing_type: 'flat_rate',
                                                                     water_rate_per_unit: 0 // Reset other value
                                                                 })}
@@ -1770,7 +2474,14 @@ export default function DashboardClient() {
                     </div>
                 )}
 
-                {activeTab !== 'overview' && activeTab !== 'rooms' && activeTab !== 'stats' && activeTab !== 'settings' && (
+                {/* ── Contract (Tenants) Tab Content ── */}
+                {activeTab === 'tenants' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-white">
+                        {renderContractsTab()}
+                    </div>
+                )}
+
+                {activeTab !== 'overview' && activeTab !== 'rooms' && activeTab !== 'stats' && activeTab !== 'settings' && activeTab !== 'tenants' && (
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 h-full relative z-10 bg-white">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-50 to-green-100 rounded-[2rem] flex items-center justify-center text-green-500 mb-6 transform -rotate-6 shadow-xl shadow-green-100/50">
                             <Squares2X2Icon className="w-12 h-12 stroke-[2]" />

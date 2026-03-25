@@ -4,13 +4,13 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
     HomeIcon,
     Squares2X2Icon,
-    UserGroupIcon,
+    DocumentTextIcon,
     ChartBarIcon
 } from '@heroicons/react/24/outline'
 import {
     HomeIcon as HomeIconSolid,
     Squares2X2Icon as Squares2X2IconSolid,
-    UserGroupIcon as UserGroupIconSolid,
+    DocumentTextIcon as DocumentTextIconSolid,
     ChartBarIcon as ChartBarIconSolid
 } from '@heroicons/react/24/solid'
 
@@ -32,7 +32,7 @@ export default function DashboardLayout({
         { id: 'overview', name: 'หน้าหลัก', icon: HomeIcon, solidIcon: HomeIconSolid, path: '/dashboard?tab=overview' },
         { id: 'stats', name: 'ภาพรวม', icon: ChartBarIcon, solidIcon: ChartBarIconSolid, path: '/dashboard?tab=stats' },
         { id: 'rooms', name: 'สถานะห้อง', icon: Squares2X2Icon, solidIcon: Squares2X2IconSolid, path: '/dashboard?tab=rooms' },
-        { id: 'tenants', name: 'ผู้เช่า', icon: UserGroupIcon, solidIcon: UserGroupIconSolid, path: '/dashboard?tab=tenants' },
+        { id: 'tenants', name: 'บันทึกสัญญา', icon: DocumentTextIcon, solidIcon: DocumentTextIconSolid, path: '/dashboard?tab=tenants' },
     ]
 
     const handleNavClick = (path: string) => {
@@ -55,7 +55,7 @@ export default function DashboardLayout({
             </main>
 
             {/* Bottom Navigation */}
-            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[92px] bg-white border-t border-gray-100 flex items-center justify-around px-6 z-50 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)]">
+            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[92px] bg-white border-t border-gray-100 flex items-center justify-around px-6 z-[100] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)]">
                 {navItems.map((item) => {
                     const isActive = activeId === item.id
                     const Icon = isActive ? item.solidIcon : item.icon

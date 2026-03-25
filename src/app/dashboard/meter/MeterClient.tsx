@@ -152,7 +152,7 @@ export default function MeterClient() {
                     if (roomIds.length > 0) {
                         const { data: utilsData, error: utilsError } = await supabase
                             .from('utilities')
-                            .select('room_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date')
+                            .select('room_id, tenant_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date')
                             .in('room_id', roomIds)
                             .order('meter_date', { ascending: false })
 
@@ -195,8 +195,9 @@ export default function MeterClient() {
                             let isInitial = !hasPrecedingRecord || roomUtils.length === 0
 
                             if (currRec) {
-                                prevWater = currRec.prev_water_meter.toString()
-                                prevElec = currRec.prev_electric_meter.toString()
+                                // Prioritize actual reading from previous month if it exists (Sync)
+                                prevWater = hasPrecedingRecord ? pRec.curr_water_meter.toString() : currRec.prev_water_meter.toString()
+                                prevElec = hasPrecedingRecord ? pRec.curr_electric_meter.toString() : currRec.prev_electric_meter.toString()
                                 existingInputs[r.id] = {
                                     currWater: currRec.curr_water_meter.toString() || '',
                                     currElectric: currRec.curr_electric_meter.toString() || ''
@@ -647,20 +648,17 @@ export default function MeterClient() {
                                                         <div className="space-y-2">
                                                             <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold px-1">
                                                                 <span>เลขเดือนก่อน:</span>
-                                                                {p.isInitial ? (
-                                                                    <div className="w-[105px] flex items-center justify-between bg-gray-100 rounded-lg px-2 py-0.5 border border-dashed border-gray-300">
-                                                                        <input
-                                                                            type="tel"
-                                                                            value={p.electric}
-                                                                            onChange={(e) => handlePrevInput(room.id, 'electric', e.target.value)}
-                                                                            className="w-10 bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
-                                                                            placeholder="0"
-                                                                        />
-                                                                        <span className="text-[9px] text-green-600 font-black shrink-0">เริ่มต้น</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-gray-600 font-black text-xs">{p.electric}</span>
-                                                                )}
+                                                                <div className={`w-[85px] flex items-center justify-between bg-gray-50 rounded-lg px-2 py-0.5 border ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
+                                                                    <input
+                                                                        type="tel"
+                                                                        value={p.electric}
+                                                                        disabled={roomsWithBills[room.id]}
+                                                                        onChange={(e) => handlePrevInput(room.id, 'electric', e.target.value)}
+                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
+                                                                        placeholder="0"
+                                                                    />
+                                                                    {p.isInitial && <span className="text-[8px] text-green-600 font-black ml-1 shrink-0">แรก</span>}
+                                                                </div>
                                                             </div>
                                                             <input
                                                                 type="tel"
@@ -703,20 +701,17 @@ export default function MeterClient() {
                                                         <div className="space-y-2">
                                                             <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold px-1">
                                                                 <span>เลขเดือนก่อน:</span>
-                                                                {p.isInitial ? (
-                                                                    <div className="w-[105px] flex items-center justify-between bg-gray-100 rounded-lg px-2 py-0.5 border border-dashed border-gray-300">
-                                                                        <input
-                                                                            type="tel"
-                                                                            value={p.water}
-                                                                            onChange={(e) => handlePrevInput(room.id, 'water', e.target.value)}
-                                                                            className="w-10 bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
-                                                                            placeholder="0"
-                                                                        />
-                                                                        <span className="text-[9px] text-green-600 font-black shrink-0">เริ่มต้น</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-gray-600 font-black text-xs">{p.water}</span>
-                                                                )}
+                                                                <div className={`w-[85px] flex items-center justify-between bg-gray-50 rounded-lg px-2 py-0.5 border ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
+                                                                    <input
+                                                                        type="tel"
+                                                                        value={p.water}
+                                                                        disabled={roomsWithBills[room.id]}
+                                                                        onChange={(e) => handlePrevInput(room.id, 'water', e.target.value)}
+                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
+                                                                        placeholder="0"
+                                                                    />
+                                                                    {p.isInitial && <span className="text-[8px] text-green-600 font-black ml-1 shrink-0">แรก</span>}
+                                                                </div>
                                                             </div>
                                                             <input
                                                                 type="tel"

@@ -685,7 +685,7 @@ export default function SetupDormPage() {
                                                 }}
                                                 className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 placeholder:text-gray-400"
                                             />
-                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">บ./ด.</span>
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">บาท/เดือน</span>
                                         </div>
                                         <button
                                             onClick={addService}
