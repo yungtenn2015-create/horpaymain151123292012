@@ -875,7 +875,7 @@ export default function DashboardClient() {
 
             historyBills?.forEach(b => {
                 const m = new Date(b.billing_month).toLocaleDateString('th-TH', { month: 'short' });
-                
+
                 // Revenue
                 historyMap.set(m, (historyMap.get(m) || 0) + Number(b.total_amount || 0));
 
@@ -894,9 +894,9 @@ export default function DashboardClient() {
             for (let i = 5; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const m = d.toLocaleDateString('th-TH', { month: 'short' });
-                
+
                 historicalRevenue.push({ month: m, amount: historyMap.get(m) || 0 });
-                
+
                 const uVals = utilityHistoryMap.get(m) || { electricity: 0, water: 0 };
                 historicalUtilities.push({ month: m, ...uVals });
             }
@@ -1833,8 +1833,7 @@ export default function DashboardClient() {
                                     { icon: 'home', label: 'ห้องว่าง', value: stats.vacant, color: 'bg-green-50 text-green-500' },
                                     { icon: 'group', label: 'มีคนพัก', value: stats.occupied, color: 'bg-blue-50 text-blue-500' },
                                     { icon: 'payments', label: 'รอชำระ', value: (overviewData.billStatusCounts?.unpaid || 0) + (overviewData.billStatusCounts?.waiting_verify || 0), color: 'bg-sky-50 text-sky-500' },
-                                    { icon: 'priority_high', label: 'ค้างชำระ', value: (overviewData.billStatusCounts as any).overdue || 0, color: 'bg-orange-50 text-orange-500' },
-                                    { icon: 'logout', label: 'แจ้งออก', value: stats.movingOut, color: 'bg-amber-50 text-amber-500' },
+
                                 ].map((item) => (
                                     <div key={item.label} className="bg-white p-5 rounded-3xl shadow-sm flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.color}`}>
