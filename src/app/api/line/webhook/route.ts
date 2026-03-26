@@ -360,14 +360,19 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
           .single();
 
         if (rooms) {
-          // Find the active tenant in this room matching THIS phone number
-          const { data: tenant } = await supabaseAdmin
+          // Find tenant in this room matching THIS phone number.
+          // Do not strictly require status='active' because during onboarding/testing it might be pending.
+          const { data: tenantsByRoomPhone } = await supabaseAdmin
             .from('tenants')
-            .select('id, name')
+            .select('id, name, status, created_at')
             .eq('room_id', rooms.id)
             .eq('phone', phoneNum)
-            .eq('status', 'active')
-            .single();
+            .order('created_at', { ascending: false });
+
+          const tenant =
+            (tenantsByRoomPhone || []).find((t: any) => t.status === 'active') ||
+            (tenantsByRoomPhone || [])[0] ||
+            null;
 
           if (tenant) {
             // Link the tenant
@@ -810,7 +815,44 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
         }
         await supabaseAdmin.from('bills').update({ status: 'paid' }).eq('id', billId)
 
-        await replyText(replyToken, config.access_token, 'อนุมัติเรียบร้อย ✅')
+        const approveFlex = {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#10B981',
+            paddingAll: '16px',
+            contents: [
+              {
+                type: 'text',
+                text: 'อนุมัติเรียบร้อย ✅',
+                color: '#FFFFFF',
+                weight: 'bold',
+                size: 'lg',
+                align: 'center'
+              }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '16px',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: 'ระบบได้บันทึกผลการตรวจสอบแล้ว',
+                color: '#065F46',
+                weight: 'bold',
+                size: 'sm',
+                align: 'center',
+                wrap: true
+              }
+            ]
+          }
+        }
+
+        await replyFlex(replyToken, config.access_token, 'อนุมัติเรียบร้อย', approveFlex)
 
         // Notify tenant via existing confirm-payment route (best-effort)
         try {
@@ -901,7 +943,44 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
         }
         await supabaseAdmin.from('bills').update({ status: 'unpaid' }).eq('id', billId)
 
-        await replyText(replyToken, config.access_token, 'ปฏิเสธเรียบร้อย ❌')
+        const rejectFlex = {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#EF4444',
+            paddingAll: '16px',
+            contents: [
+              {
+                type: 'text',
+                text: 'ปฏิเสธเรียบร้อย ❌',
+                color: '#FFFFFF',
+                weight: 'bold',
+                size: 'lg',
+                align: 'center'
+              }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '16px',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: 'ระบบได้บันทึกผลการตรวจสอบแล้ว',
+                color: '#7F1D1D',
+                weight: 'bold',
+                size: 'sm',
+                align: 'center',
+                wrap: true
+              }
+            ]
+          }
+        }
+
+        await replyFlex(replyToken, config.access_token, 'ปฏิเสธเรียบร้อย', rejectFlex)
         return
       }
 
