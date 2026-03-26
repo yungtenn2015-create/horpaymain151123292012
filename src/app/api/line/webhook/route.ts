@@ -183,9 +183,9 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
         .replace(/[–—−]/g, '-') // en dash/em dash/minus
         .replace(/[：]/g, ':')
         // Convert full-width digits ０-９ to 0-9
-        .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
+        .replace(/[０-９]/g, (ch: string) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
         // Convert Thai digits ๐-๙ to 0-9
-        .replace(/[๐-๙]/g, (ch) => String(ch.charCodeAt(0) - 0x0e50));
+        .replace(/[๐-๙]/g, (ch: string) => String(ch.charCodeAt(0) - 0x0e50));
 
       console.log('LINE message raw text:', text);
       console.log('LINE message normalizedOwnerText:', normalizedOwnerText);
@@ -281,13 +281,13 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
         // Normalize dash variants to '-'
         .replace(/[–—−]/g, '-')
         // Convert full-width digits ０-９ to 0-9
-        .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
+        .replace(/[０-９]/g, (ch: string) => String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30))
         // Convert Thai digits ๐-๙ to 0-9
-        .replace(/[๐-๙]/g, (ch) => String(ch.charCodeAt(0) - 0x0e50))
+        .replace(/[๐-๙]/g, (ch: string) => String(ch.charCodeAt(0) - 0x0e50))
         // Convert Arabic-Indic digits ٠-٩ to 0-9
-        .replace(/[٠-٩]/g, (ch) => String(ch.charCodeAt(0) - 0x0660))
+        .replace(/[٠-٩]/g, (ch: string) => String(ch.charCodeAt(0) - 0x0660))
         // Convert Extended Arabic-Indic digits ۰-۹ to 0-9
-        .replace(/[۰-۹]/g, (ch) => String(ch.charCodeAt(0) - 0x06f0));
+        .replace(/[۰-۹]/g, (ch: string) => String(ch.charCodeAt(0) - 0x06f0));
 
       // Allow separators between room and phone: '-', whitespace, '_', ':'
       // Phone can be 9-10 digits (if 9 digits, we'll prefix with '0')
