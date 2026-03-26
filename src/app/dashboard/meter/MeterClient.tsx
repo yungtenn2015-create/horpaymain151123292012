@@ -710,7 +710,9 @@ export default function MeterClient() {
                                                         <div className="flex items-center justify-between h-6 mb-2">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-5 h-5 flex items-center justify-center">
-                                                                    <span className="text-sm leading-none pt-0.5">💧</span>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500">
+                                                                        <path fillRule="evenodd" d="M12 21.625s-8.5-4.686-8.5-8.5c0-4.694 3.806-8.5 8.5-12.75 4.694 4.25 8.5 8.056 8.5 12.75 0 3.814-8.5 8.5-8.5 8.5z" clipRule="evenodd" />
+                                                                    </svg>
                                                                 </div>
                                                                 <span className="text-xs font-bold text-black-600">มิเตอร์น้ำ (หน่วย)</span>
                                                             </div>

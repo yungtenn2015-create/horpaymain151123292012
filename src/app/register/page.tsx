@@ -95,7 +95,7 @@ export default function RegisterPage() {
             <div className="w-full sm:max-w-md bg-white min-h-screen sm:min-h-[640px] sm:rounded-3xl sm:shadow-2xl overflow-hidden flex flex-col">
 
                 {/* ── Header ── */}
-                <div className="relative flex flex-col items-center justify-center pt-10 pb-12 px-6 bg-gradient-to-br from-green-800 to-green-500">
+                <div className="relative flex flex-col items-center justify-center pt-10 pb-12 px-6 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500">
                     <div className="absolute w-48 h-48 rounded-full bg-white/5 -top-16 -right-10" />
                     <div className="absolute w-28 h-28 rounded-full bg-white/5 bottom-4 -left-8" />
 
@@ -137,7 +137,7 @@ export default function RegisterPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value.slice(0, 30))}
                             maxLength={30}
-                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base font-sans"
+                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base font-sans"
                         />
                     </div>
 
@@ -152,7 +152,7 @@ export default function RegisterPage() {
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                             maxLength={10}
-                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base font-sans"
+                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base font-sans"
                         />
                     </div>
 
@@ -167,7 +167,7 @@ export default function RegisterPage() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             autoComplete="email"
-                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base font-sans"
+                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base font-sans"
                         />
                     </div>
 
@@ -183,7 +183,7 @@ export default function RegisterPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 autoComplete="new-password"
-                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base font-sans"
+                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base font-sans"
                             />
                             <button
                                 type="button"
@@ -216,7 +216,7 @@ export default function RegisterPage() {
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 autoComplete="new-password"
-                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base font-sans"
+                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-100 bg-transparent text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base font-sans"
                             />
                             <button
                                 type="button"
@@ -242,14 +242,14 @@ export default function RegisterPage() {
                         <input
                             type="checkbox"
                             id="terms"
-                            className="w-4 h-4 accent-green-600 cursor-pointer"
+                            className="w-4 h-4 accent-emerald-600 cursor-pointer"
                             checked={acceptedTerms}
                             onChange={(e) => setAcceptedTerms(e.target.checked)}
                         />
                         <label htmlFor="terms" className="text-xs text-gray-500 select-none">
                             ฉันยอมรับ <span
                                 onClick={() => setShowTerms(true)}
-                                className="text-green-700 font-semibold underline cursor-pointer"
+                                className="text-emerald-700 font-semibold underline cursor-pointer"
                             >ข้อกำหนดและเงื่อนไข</span>
                         </label>
                     </div>
@@ -258,7 +258,7 @@ export default function RegisterPage() {
                     <button
                         onClick={handleRegister}
                         disabled={loading || !acceptedTerms}
-                        className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-30 disabled:bg-gray-400 disabled:shadow-none text-white font-bold text-lg transition-all shadow-lg shadow-green-100 mt-4"
+                        className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 active:bg-emerald-800 disabled:opacity-30 disabled:bg-gray-400 disabled:shadow-none text-white font-bold text-lg transition-all shadow-lg shadow-emerald-200/50 mt-4"
                     >
                         {loading ? (
                             <span className="flex items-center justify-center gap-2">
@@ -274,7 +274,7 @@ export default function RegisterPage() {
                     <div className="text-center text-sm text-gray-500 mt-2">
                         มีบัญชีอยู่แล้ว? <span
                             onClick={() => router.push('/login')}
-                            className="text-green-700 font-bold underline cursor-pointer"
+                            className="text-emerald-700 font-bold underline cursor-pointer"
                         >เข้าสู่ระบบ</span>
                     </div>
 
@@ -307,11 +307,11 @@ export default function RegisterPage() {
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">2. ระยะเวลาทดลองใช้ (Trial Period)</h4>
-                                <p>ผู้สมัครใหม่จะได้รับสิทธิ์ทดลองใช้งานทุกฟีเจอร์ฟรีเป็นเวลา 60 วัน นับจากวันที่สมัครสมาชิก หลังจากครบกำหนด ระบบอาจจำกัดการเข้าถึงบางฟีเจอร์หากไม่มีการอัปเกรดแผนการใช้งาน</p>
+                                <p>ผู้สมัครใหม่จะได้รับสิทธิ์ทดลองใช้งานทุกฟีเจอร์ฟรีเป็นเวลา 30 วัน นับจากวันที่สมัครสมาชิก หลังจากครบกำหนด ระบบอาจจำกัดการเข้าถึงบางฟีเจอร์หากไม่มีการอัปเกรดแผนการใช้งาน</p>
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">3. ข้อมูลส่วนบุคคล (Privacy & PDPA)</h4>
-                                <p>เราให้ความสำคัญกับความปลอดภัยของข้อมูล โดยมีการเข้ารหัสข้อมูลสำคัญ (เช่น เลขบัตรประชาชน) ในระดับฐานข้อมูล และจะนำข้อมูลไปใช้เพื่อวัตถุประสงค์ในการให้บริการระบบจัดการหอพักเท่านั้น</p>
+                                <p>เราให้ความสำคัญกับความปลอดภัยของข้อมูลส่วนบุคคลและปฏิบัติตามมาตรฐาน PDPA โดยข้อมูลจะถูกนำไปใช้เพื่อวัตถุประสงค์ในการให้บริการระบบจัดการหอพักและรักษาความปลอดภัยของบัญชีผู้ใช้เท่านั้น</p>
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">4. ความรับผิดชอบของผู้ใช้</h4>
@@ -321,7 +321,7 @@ export default function RegisterPage() {
                         <div className="p-6 border-t bg-gray-50">
                             <button
                                 onClick={() => setShowTerms(false)}
-                                className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
+                                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-xl transition-colors"
                             >
                                 ฉันเข้าใจและยอมรับ
                             </button>

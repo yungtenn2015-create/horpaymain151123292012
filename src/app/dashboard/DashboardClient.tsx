@@ -52,6 +52,7 @@ export interface Dorm {
     id: string;
     name: string;
     owner_id: string;
+    created_at?: string;
 }
 
 export interface Room {
@@ -133,6 +134,7 @@ export default function DashboardClient() {
         pendingPayments: 0,
         movingOut: 0
     })
+    const [userPlan, setUserPlan] = useState<{ plan_type: string; trial_expires_at: string } | null>(null)
 
     // Settings States
     const [activeSettingsTab, setActiveSettingsTab] = useState('dorm')
@@ -703,6 +705,17 @@ export default function DashboardClient() {
 
         try {
             console.log("Refreshing Dashboard Data...");
+            // 0. Get User Plan to check trial status
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('plan_type, trial_expires_at')
+                .eq('id', user.id)
+                .single();
+
+            if (!userError && userData) {
+                setUserPlan(userData);
+            }
+
             // 1. Get Latest Dorm
             const { data: dormsData, error: dormError } = await supabase
                 .from('dorms')
@@ -1406,6 +1419,7 @@ export default function DashboardClient() {
                 {activeTab === 'overview' && (
                     <OverviewTab
                         dorm={dorm}
+                        userPlan={userPlan}
                         userName={userName}
                         stats={stats}
                         overviewData={overviewData}
@@ -1544,7 +1558,7 @@ export default function DashboardClient() {
                         />
                         <div className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 fade-in duration-300">
                             {/* Header */}
-                            <div className="bg-gradient-to-br from-green-500 to-green-600 p-8 text-white relative">
+                            <div className="bg-primary p-8 text-white relative">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                                 <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
                                     <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
@@ -1552,7 +1566,7 @@ export default function DashboardClient() {
                                     </div>
                                     เปลี่ยนรหัสผ่าน
                                 </h3>
-                                <p className="text-green-100 font-bold text-sm mt-2 opacity-80">เพื่อความปลอดภัยของข้อมูลบัญชีคุณ</p>
+                                <p className="text-white/80 font-bold text-sm mt-2">เพื่อความปลอดภัยของข้อมูลบัญชีคุณ</p>
                             </div>
 
                             <form onSubmit={handlePasswordChange} className="p-8 space-y-6">
@@ -1560,7 +1574,7 @@ export default function DashboardClient() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านเดิม</label>
                                         <div className="relative group/field">
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-primary transition-colors">
                                                 <KeyIcon className="w-5 h-5" />
                                             </div>
                                             <input
@@ -1568,7 +1582,7 @@ export default function DashboardClient() {
                                                 type="password"
                                                 value={passwordData.oldPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
                                                 placeholder="••••••••"
                                             />
                                         </div>
@@ -1579,7 +1593,7 @@ export default function DashboardClient() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">รหัสผ่านใหม่</label>
                                         <div className="relative group/field">
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-primary transition-colors">
                                                 <LockClosedIcon className="w-5 h-5" />
                                             </div>
                                             <input
@@ -1588,7 +1602,7 @@ export default function DashboardClient() {
                                                 type="password"
                                                 value={passwordData.newPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
                                                 placeholder="รหัสใหม่ (อย่างน้อย 6 ตัว)"
                                             />
                                         </div>
@@ -1597,7 +1611,7 @@ export default function DashboardClient() {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ยืนยันรหัสผ่านใหม่</label>
                                         <div className="relative group/field">
-                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-green-500 transition-colors">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within/field:text-primary transition-colors">
                                                 <CheckCircleIcon className="w-5 h-5" />
                                             </div>
                                             <input
@@ -1605,7 +1619,7 @@ export default function DashboardClient() {
                                                 type="password"
                                                 value={passwordData.confirmPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none"
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
                                                 placeholder="ยืนยันรหัสใหม่อีกครั้ง"
                                             />
                                         </div>
@@ -1613,7 +1627,7 @@ export default function DashboardClient() {
                                 </div>
 
                                 {(passwordError || passwordSuccess) && (
-                                    <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${passwordSuccess ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                    <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${passwordSuccess ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-red-50 text-red-700 border border-red-100'}`}>
                                         {passwordSuccess ? <CheckCircleIcon className="w-5 h-5" /> : <BellIcon className="w-5 h-5" />}
                                         <span className="text-xs font-black">{passwordError || passwordSuccess}</span>
                                     </div>
@@ -1631,7 +1645,7 @@ export default function DashboardClient() {
                                     <button
                                         type="submit"
                                         disabled={isSubmittingPassword}
-                                        className="flex-[2] h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black shadow-lg shadow-green-100 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                                        className="flex-[2] h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black shadow-lg shadow-green-100 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         {isSubmittingPassword ? (
                                             <>

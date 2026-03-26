@@ -17,7 +17,7 @@
 --   [v5-FIX 8] table audit_logs + trigger บันทึก payment และ bill events
 --   [v6-FIX 1] bills.tenant_id: CASCADE → RESTRICT (ห้ามลบบิลเมื่อลบ tenant)
 --   [v6-FIX 2] check_plan_limit: เพิ่ม BEFORE UPDATE กัน ย้ายห้องข้ามหอเกิน limit
---   [v7-FIX 1] เปลี่ยน plan limit จากจำนวนหอ/ห้อง → trial 60 วัน
+--   [v7-FIX 1] เปลี่ยน plan limit จากจำนวนหอ/ห้อง → trial 30 วัน
 --   [v7-FIX 2] เพิ่ม subscription_plan ใน users (monthly/yearly)
 --   [v7-FIX 3] เพิ่ม table upgrade_requests (workflow อัปเกรด manual)
 --              free + trial ยังไม่หมด = ใช้งานได้เต็มที่ไม่จำกัด
@@ -57,7 +57,7 @@ CREATE TABLE users (
                         CHECK (subscription_plan IN ('monthly', 'yearly')),
                         -- แผนที่เลือกตอนอัปเกรด: รายเดือน / รายปี
                         -- null = ยังไม่ได้อัปเกรด
-  trial_expires_at    TIMESTAMPTZ NOT NULL DEFAULT now() + INTERVAL '60 days',
+  trial_expires_at    TIMESTAMPTZ NOT NULL DEFAULT now() + INTERVAL '30 days',
                         -- free: หมดแล้ว → read-only จนกว่าจะอัปเกรด
                                                                               -- free + ยังไม่หมด = ใช้ได้เต็ม
                                                                               -- free + หมดแล้ว  = read-only
@@ -317,7 +317,7 @@ BEGIN
     new.raw_user_meta_data->>'phone',
     COALESCE(new.raw_user_meta_data->>'role', 'owner'), -- Default to owner for SaaS model
     'free', 
-    now() + INTERVAL '60 days'
+    now() + INTERVAL '30 days'
   );
   RETURN new;
 END;
@@ -511,7 +511,7 @@ BEGIN
 
   -- free + trial หมดแล้ว → read-only ห้าม INSERT
   IF NOT is_trial_active(v_owner_id) THEN
-    RAISE EXCEPTION 'trial_expired: Trial 60 วันหมดแล้ว — อัปเกรดเป็น Pro เพื่อใช้งานต่อ';
+    RAISE EXCEPTION 'trial_expired: Trial 30 วันหมดแล้ว — อัปเกรดเป็น Pro เพื่อใช้งานต่อ';
   END IF;
 
   RETURN NEW;
@@ -540,7 +540,7 @@ BEGIN
   IF NEW.dorm_id IS DISTINCT FROM OLD.dorm_id THEN
     SELECT d.owner_id INTO v_owner_id FROM dorms d WHERE d.id = NEW.dorm_id;
     IF NOT is_trial_active(v_owner_id) THEN
-      RAISE EXCEPTION 'trial_expired: Trial 60 วันหมดแล้ว — อัปเกรดเป็น Pro เพื่อย้ายห้อง';
+      RAISE EXCEPTION 'trial_expired: Trial 30 วันหมดแล้ว — อัปเกรดเป็น Pro เพื่อย้ายห้อง';
     END IF;
   END IF;
   RETURN NEW;

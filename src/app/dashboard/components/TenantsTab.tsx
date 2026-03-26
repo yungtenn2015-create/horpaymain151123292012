@@ -56,7 +56,7 @@ export default function TenantsTab({
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/20 overflow-hidden">
             <div className="flex-1 flex flex-col h-full overflow-hidden">
                 {/* Premium Hero Header (Green Theme) */}
-                <div className="relative pt-8 pb-10 px-10 min-h-[210px]">
+                <div className="relative pt-8 pb-10 px-6 sm:px-10 min-h-[210px]">
                     {/* Background with clipping */}
                     <div className="absolute inset-0 bg-primary rounded-b-[2.5rem] sm:rounded-t-[2.5rem] shadow-lg overflow-hidden z-0">
                         <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
@@ -64,12 +64,17 @@ export default function TenantsTab({
                     </div>
 
                     {/* Header Content */}
-                    <div className="relative z-50 flex items-center justify-between">
-                        <div>
-                            <h1 className="text-4xl font-headline font-extrabold text-white tracking-tight flex items-center gap-3 underline decoration-white/20 underline-offset-8">
-                                บันทึกสัญญา
-                            </h1>
-                            <p className="text-white/100 font-bold text-sm mt-1">จัดการข้อมูลผู้เช่าและสัญญา</p>
+                    <div className="relative z-50 flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-4 sm:gap-6 min-w-0 pr-24 sm:pr-0">
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-[20px] rounded-[1.8rem] sm:rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
+                                <UsersIcon className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" />
+                            </div>
+                            <div className="min-w-0">
+                                <h1 className="text-3xl sm:text-4xl font-headline font-extrabold text-white tracking-tight underline decoration-white/20 underline-offset-8 leading-tight">
+                                    บันทึกสัญญา
+                                </h1>
+                                <p className="text-white/95 font-bold text-sm sm:text-base mt-2">จัดการข้อมูลผู้เช่าและสัญญา</p>
+                            </div>
                         </div>
                         <button
                             onClick={() => {
@@ -82,7 +87,7 @@ export default function TenantsTab({
                                 });
                                 setIsContractFormOpen(true);
                             }}
-                            className="h-12 px-6 bg-white text-green-600 rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-green-900/20 transition-all active:scale-95 group font-black"
+                            className="absolute top-[5rem] right-0 h-11 sm:static sm:top-auto sm:right-auto sm:h-12 px-5 sm:px-6 w-fit bg-white text-primary rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-green-900/20 transition-all active:scale-95 group font-black text-sm sm:text-base"
                         >
                             <PlusIcon className="w-4 h-4 stroke-[3]" />
                             เพิ่มสัญญา

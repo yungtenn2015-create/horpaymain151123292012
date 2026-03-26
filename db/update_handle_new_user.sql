@@ -14,7 +14,7 @@ BEGIN
     new.raw_user_meta_data->>'phone',
     COALESCE(new.raw_user_meta_data->>'role', 'owner'), -- Default to owner for SaaS model
     'free', 
-    now() + INTERVAL '60 days'
+    now() + INTERVAL '30 days'
   );
   RETURN new;
 END;

@@ -61,6 +61,7 @@ export default function BillingClient() {
         return new Date(d.getFullYear(), d.getMonth(), 1)
     })
     const [sendToLineMap, setSendToLineMap] = useState<Record<string, boolean>>({})
+    const [billingDay, setBillingDay] = useState(25)
     const [dueDay, setDueDay] = useState(5)
     const [expandedRoom, setExpandedRoom] = useState<string | null>(null)
     const [filterFloor, setFilterFloor] = useState<number | 'all'>('all')
@@ -128,7 +129,8 @@ export default function BillingClient() {
 
             if (settingsData) {
                 setDormSettings(settingsData)
-                setDueDay(settingsData.billing_due_day || 5)
+                setDueDay(settingsData.payment_due_day || 5)
+                setBillingDay(settingsData.billing_day || 25)
             }
 
             // 1.2 Get Dorm Services (Extra monthly services)
@@ -375,7 +377,14 @@ export default function BillingClient() {
                     utility_amount: item.water + item.electricity,
                     other_amount: item.others,
                     total_amount: total,
-                    due_date: format(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, dueDay), `yyyy-MM-${String(dueDay).padStart(2, '0')}`),
+                    due_date: (() => {
+                        const year = selectedDate.getFullYear();
+                        const month = selectedDate.getMonth();
+                        const targetMonth = dueDay < billingDay ? month + 1 : month;
+                        const lastDay = new Date(year, targetMonth + 1, 0).getDate();
+                        const finalDay = Math.min(dueDay, lastDay);
+                        return format(new Date(year, targetMonth, finalDay), 'yyyy-MM-dd');
+                    })(),
                     status: 'unpaid'
                 })
                 .select()
@@ -492,7 +501,14 @@ export default function BillingClient() {
         const formattedDate = format(new Date(), 'd MMMM yyyy')
 
         // Due Date
-        const due = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), dueDay)
+        const due = (() => {
+            const year = selectedDate.getFullYear();
+            const month = selectedDate.getMonth();
+            const targetMonth = dueDay < billingDay ? month + 1 : month;
+            const lastDay = new Date(year, targetMonth + 1, 0).getDate();
+            const finalDay = Math.min(dueDay, lastDay);
+            return new Date(year, targetMonth, finalDay);
+        })();
         const formattedDueDate = `${due.getDate()} ${thaiMonths[due.getMonth()]} ${due.getFullYear() + 543}`
 
         const waterRate = dormSettings?.water_rate_per_unit || 0

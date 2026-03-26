@@ -50,6 +50,7 @@ export default function SetupDormPage() {
 
     // Step 8: Bank Info
     const [bankName, setBankName] = useState('')
+    const [otherBankName, setOtherBankName] = useState('')
     const [bankAccountNo, setBankAccountNo] = useState('')
     const [bankAccountName, setBankAccountName] = useState('')
 
@@ -101,20 +102,20 @@ export default function SetupDormPage() {
         setFloors(updatedFloors);
     };
 
-    // useEffect(() => {
-    //     async function fetchUser() {
+    useEffect(() => {
+        async function fetchUser() {
 
-    //         const supabase = createClient()
-    //         const { data: { user } } = await supabase.auth.getUser()
-    //         if (user) {
-    //             setOwnerName(user.user_metadata?.name || '')
-    //             setOwnerPhone(user.user_metadata?.phone || '')
-    //         }
-    //     }
-    //     fetchUser()
-    //     generateRoomNumbers();
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                setOwnerName(user.user_metadata?.name || '')
+                setOwnerPhone(user.user_metadata?.phone || '')
+            }
+        }
+        fetchUser()
+        generateRoomNumbers();
 
-    // }, [])
+    }, [])
     useEffect(() => {
         if (step !== 6) return;
 
@@ -183,6 +184,18 @@ export default function SetupDormPage() {
     }
 
     const updateFloorCount = (count: number) => {
+        if (count > floorCount) {
+            // Adding a floor (default 5 rooms)
+            if (totalRooms + 5 > 50) {
+                showModal({
+                    title: 'ขีดจำกัดห้องพัก',
+                    description: 'ขออภัย ระบบรองรับการสร้างห้องพักได้สูงสุด 50 ห้องเท่านั้นครับ',
+                    type: 'alert',
+                    onConfirm: closeModal
+                });
+                return;
+            }
+        }
         setFloorCount(count)
         const newFloors = Array.from({ length: count }, (_, i) => {
             const existing = floors.find(f => f.floorNumber === i + 1)
@@ -192,9 +205,23 @@ export default function SetupDormPage() {
     }
 
     const updateRoomCount = (floorNum: number, count: number) => {
+        const currentFloor = floors.find(f => f.floorNumber === floorNum);
+        if (currentFloor && count > currentFloor.roomCount) {
+            if (totalRooms + 1 > 50) {
+                showModal({
+                    title: 'ขีดจำกัดห้องพัก',
+                    description: 'ขออภัย ระบบรองรับการสร้างห้องพักได้สูงสุด 50 ห้องเท่านั้นครับ',
+                    type: 'alert',
+                    onConfirm: closeModal
+                });
+                return;
+            }
+        }
         setFloors(floors.map(f => f.floorNumber === floorNum ? { ...f, roomCount: count } : f))
     }
 
+
+    const totalRooms = floors.reduce((acc, f) => acc + f.roomCount, 0);
 
     const toggleRoom = (floorNum: number, roomIndex: number) => {
         setFloors(floors.map(f => {
@@ -310,7 +337,7 @@ export default function SetupDormPage() {
                     water_flat_rate: dbWaterType === 'flat_rate' ? parsedWaterRate : 0,
                     electric_rate_per_unit: parseFloat(electricRate) || 0,
                     common_fee: totalCommonFee,
-                    bank_name: bankName,
+                    bank_name: bankName === 'อื่น ๆ' ? otherBankName : bankName,
                     bank_account_no: bankAccountNo,
                     bank_account_name: bankAccountName,
                     billing_day: billingDay,
@@ -379,7 +406,7 @@ export default function SetupDormPage() {
             <div className="w-full max-w-xl bg-white min-h-[640px] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-500">
 
                 {/* ── Progress Header ── */}
-                <div className="relative pt-10 pb-12 px-8 bg-gradient-to-br from-green-800 to-green-500 text-white overflow-hidden">
+                <div className="relative pt-10 pb-12 px-8 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 text-white overflow-hidden">
                     <div className="absolute w-48 h-48 rounded-full bg-white/5 -top-16 -right-10" />
                     <div className="absolute w-28 h-28 rounded-full bg-white/5 bottom-4 -left-8" />
 
@@ -397,7 +424,7 @@ export default function SetupDormPage() {
                     </div>
 
                     <h1 className="relative text-2xl font-bold tracking-tight">
-                        {step === 1 && 'ยินดีต้อนรับเข้าพัก HORPAY'}
+                        {step === 1 && 'ยินดีต้อนรับเข้าสู่ HORPAY'}
                         {step === 2 && 'ข้อมูลหอพักและเจ้าของ'}
                         {step === 3 && 'ตั้งค่าค่าน้ำ-ค่าไฟ'}
                         {step === 4 && 'ตั้งค่าบริการเพิ่มเติม'}
@@ -413,7 +440,7 @@ export default function SetupDormPage() {
                 <div className="relative px-8 pt-6 pb-6 bg-white border-b border-gray-100 hidden sm:flex justify-between">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                         <div key={s} className="flex flex-col items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${step >= s ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${step >= s ? 'bg-emerald-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
                                 {s}
                             </div>
                         </div>
@@ -426,7 +453,7 @@ export default function SetupDormPage() {
                     {/* STEP 1: WELCOME */}
                     {step === 1 && (
                         <div className="flex-1 flex flex-col items-center justify-center text-center animate-in slide-in-from-bottom-4 duration-500">
-                            <div className="w-20 h-20 bg-green-50 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+                            <div className="w-20 h-20 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#166534" className="w-10 h-10">
                                     <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-8.689-8.69a2.25 2.25 0 00-3.182 0l-8.69 8.69a.75.75 0 001.061 1.06l8.69-8.69z" />
                                     <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H5.719c-1.035 0-1.875-.84-1.875-1.875v-6.198c.03-.028.06-.056.091-.086L12 5.432z" />
@@ -434,11 +461,13 @@ export default function SetupDormPage() {
                             </div>
                             <h2 className="text-xl font-bold text-gray-800 mb-2">คุณยังไม่มีข้อมูลหอพักในระบบ</h2>
                             <p className="text-gray-500 text-sm mb-8 leading-relaxed max-w-xs">
-                                เริ่มต้นสร้างหอพักของคุณเพื่อจัดการบิล ผู้เช่า และค่าน้ำไฟที่ง่ายกว่าที่เคยครับ
+                                เริ่มต้นสร้างหอพักของคุณเพื่อจัดการบิล
+                                <br />
+                                ส่งแจ้งเตือนผ่าน Line แค่คลิกเดียว
                             </p>
                             <button
                                 onClick={nextStep}
-                                className="w-full py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 active:scale-[0.98] transition-all shadow-lg shadow-green-100"
+                                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200/50"
                             >
                                 เริ่มต้นสร้างหอพัก
                             </button>
@@ -451,26 +480,26 @@ export default function SetupDormPage() {
                             {/* Owner Info Group */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-6 bg-green-500 rounded-full" />
+                                    <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
                                     <h3 className="font-bold text-gray-800 uppercase tracking-tight text-xs">ข้อมูลเจ้าของหอ</h3>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider ml-1">ชื่อ-นามสกุล</label>
+                                        <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider ml-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             value={ownerName}
                                             onChange={(e) => setOwnerName(e.target.value)}
-                                            className="w-full h-11 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 text-sm"
+                                            className="w-full h-11 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 text-sm"
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider ml-1">เบอร์โทรศัพท์</label>
+                                        <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider ml-1">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
                                         <input
                                             type="tel"
                                             value={ownerPhone}
                                             onChange={(e) => setOwnerPhone(e.target.value)}
-                                            className="w-full h-11 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 text-sm"
+                                            className="w-full h-11 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 text-sm"
                                         />
                                     </div>
                                 </div>
@@ -490,7 +519,7 @@ export default function SetupDormPage() {
 
                                             value={dormName}
                                             onChange={(e) => setDormName(e.target.value)}
-                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1">
@@ -500,7 +529,7 @@ export default function SetupDormPage() {
 
                                             value={dormAddress}
                                             onChange={(e) => setDormAddress(e.target.value)}
-                                            className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 outline-none focus:border-green-500 transition-all text-gray-800 text-sm resize-none"
+                                            className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 transition-all text-gray-800 text-sm resize-none"
                                         />
                                     </div>
                                     <div className="space-y-1">
@@ -511,7 +540,7 @@ export default function SetupDormPage() {
 
                                                 value={dormPhone}
                                                 onChange={(e) => setDormPhone(e.target.value)}
-                                                className="flex-1 h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 text-sm"
+                                                className="flex-1 h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 text-sm"
                                             />
                                             <button
                                                 onClick={() => setDormPhone(ownerPhone)}
@@ -525,7 +554,7 @@ export default function SetupDormPage() {
                             {/* Billing Cycle Setting Group */}
                             <div className="space-y-4 pt-6 mt-4 border-t border-gray-100/50">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-green-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-500">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
                                     </svg>
                                     <h3 className="font-bold text-gray-700 tracking-tight text-[13px]">ตั้งค่ารอบบิล</h3>
@@ -545,7 +574,7 @@ export default function SetupDormPage() {
                                             onBlur={() => {
                                                 if (!billingDay || billingDay < 1) setBillingDay(1);
                                             }}
-                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
                                         />
                                     </div>
                                     <div className="space-y-1">
@@ -562,7 +591,7 @@ export default function SetupDormPage() {
                                             onBlur={() => {
                                                 if (!paymentDueDay || paymentDueDay < 1) setPaymentDueDay(5);
                                             }}
-                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
                                         />
                                     </div>
                                 </div>
@@ -573,7 +602,7 @@ export default function SetupDormPage() {
                                 <button
                                     disabled={!dormName || !dormAddress || !ownerName || !ownerPhone}
                                     onClick={nextStep}
-                                    className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-green-100"
+                                    className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
                                     ถัดไป
                                 </button>
@@ -588,8 +617,7 @@ export default function SetupDormPage() {
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                                            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
-                                            <path d="M12 2.25c-4.142 0-7.5 3.358-7.5 7.5 0 3.75 3.75 9 7.5 12.75l.44.444a.75.75 0 001.06 0l.44-.444c3.75-3.75 7.5-9 7.5-12.75 0-4.142-3.358-7.5-7.5-7.5z" />
+                                            <path fillRule="evenodd" d="M12 21.625s-8.5-4.686-8.5-8.5c0-4.694 3.806-8.5 8.5-12.75 4.694 4.25 8.5 8.056 8.5 12.75 0 3.814-8.5 8.5-8.5 8.5z" clipRule="evenodd" />
                                         </svg>
                                     </div>
                                     <label className="text-sm font-bold text-gray-700 uppercase tracking-tight">ค่าน้ำประปา</label>
@@ -597,13 +625,13 @@ export default function SetupDormPage() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={() => setWaterType('unit')}
-                                        className={`py-3 px-4 rounded-xl border-2 transition-all font-semibold text-sm ${waterType === 'unit' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400'}`}
+                                        className={`py-3 px-4 rounded-xl border-2 transition-all font-semibold text-sm ${waterType === 'unit' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-400'}`}
                                     >
                                         คิดตามหน่วย
                                     </button>
                                     <button
                                         onClick={() => setWaterType('fixed')}
-                                        className={`py-3 px-4 rounded-xl border-2 transition-all font-semibold text-sm ${waterType === 'fixed' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400'}`}
+                                        className={`py-3 px-4 rounded-xl border-2 transition-all font-semibold text-sm ${waterType === 'fixed' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-400'}`}
                                     >
                                         ราคาเหมาจ่าย
                                     </button>
@@ -617,7 +645,7 @@ export default function SetupDormPage() {
                                             if (e.target.value.length > 6) return;
                                             setWaterRate(e.target.value);
                                         }}
-                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 placeholder:text-gray-400"
+                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">บาท / {waterType === 'unit' ? 'หน่วย' : 'เดือน'}</span>
                                 </div>
@@ -641,7 +669,7 @@ export default function SetupDormPage() {
                                             if (e.target.value.length > 6) return;
                                             setElectricRate(e.target.value);
                                         }}
-                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 placeholder:text-gray-400"
+                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">บาท / หน่วย</span>
                                 </div>
@@ -652,7 +680,7 @@ export default function SetupDormPage() {
                                 <button
                                     disabled={!waterRate || !electricRate || parseFloat(waterRate) <= 0 || parseFloat(electricRate) <= 0}
                                     onClick={nextStep}
-                                    className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-green-100"
+                                    className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
                                     ถัดไป
                                 </button>
@@ -671,7 +699,7 @@ export default function SetupDormPage() {
                                         placeholder="ชื่อบริการ (เช่น ค่าส่วนกลาง)"
                                         value={newServiceName}
                                         onChange={(e) => setNewServiceName(e.target.value)}
-                                        className="h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 placeholder:text-gray-400"
+                                        className="h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                     />
                                     <div className="flex gap-2">
                                         <div className="relative flex-1">
@@ -683,13 +711,13 @@ export default function SetupDormPage() {
                                                     if (e.target.value.length > 6) return;
                                                     setNewServicePrice(e.target.value);
                                                 }}
-                                                className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 placeholder:text-gray-400"
+                                                className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                             />
                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">บาท/เดือน</span>
                                         </div>
                                         <button
                                             onClick={addService}
-                                            className="px-6 h-12 bg-green-600 text-white font-bold rounded-xl flex items-center justify-center hover:bg-green-700 active:scale-95 transition-all shadow-md"
+                                            className="px-6 h-12 bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center hover:from-emerald-700 hover:to-teal-600 active:scale-95 transition-all shadow-md shadow-emerald-100"
                                         >
                                             เพิ่ม
                                         </button>
@@ -707,7 +735,7 @@ export default function SetupDormPage() {
                                         <div key={s.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 animate-in fade-in zoom-in-95">
                                             <div>
                                                 <p className="font-bold text-gray-800">{s.name}</p>
-                                                <p className="text-sm text-green-600 font-bold">{s.price.toLocaleString()} บาท/เดือน</p>
+                                                <p className="text-sm text-emerald-600 font-bold">{s.price.toLocaleString()} บาท/เดือน</p>
                                             </div>
                                             <button onClick={() => removeService(s.id)} className="w-8 h-8 flex items-center justify-center text-red-500 border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-all">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
@@ -721,7 +749,7 @@ export default function SetupDormPage() {
 
                             <div className="grid grid-cols-2 gap-4 pt-10 mt-auto">
                                 <button onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
-                                <button onClick={nextStep} className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 transition-all shadow-lg shadow-green-100">ถัดไป</button>
+                                <button onClick={nextStep} className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-200/50">ถัดไป</button>
                             </div>
                         </div>
                     )}
@@ -737,10 +765,18 @@ export default function SetupDormPage() {
                                         min="1" max="8"
                                         value={floorCount}
                                         onChange={(e) => updateFloorCount(parseInt(e.target.value))}
-                                        className="flex-1 accent-green-600 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer"
+                                        className="flex-1 accent-emerald-600 h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer"
                                     />
-                                    <span className="w-12 h-12 flex items-center justify-center bg-green-50 text-green-700 font-bold rounded-xl border-2 border-green-100">{floorCount}</span>
+                                    <span className="w-12 h-12 flex items-center justify-center bg-emerald-50 text-emerald-700 font-bold rounded-xl border-2 border-emerald-100">{floorCount}</span>
                                 </div>
+                                {totalRooms >= 50 && (
+                                    <p className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-1 animate-pulse">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                        </svg>
+                                        ครบจำนวนห้องสูงสุด 50 ห้องแล้วครับ
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-4">
@@ -757,7 +793,8 @@ export default function SetupDormPage() {
                                                 <span className="w-8 text-center font-bold text-gray-800">{f.roomCount}</span>
                                                 <button
                                                     onClick={() => updateRoomCount(f.floorNumber, f.roomCount + 1)}
-                                                    className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors"
+                                                    disabled={totalRooms >= 50}
+                                                    className={`w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center transition-colors ${totalRooms >= 50 ? 'bg-gray-50 text-gray-200 cursor-not-allowed border-gray-100' : 'text-gray-400 hover:bg-gray-200'}`}
                                                 >+</button>
                                                 <span className="text-xs text-gray-400 ml-1">ห้อง</span>
                                             </div>
@@ -768,7 +805,7 @@ export default function SetupDormPage() {
 
                             <div className="grid grid-cols-2 gap-4 pt-10 mt-auto">
                                 <button onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
-                                <button onClick={nextStep} className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 transition-all shadow-lg shadow-green-100">ถัดไป</button>
+                                <button onClick={nextStep} className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-200/50">ถัดไป</button>
                             </div>
                         </div>
                     )}
@@ -816,7 +853,7 @@ export default function SetupDormPage() {
                                                                 type="checkbox"
                                                                 checked={room.active}
                                                                 onChange={() => toggleRoom(f.floorNumber, idx)}
-                                                                className="w-4 h-4 accent-green-600"
+                                                                className="w-4 h-4 accent-emerald-600"
                                                             />
                                                         </div>
                                                         <input
@@ -824,7 +861,7 @@ export default function SetupDormPage() {
                                                             placeholder="ระบุเลขห้อง"
                                                             value={room.number}
                                                             onChange={(e) => updateRoomNumber(f.floorNumber, idx, e.target.value)}
-                                                            className={`font-bold text-lg outline-none rounded-lg px-2 py-1 transition-all ${room.active ? 'bg-gray-50 border-2 border-green-100 text-gray-800 focus:border-green-500 focus:bg-white' : 'bg-transparent text-gray-400'}`}
+                                                            className={`font-bold text-lg outline-none rounded-lg px-2 py-1 transition-all ${room.active ? 'bg-gray-50 border-2 border-emerald-100 text-gray-800 focus:border-emerald-500 focus:bg-white' : 'bg-transparent text-gray-400'}`}
                                                         />
                                                     </div>
                                                 )
@@ -840,7 +877,7 @@ export default function SetupDormPage() {
                                 <button
                                     disabled={isStep5Invalid}
                                     onClick={nextStep}
-                                    className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-green-100"
+                                    className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
                                     ถัดไป
                                 </button>
@@ -858,7 +895,7 @@ export default function SetupDormPage() {
                                     <div key={f.floorNumber} className="space-y-4 p-4 bg-gray-50/50 rounded-3xl border border-gray-100">
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-6 bg-green-500 rounded-full" />
+                                                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
                                                 <h3 className="font-bold text-gray-800">ชั้น {f.floorNumber}</h3>
                                             </div>
 
@@ -910,7 +947,7 @@ export default function SetupDormPage() {
                                                         <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
                                                             <button
                                                                 onClick={() => updateRoomType(f.floorNumber, idx, 'fan')}
-                                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${room.roomType === 'fan' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}
+                                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${room.roomType === 'fan' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-400'}`}
                                                             >พัดลม</button>
                                                             <button
                                                                 onClick={() => updateRoomType(f.floorNumber, idx, 'air')}
@@ -924,7 +961,7 @@ export default function SetupDormPage() {
                                                             placeholder="0.00"
                                                             value={room.price}
                                                             onChange={(e) => updateRoomPrice(f.floorNumber, idx, e.target.value)}
-                                                            className="w-full h-10 bg-gray-50 border border-gray-100 rounded-xl px-3 outline-none focus:border-green-500 transition-all text-gray-800 font-bold placeholder:text-gray-300"
+                                                            className="w-full h-10 bg-gray-50 border border-gray-100 rounded-xl px-3 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold placeholder:text-gray-300"
                                                         />
                                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">บาท/เดือน</span>
                                                     </div>
@@ -940,7 +977,7 @@ export default function SetupDormPage() {
                                 <button
                                     disabled={floors.some(f => f.rooms.filter(r => r.active).some(r => !r.price || parseFloat(r.price) <= 0))}
                                     onClick={nextStep}
-                                    className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-green-100"
+                                    className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
                                     ถัดไป
                                 </button>
@@ -962,14 +999,14 @@ export default function SetupDormPage() {
                                         { id: 'bbl', name: 'กรุงเทพ', color: '#1E4598', logo: 'B' },
                                         { id: 'ktb', name: 'กรุงไทย', color: '#00AEEF', logo: 'K' },
                                         { id: 'bay', name: 'กรุงศรี', color: '#FFD700', logo: 'A' },
-                                        { id: 'ttb', name: 'ทหารไทยธนชาต', color: '#004A99', logo: 'T' },
                                         { id: 'gsb', name: 'ออมสิน', color: '#EB1483', logo: 'G' },
-                                        { id: 'promptpay', name: 'PromptPay', color: '#113566', logo: 'P' },
+                                        { id: 'promptpay', name: 'พร้อมเพย์', color: '#113566', logo: 'P' },
+                                        { id: 'other', name: 'อื่น ๆ', color: '#94a3b8', logo: '?' },
                                     ].map((bank) => (
                                         <button
                                             key={bank.id}
                                             onClick={() => setBankName(bank.name)}
-                                            className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1.5 ${bankName === bank.name ? 'border-green-500 bg-green-50 shadow-md scale-[1.05]' : 'border-gray-50 bg-gray-50 hover:border-gray-200'}`}
+                                            className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1.5 ${bankName === bank.name ? 'border-emerald-500 bg-emerald-50 shadow-md scale-[1.05]' : 'border-gray-50 bg-gray-50 hover:border-gray-200'}`}
                                         >
                                             <div
                                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-inner shadow-black/10"
@@ -981,6 +1018,19 @@ export default function SetupDormPage() {
                                         </button>
                                     ))}
                                 </div>
+
+                                {bankName === 'อื่น ๆ' && (
+                                    <div className="space-y-1 mt-4 animate-in fade-in slide-in-from-top-2">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">ระบุชื่อธนาคาร <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            placeholder="ชื่อ ธนาคาร..."
+                                            value={otherBankName}
+                                            onChange={(e) => setOtherBankName(e.target.value)}
+                                            className="w-full h-11 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 text-sm font-bold"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-4 pt-2">
@@ -991,7 +1041,7 @@ export default function SetupDormPage() {
                                         placeholder="ระบุชื่อเจ้าของบัญชี"
                                         value={bankAccountName}
                                         onChange={(e) => setBankAccountName(e.target.value)}
-                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 font-bold"
+                                        className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -1001,7 +1051,7 @@ export default function SetupDormPage() {
                                         placeholder="000-0-00000-0"
                                         value={bankAccountNo}
                                         onChange={(e) => setBankAccountNo(e.target.value.replace(/[^0-9-]/g, ''))}
-                                        className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-green-500 transition-all text-gray-800 text-xl font-black font-sans tracking-widest"
+                                        className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 text-xl font-black font-sans tracking-widest"
                                     />
                                 </div>
                             </div>
@@ -1009,9 +1059,9 @@ export default function SetupDormPage() {
                             <div className="grid grid-cols-2 gap-4 mt-auto pt-6">
                                 <button disabled={loading} onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
                                 <button
-                                    disabled={!bankName || !bankAccountNo || !bankAccountName || loading}
+                                    disabled={!bankName || (bankName === 'อื่น ๆ' && !otherBankName) || !bankAccountNo || !bankAccountName || loading}
                                     onClick={handleFinish}
-                                    className="py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-green-100 flex items-center justify-center gap-2"
+                                    className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-2"
                                 >
                                     {loading ? (
                                         <>
@@ -1049,7 +1099,7 @@ export default function SetupDormPage() {
                                         type="number"
                                         value={modalConfig.inputValue}
                                         onChange={(e) => setModalConfig(prev => ({ ...prev, inputValue: e.target.value }))}
-                                        className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 outline-none focus:border-green-500 transition-all text-center text-xl font-black text-gray-800"
+                                        className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 outline-none focus:border-emerald-500 transition-all text-center text-xl font-black text-gray-800"
                                     />
                                     <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
                                         <span className="text-xs font-bold text-gray-400">บาท</span>
@@ -1069,9 +1119,9 @@ export default function SetupDormPage() {
                             )}
                             <button
                                 onClick={() => modalConfig.onConfirm(modalConfig.inputValue)}
-                                className="flex-[2] py-4 bg-green-600 text-white font-bold rounded-2xl hover:bg-green-700 shadow-lg shadow-green-100 active:scale-[0.98] transition-all"
+                                className="flex-[2] py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all"
                             >
-                                {modalConfig.type === 'prompt' ? 'ตกลง' : 'รับทราบ'}
+                                {modalConfig.type === 'prompt' ? 'ตกลง' : 'ตกลง'}
                             </button>
                         </div>
                     </div>

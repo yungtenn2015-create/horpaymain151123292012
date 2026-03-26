@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
     BuildingOfficeIcon,
     KeyIcon,
@@ -11,7 +12,11 @@ import {
     CheckIcon,
     ChatBubbleLeftRightIcon,
     DevicePhoneMobileIcon,
-    CalendarDaysIcon
+    CalendarDaysIcon,
+    XMarkIcon,
+    DocumentTextIcon,
+    BanknotesIcon,
+    UserPlusIcon
 } from '@heroicons/react/24/outline'
 
 // Helper function for Thai date formatting
@@ -68,6 +73,169 @@ export default function RoomsTab({
     movingOutRoomIds,
     router
 }: RoomsTabProps) {
+    const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+
+    const renderRoomActionModal = () => {
+        if (!selectedRoom) return null;
+
+        const isWaitingVerify = waitingVerifyRoomIds.has(selectedRoom.id);
+        const isUnpaid = unpaidRoomIds.has(selectedRoom.id);
+        const isOccupied = selectedRoom.status === 'occupied';
+        const isMovingOut = movingOutRoomIds.has(selectedRoom.id);
+        const isReallyOverdue = overdueRoomIds.has(selectedRoom.id);
+
+        let statusTheme = { badge: 'bg-green-500', text: 'ว่าง', icon: KeyIcon, color: 'text-green-600', bg: 'bg-green-50' };
+        if (isMovingOut) statusTheme = { badge: 'bg-amber-500', text: 'แจ้งออก', icon: ArrowRightOnRectangleIcon, color: 'text-amber-600', bg: 'bg-amber-50' };
+        else if (isReallyOverdue) statusTheme = { badge: 'bg-orange-500', text: 'ค้างชำระ', icon: ExclamationTriangleIcon, color: 'text-orange-600', bg: 'bg-orange-50' };
+        else if (isWaitingVerify || isUnpaid) statusTheme = { badge: 'bg-sky-500', text: 'รอชำระ', icon: ClockIcon, color: 'text-sky-600', bg: 'bg-sky-50' };
+        else if (isOccupied) statusTheme = { badge: 'bg-blue-600', text: 'มีคนพัก', icon: BuildingOfficeIcon, color: 'text-blue-600', bg: 'bg-blue-50' };
+
+        const activeTenant = selectedRoom.tenants?.find(t => t.status === 'active');
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                <div 
+                    className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" 
+                    onClick={() => setSelectedRoom(null)}
+                />
+                
+                <div className="relative w-full max-w-[340px] bg-white rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden animate-in zoom-in-95 duration-300 mb-12">
+                    {/* Modal Header */}
+                    <div className="relative p-5 pb-4 border-b border-gray-50 bg-slate-50/50">
+                        <button 
+                            onClick={() => setSelectedRoom(null)}
+                            className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 shadow-sm border border-gray-100 transition-all active:scale-90"
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-4">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border-2 border-white shadow-sm ${statusTheme.bg} ${statusTheme.color}`}>
+                                <statusTheme.icon className="w-5 h-5 stroke-[2.5]" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <h2 className="text-lg font-black text-gray-900 leading-none">ห้อง {selectedRoom.room_number}</h2>
+                                    <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest text-white ${statusTheme.badge}`}>
+                                        {statusTheme.text}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">ชั้น {selectedRoom.floor} • ฿{selectedRoom.base_price?.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-5 space-y-4">
+                        {/* Tenant Info Section */}
+                        {isOccupied && activeTenant ? (
+                            <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                                            <UserIcon className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-[13px] font-black text-gray-900 truncate leading-tight">{activeTenant.name}</h3>
+                                            <a 
+                                                href={`tel:${activeTenant.phone}`}
+                                                className="text-primary font-bold text-[11px] flex items-center gap-1 mt-0.5 hover:underline"
+                                            >
+                                                <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
+                                                {activeTenant.phone}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {activeTenant.line_user_id && (
+                                        <div className="w-7 h-7 bg-green-500 text-white rounded-full flex items-center justify-center shadow-sm shrink-0">
+                                            <CheckIcon className="w-3.5 h-3.5 stroke-[4]" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 border-dashed text-center">
+                                <h3 className="text-[13px] font-black text-emerald-900">ห้องว่าง</h3>
+                                <p className="text-[10px] font-bold text-emerald-600/70 mt-0.5">พร้อมสำหรับการรับผู้เช่าใหม่</p>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-1 gap-2.5">
+                            {isOccupied ? (
+                                <>
+                                    <button 
+                                        onClick={() => {
+                                            router.push(`/dashboard/billing?roomId=${selectedRoom.id}`);
+                                            setSelectedRoom(null);
+                                        }}
+                                        className="w-full h-14 bg-primary text-white rounded-2xl flex items-center justify-between px-5 shadow-lg shadow-green-900/10 hover:brightness-110 active:scale-[0.98] transition-all group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                                                <BanknotesIcon className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest leading-none mb-1">Quick Action</p>
+                                                <p className="text-[13px] font-black">จดมิเตอร์ / ออกบิล</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRightIcon className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                    </button>
+
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <button 
+                                            onClick={() => {
+                                                router.push(`/dashboard?tab=tenants&search=${selectedRoom.room_number}`);
+                                                setSelectedRoom(null);
+                                            }}
+                                            className="h-12 bg-white border border-slate-200 rounded-2xl flex items-center gap-2.5 px-3.5 hover:border-blue-200 hover:bg-blue-50/30 transition-all active:scale-95 group"
+                                        >
+                                            <div className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <DocumentTextIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-[11px] font-black text-slate-800">ดูสัญญา</span>
+                                        </button>
+
+                                        <button 
+                                            onClick={() => {
+                                                router.push(`/dashboard/move-out?roomId=${selectedRoom.id}`);
+                                                setSelectedRoom(null);
+                                            }}
+                                            className="h-12 bg-white border border-slate-200 rounded-2xl flex items-center gap-2.5 px-3.5 hover:border-rose-200 hover:bg-rose-50/30 transition-all active:scale-95 group"
+                                        >
+                                            <div className="w-7 h-7 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-[11px] font-black text-slate-800">ย้ายออก</span>
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <button 
+                                    onClick={() => {
+                                        router.push(`/dashboard/tenants/new?roomId=${selectedRoom.id}`);
+                                        setSelectedRoom(null);
+                                    }}
+                                    className="w-full h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-between px-5 shadow-lg shadow-emerald-900/10 hover:brightness-110 active:scale-[0.98] transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                                            <UserPlusIcon className="w-5 h-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest leading-none mb-1">Quick Action</p>
+                                            <p className="text-[13px] font-black">เพิ่มผู้เช่าใหม่</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRightIcon className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/30">
             {/* Premium Header (Green Theme) */}
@@ -78,16 +246,16 @@ export default function RoomsTab({
                     <div className="absolute bottom-[-10%] left-[-10%] w-56 h-56 bg-white/5 rounded-full blur-2xl" />
                 </div>
 
-                <div className="relative z-50 pt-8 pb-10 px-10">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white/20 backdrop-blur-[20px] rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
-                            <BuildingOfficeIcon className="w-8 h-8 drop-shadow-md" />
+                <div className="relative z-50 pt-8 pb-10 px-6 sm:px-10">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-[20px] rounded-[1.8rem] sm:rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
+                            <BuildingOfficeIcon className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" />
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-3xl sm:text-4xl font-headline font-extrabold tracking-tight text-white leading-tight underline decoration-white/20 underline-offset-8">
                                 สถานะห้องพัก
                             </h1>
-                            <p className="text-sm sm:text-[18px] text-white/99 font-bold tracking-tight mt-2">
+                            <p className="text-sm sm:text-base text-white/95 font-bold tracking-tight mt-2">
                                 ห้องพักทั้งหมด {rooms.length} ห้อง
                             </p>
                         </div>
@@ -215,7 +383,7 @@ export default function RoomsTab({
                                                 return (
                                                     <div
                                                         key={room.id}
-                                                        onClick={() => router.push(`/dashboard/billing?roomId=${room.id}`)}
+                                                        onClick={() => setSelectedRoom(room)}
                                                         className={`group relative overflow-hidden bg-white rounded-[1.8rem] border-2 p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl cursor-pointer ${theme.border} ${theme.shadow}`}
                                                     >
                                                         <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[9px] font-black uppercase tracking-widest ${theme.badge} z-10`}>
@@ -305,6 +473,7 @@ export default function RoomsTab({
                     })()}
                 </div>
             </div>
+            {renderRoomActionModal()}
         </div>
     );
 }

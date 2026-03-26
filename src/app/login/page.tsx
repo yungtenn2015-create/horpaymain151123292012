@@ -65,7 +65,7 @@ export default function LoginPage() {
             <div className="w-full sm:max-w-md bg-white min-h-screen sm:min-h-[640px] sm:rounded-3xl sm:shadow-2xl overflow-hidden flex flex-col">
 
                 {/* ── Header ── */}
-                <div className="relative flex flex-col items-center justify-center pt-10 pb-12 px-6 bg-gradient-to-br from-green-800 to-green-500">
+                <div className="relative flex flex-col items-center justify-center pt-10 pb-12 px-6 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500">
                     <div className="absolute w-48 h-48 rounded-full bg-white/5 -top-16 -right-10" />
                     <div className="absolute w-28 h-28 rounded-full bg-white/5 bottom-4 -left-8" />
 
@@ -76,7 +76,7 @@ export default function LoginPage() {
                         </svg>
                     </div>
                     <h1 className="relative text-3xl font-bold text-white tracking-tight mb-1">HORPAY</h1>
-                    <p className="relative text-white/70 text-sm">ระบบจัดการหอพักครบวงจร</p>
+                    <p className="relative text-white/70 text-sm">ระบบจัดการหอพัก</p>
                 </div>
 
                 {/* ── Form Area ── */}
@@ -105,7 +105,7 @@ export default function LoginPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                             autoComplete="email"
-                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base"
+                            className="w-full h-13 px-4 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base"
                         />
                     </div>
 
@@ -122,7 +122,7 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                                 autoComplete="current-password"
-                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-green-500 focus:bg-white transition-all text-base"
+                                className="w-full h-13 px-4 pr-12 rounded-xl border-2 border-gray-50 bg-gray-50 text-gray-800 placeholder-gray-300 outline-none focus:border-emerald-500 focus:bg-white transition-all text-base"
                             />
                             <button
                                 type="button"
@@ -147,7 +147,7 @@ export default function LoginPage() {
                     {/* Forgot password */}
                     <div
                         onClick={() => router.push('/forgot-password')}
-                        className="text-xs text-green-700 font-bold underline cursor-pointer hover:text-green-800 transition-colors text-right"
+                        className="text-xs text-emerald-700 font-bold underline cursor-pointer hover:text-emerald-800 transition-colors text-right"
                     >
                         ลืมรหัสผ่าน?
                     </div>
@@ -156,7 +156,7 @@ export default function LoginPage() {
                     <button
                         onClick={handleLogin}
                         disabled={loading}
-                        className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 text-white font-bold text-lg transition-all shadow-lg shadow-green-100 mt-2"
+                        className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-lg transition-all shadow-lg shadow-emerald-200/50 mt-2"
                     >
                         {loading ? (
                             <span className="flex items-center justify-center gap-2">
@@ -179,14 +179,14 @@ export default function LoginPage() {
                     {/* Register button */}
                     <button
                         onClick={() => router.push('/register')}
-                        className="w-full py-4 rounded-xl border-2 border-green-600 text-green-700 font-bold text-lg hover:bg-green-50 active:bg-green-100 transition-all"
+                        className="w-full py-4 rounded-xl border-2 border-emerald-600 text-emerald-700 font-bold text-lg hover:bg-emerald-50 active:bg-emerald-100 transition-all"
                     >
-                        ลงทะเบียน — ทดลองใช้ฟรี 60 วัน
+                        ลงทะเบียน — ทดลองใช้ฟรี 30 วัน
                     </button>
 
                     {/* Footer */}
                     <p className="text-center text-xs text-gray-400 mt-auto pt-8">
-                        © 2026 HORPAY — ระบบจัดการหอพัก ติดต่อ 083-264-3659
+                        แจ้งปัญหาติดต่อ LINE ID : yungtenn2015
                     </p>
                 </div>
             </div>

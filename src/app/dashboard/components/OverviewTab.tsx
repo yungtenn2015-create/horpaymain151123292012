@@ -37,7 +37,8 @@ interface Room {
 }
 
 interface OverviewTabProps {
-    dorm: { name: string } | null;
+    dorm: { name: string; created_at?: string } | null;
+    userPlan: { plan_type: string; trial_expires_at: string } | null;
     userName: string;
     stats: {
         total: number;
@@ -84,6 +85,7 @@ interface OverviewTabProps {
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
     dorm,
+    userPlan,
     userName,
     stats,
     overviewData,
@@ -105,6 +107,38 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     setSelectedStatus,
     dbError
 }) => {
+    const getTrialDaysLeft = () => {
+        if (!userPlan?.trial_expires_at) return 0;
+        const trialEndDate = new Date(userPlan.trial_expires_at);
+        const today = new Date();
+        const diffTime = trialEndDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const days = diffDays > 0 ? diffDays : 0;
+        // Cap at 30 as per business rule (สมัครก็ได้ 30 วันหมด)
+        return days > 30 ? 30 : days;
+    };
+
+    const isPro = userPlan?.plan_type === 'pro';
+
+    const getPendingNotificationsCount = () => {
+        let count = 0;
+        const today = new Date();
+
+        rooms.forEach((room) => {
+            if (waitingVerifyRoomIds.has(room.id)) count++;
+            if (overdueRoomIds.has(room.id)) count++;
+
+            const activeTenant = room.tenants?.find((t) => t.status === 'active');
+            if (activeTenant?.planned_move_out_date) {
+                const moveOutDate = new Date(activeTenant.planned_move_out_date);
+                const diffTime = moveOutDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays <= 7 && diffDays >= 0) count++;
+            }
+        });
+
+        return count;
+    };
 
     const renderNotificationsPopover = () => {
         if (!isNotificationsOpen) return null;
@@ -156,7 +190,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                     className="fixed inset-0 z-[105] bg-black/5"
                     onClick={() => setIsNotificationsOpen(false)}
                 />
-                <div className="absolute right-0 top-full mt-4 w-[320px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+                <div className="absolute right-[-1.5rem] top-full mt-4 w-72 bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
                     <div className="px-6 py-5 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100 flex items-center justify-between">
                         <div>
                             <h3 className="text-[17px] font-black text-gray-800 tracking-tight leading-none">รายการที่ต้องดำเนินการ</h3>
@@ -235,7 +269,25 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="relative z-50 pt-8 pb-10 px-10">
                     {/* Header */}
                     <div className="relative z-20 flex justify-between items-center mb-6 px-1">
-                        <span className="text-xl sm:text-2xl font-black tracking-tight text-white">HORPAY</span>
+                        <div className="flex items-center gap-3">
+                            {!isPro && (
+                                <div className="absolute top-[-1.5rem] left-[-0.5rem] bg-white/10 backdrop-blur-md px-2 py-1 rounded-full border border-white/10 flex items-center gap-1.5 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700 pointer-events-none">
+                                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                                    <span className="text-[10px] font-bold text-white/90 uppercase tracking-tight">
+                                        ทดลองใช้ฟรี {getTrialDaysLeft()} วัน
+                                    </span>
+                                </div>
+                            )}
+                            <span className="text-xl sm:text-4xl font-black tracking-tight text-white">HORPAY</span>
+                            {isPro && (
+                                <div className="bg-amber-400/20 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-amber-400/30 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700">
+                                    <span className="material-symbols-outlined text-[14px] text-amber-400 font-bold">workspace_premium</span>
+                                    <span className="text-[10px] font-black text-amber-100 uppercase tracking-widest">
+                                        PRO ACCOUNT
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                         <div className="flex items-center gap-2.5">
                             <div className="relative">
                                 <button
@@ -246,8 +298,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                         }`}
                                 >
                                     <span className="material-symbols-outlined text-[26px]">notifications</span>
-                                    {(waitingVerifyRoomIds.size + overdueRoomIds.size + (movingOutRoomIds.size)) > 0 && (
-                                        <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-primary animate-pulse" />
+                                    {getPendingNotificationsCount() > 0 && !isNotificationsOpen && (
+                                        <div className="absolute top-1 right-1 w-[12px] h-[12px] bg-red-500 rounded-full border-2 border-white shadow-sm" />
                                     )}
                                 </button>
                                 {renderNotificationsPopover()}
@@ -265,8 +317,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                     <>
                                         <div className="absolute right-0 top-full mt-4 w-[260px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right">
                                             <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
-                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">ยินดีต้อนรับ</p>
-                                                <h3 className="text-[17px] font-black text-gray-800 tracking-tight leading-none truncate">{userName}</h3>
+                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">แจ้งปัญหาติดต่อ</p>
+                                                <p className="text-[14px] font-black text-gray-800 tracking-tight leading-none truncate">Line : yungtenn2015</p>
                                             </div>
                                             <div className="p-2.5 space-y-1">
                                                 <button onClick={() => { setIsMenuOpen(false); setActiveTab('settings'); setActiveSettingsTab('dorm'); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">
@@ -335,7 +387,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         { icon: 'grid_view', label: 'ห้องทั้งหมด', value: stats.total, color: 'bg-emerald-50 text-emerald-500' },
                         { icon: 'home', label: 'ห้องว่าง', value: stats.vacant, color: 'bg-green-50 text-green-500' },
                         { icon: 'group', label: 'มีคนพัก', value: stats.occupied, color: 'bg-blue-50 text-blue-500' },
-                        { icon: 'payments', label: 'ค้างชำระ', value: (overviewData.billStatusCounts?.unpaid || 0) + (overviewData.billStatusCounts?.waiting_verify || 0), color: 'bg-sky-50 text-sky-500' },
+                        { icon: 'payments', label: 'ค้างชำระ', value: overviewData.billStatusCounts?.overdue || 0, color: 'bg-orange-50 text-orange-500' },
 
                     ].map((item) => (
                         <div key={item.label} className="bg-white p-5 rounded-3xl shadow-sm flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">

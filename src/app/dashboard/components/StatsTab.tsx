@@ -64,16 +64,16 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 </div>
 
                 {/* Header Content */}
-                <div className="relative z-50 pt-8 pb-10 px-10">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white/20 backdrop-blur-[20px] rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
-                            <ChartBarIcon className="w-8 h-8 drop-shadow-md" />
+                <div className="relative z-50 pt-8 pb-10 px-6 sm:px-10">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-[20px] rounded-[1.8rem] sm:rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
+                            <ChartBarIcon className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="text-4xl font-headline font-extrabold tracking-tight text-white leading-tight underline decoration-white/20 underline-offset-8">
+                            <h1 className="text-3xl sm:text-4xl font-headline font-extrabold tracking-tight text-white leading-tight underline decoration-white/20 underline-offset-8">
                                 ภาพรวมหอพัก
                             </h1>
-                            <p className="text-lg text-white/100 font-bold tracking-tight mt-2">
+                            <p className="text-sm sm:text-base text-white/95 font-bold tracking-tight mt-2">
                                 สรุปข้อมูลการเงินและสถานะรายเดือน
                             </p>
                         </div>
@@ -193,7 +193,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                         <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">รอชำระ</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-black text-blue-600">{overviewData.billStatusCounts.unpaid} ห้อง</span>
+                                        <span className="text-sm font-black text-blue-600">{overviewData.billStatusCounts.waiting_verify} ห้อง</span>
                                         <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-blue-400 transition-colors" />
                                     </div>
                                 </div>

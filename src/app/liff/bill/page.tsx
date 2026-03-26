@@ -17,12 +17,12 @@ function LIFFBillContent() {
     const searchParams = useSearchParams()
     const billId = searchParams.get('billId')
     const supabase = createClient()
-    
+
     const [loading, setLoading] = useState(true)
     const [data, setData] = useState<any>(null)
     const [billStatus, setBillStatus] = useState<string>('')
     const [error, setError] = useState<string | null>(null)
-    
+
     // Upload State
     const [file, setFile] = useState<File | null>(null)
     const [preview, setPreview] = useState<string | null>(null)
@@ -94,12 +94,12 @@ function LIFFBillContent() {
                     { name: 'ค่าเช่าห้องพัก', amount: Number(bill.room_amount || 0) }
                 ]
 
-                const isFlatWater = settings?.water_billing_type === 'flat' || 
-                                   (Number(bill.water_amount) > 0 && Number(utility?.water_unit || 0) === 0)
-                
+                const isFlatWater = settings?.water_billing_type === 'flat' ||
+                    (Number(bill.water_amount) > 0 && Number(utility?.water_unit || 0) === 0)
+
                 if (bill.water_amount > 0) {
                     items.push({
-                        name: 'ค่าน้ำประปา',
+                        name: 'ค่าน้ำประปา11',
                         amount: Number(bill.water_amount),
                         detail: isFlatWater ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} - ${utility?.curr_water_meter || 0} (${utility?.water_unit || 0} หน่วย)`
                     })
@@ -163,7 +163,7 @@ function LIFFBillContent() {
     const handleSubmit = async () => {
         if (!file || !billId || !data) return
         setUploading(true)
-        
+
         try {
             // 1. Upload to Supabase Storage
             const fileExt = file.name.split('.').pop()
@@ -229,7 +229,7 @@ function LIFFBillContent() {
                 </div>
                 <h2 className="text-xl font-black text-gray-800 mb-2">เกิดข้อผิดพลาด</h2>
                 <p className="text-gray-500 font-bold mb-6">{error}</p>
-                
+
                 <div className="mb-6 p-4 bg-gray-100 rounded-lg text-[10px] text-gray-400 font-mono break-all text-left">
                     <p>DEBUG INFO:</p>
                     <p>URL: {typeof window !== 'undefined' ? window.location.href : 'loading...'}</p>
@@ -261,7 +261,7 @@ function LIFFBillContent() {
                         </p>
                     </div>
                 ) : billStatus === 'paid' ? (
-                     <div className="bg-emerald-50 rounded-[2.5rem] p-8 text-center border-2 border-emerald-100">
+                    <div className="bg-emerald-50 rounded-[2.5rem] p-8 text-center border-2 border-emerald-100">
                         <div className="w-16 h-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-4">
                             <CheckCircleIcon className="w-10 h-10" />
                         </div>
@@ -294,8 +294,8 @@ function LIFFBillContent() {
                             <div className="space-y-6">
                                 <div className="relative aspect-[3/4] max-h-[400px] mx-auto rounded-3xl overflow-hidden shadow-lg border-2 border-emerald-100">
                                     <img src={preview} alt="Slip Preview" className="w-full h-full object-cover" />
-                                    <button 
-                                        onClick={() => {setFile(null); setPreview(null)}}
+                                    <button
+                                        onClick={() => { setFile(null); setPreview(null) }}
                                         className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur shadow-lg rounded-full flex items-center justify-center text-red-500 hover:bg-red-50"
                                     >
                                         <ArrowPathIcon className="w-5 h-5" />
