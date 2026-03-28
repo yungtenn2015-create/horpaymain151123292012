@@ -84,7 +84,10 @@ export default function LoginPage() {
                         <HorpayHouseMark className="h-full w-full" />
                     </div>
                     <h1 className="relative text-3xl font-bold text-white tracking-tight mb-1">HORPAY</h1>
-                    <p className="relative text-white/70 text-sm">ระบบจัดการหอพัก</p>
+                    <p className="relative text-base sm:text-lg font-semibold text-white/90 tracking-tight ">ระบบจัดการหอพัก</p>
+                    <p className="relative text-base sm:text-lg font-semibold text-white/90 tracking-tight ">
+                        horpay.app
+                    </p>
                 </div>
 
                 {/* ── Form Area ── */}
@@ -101,7 +104,7 @@ export default function LoginPage() {
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="ml-1 block text-s font-semibold uppercase tracking-wider text-gray-400">
+                        <label className="ml-1 block text-s font-bold uppercase tracking-wider text-emerald-600">
                             อีเมล
                         </label>
                         <input
@@ -116,7 +119,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="ml-1 block text-s font-semibold uppercase tracking-wider text-gray-400">
+                        <label className="ml-1 block text-s font-bold uppercase tracking-wider text-emerald-600">
                             รหัสผ่าน
                         </label>
                         <div className="relative">
@@ -189,7 +192,7 @@ export default function LoginPage() {
                         ลงทะเบียน — ทดลองใช้ฟรี 30 วัน
                     </button>
 
-                    <p className="mt-auto pt-8 text-center text-xs text-gray-400">
+                    <p className="mt-auto pt-8 text-center text-xs text-emerald-600">
                         แจ้งปัญหาติดต่อ LINE ID : yungtenn2015
                     </p>
                 </div>
