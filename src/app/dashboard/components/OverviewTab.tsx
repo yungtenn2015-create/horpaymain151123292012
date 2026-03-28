@@ -309,7 +309,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 </div>
                             )}
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1.35rem] shadow-lg ring-4 ring-white/25 sm:h-16 sm:w-16">
+                                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[1.35rem] shadow-lg ring-4 ring-white/25 sm:h-16 sm:w-16">
                                     <HorpayHouseMark className="h-full w-full" />
                                 </div>
                                 <div className="min-w-0 flex flex-col justify-center leading-tight">

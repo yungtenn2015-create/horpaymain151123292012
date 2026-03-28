@@ -127,6 +127,8 @@ export default function DashboardClient() {
     const [userName, setUserName] = useState('')
     const [dbError, setDbError] = useState('') // added error state
     const refreshRequestIdRef = useRef(0)
+    /** คิวโหลดทีละงาน — กันหลาย getUser/refresh token พร้อมกัน (ข้อผิดพลาด lock ... stole it ของ Supabase) */
+    const refreshQueueRef = useRef(Promise.resolve())
     const prevOverviewTabRef = useRef<string | null>(null)
     const [isMenuOpen, setIsMenuOpen] = useState(false) // for user dropdown
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false) // for notifications dropdown
@@ -705,8 +707,10 @@ export default function DashboardClient() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const refreshDashboard = useCallback(async (isInitial = false) => {
+    const refreshDashboard = useCallback((isInitial = false) => {
         const requestId = ++refreshRequestIdRef.current
+
+        const runRefresh = async () => {
         if (isInitial) setLoading(true);
         else setFetchingOverview(true);
 
@@ -1081,10 +1085,14 @@ export default function DashboardClient() {
                 setFetchingOverview(false);
             }
         }
+        }
+
+        refreshQueueRef.current = refreshQueueRef.current.catch(() => {}).then(runRefresh)
+        return refreshQueueRef.current
     }, [router]);
 
     useEffect(() => {
-        refreshDashboard(true);
+        void refreshDashboard(true);
     }, [refreshDashboard]);
 
     // Re-fetch when switching to a data tab (not on first paint — initial effect already loads)
@@ -1095,7 +1103,7 @@ export default function DashboardClient() {
         if (!isDataTab) return
         if (prev === null) return
         if (prev === activeTab) return
-        refreshDashboard(false)
+        void refreshDashboard(false)
     }, [activeTab, refreshDashboard]);
 
     // Close any floating overlays when switching tabs so they don't block clicks.
@@ -1199,36 +1207,36 @@ export default function DashboardClient() {
                     className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300"
                     onClick={() => !isSubmittingContract && setIsContractFormOpen(false)}
                 />
-                <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+                <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
                     {/* Header */}
-                    <div className="bg-gradient-to-br from-primary to-emerald-600 p-8 text-white relative">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                    <div className="bg-gradient-to-br from-primary to-emerald-600 p-5 sm:p-6 text-white relative">
+                        <div className="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
                         <button
                             type="button"
                             onClick={() => setIsContractFormOpen(false)}
-                            className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 z-10"
+                            className="absolute top-4 right-4 w-9 h-9 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-lg flex items-center justify-center text-white transition-all active:scale-95 border border-white/20 z-10"
                         >
-                            <XMarkIcon className="w-6 h-6 stroke-[2.5]" />
+                            <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
                         </button>
 
-                        <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                                <DocumentPlusIcon className="w-6 h-6" />
+                        <h3 className="text-lg sm:text-xl font-black tracking-tight flex items-center gap-2.5 leading-snug pr-10">
+                            <div className="w-8 h-8 shrink-0 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-md">
+                                <DocumentPlusIcon className="w-4 h-4 sm:w-[1.125rem] sm:h-[1.125rem]" />
                             </div>
                             {editingContract
                                 ? ((editingContract.status === 'expired' || editingContract.status === 'cancelled') ? 'ดูข้อมูลสัญญา' : 'แก้ไขข้อมูลสัญญา')
                                 : 'บันทึกข้อมูลสัญญาใหม่'
                             }
                         </h3>
-                        <p className="text-emerald-100 font-bold text-sm mt-2 opacity-80">
+                        <p className="text-emerald-100 font-bold text-xs sm:text-sm mt-1.5 opacity-80 leading-relaxed">
                             {(editingContract?.status === 'expired' || editingContract?.status === 'cancelled')
                                 ? 'ข้อมูลสัญญาที่สิ้นสุดแล้ว (อ่านอย่างเดียว)'
                                 : 'กรอกข้อมูลผู้เช่าเพื่อเตรียมทำสัญญาเช่า'}
                         </p>
                     </div>
 
-                    <form onSubmit={handleSaveContract} className="flex-1 overflow-y-auto p-8 pb-32 space-y-6 custom-scrollbar bg-white">
+                    <form onSubmit={handleSaveContract} className="flex-1 overflow-y-auto p-5 sm:p-6 pb-28 space-y-5 custom-scrollbar bg-white">
                         {contractError && (
                             <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-[13px] font-bold flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
@@ -1242,24 +1250,24 @@ export default function DashboardClient() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {/* Full Name */}
-                            <div className="sm:col-span-2 space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
+                            <div className="sm:col-span-2 space-y-1.5">
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">ชื่อ-นามสกุล <span className="text-red-500">*</span></label>
                                 <input
                                     required
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     type="text"
                                     value={contractFormData.name}
                                     onChange={(e) => setContractFormData({ ...contractFormData, name: e.target.value })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="ใส่ชื่อผู้เช่า..."
                                 />
                             </div>
 
                             {/* Phone */}
                             <div className="space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
                                 <input
                                     required
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
@@ -1267,72 +1275,72 @@ export default function DashboardClient() {
                                     maxLength={10}
                                     value={contractFormData.phone}
                                     onChange={(e) => setContractFormData({ ...contractFormData, phone: e.target.value.replace(/\D/g, '') })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="08XXXXXXXX"
                                 />
                             </div>
 
                             {/* Occupation */}
                             <div className="space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">อาชีพ</label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">อาชีพ</label>
                                 <input
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     type="text"
                                     value={contractFormData.occupation}
                                     onChange={(e) => setContractFormData({ ...contractFormData, occupation: e.target.value })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="ระบุอาชีพ..."
                                 />
                             </div>
 
                             {/* Address */}
                             <div className="sm:col-span-2 space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ที่อยู่ตามบัตรประชาชน</label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">ที่อยู่ตามบัตรประชาชน</label>
                                 <textarea
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     rows={2}
                                     value={contractFormData.address}
                                     onChange={(e) => setContractFormData({ ...contractFormData, address: e.target.value })}
-                                    className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none resize-none"
+                                    className="w-full p-4 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none resize-none"
                                     placeholder="ใส่ที่อยู่ตามบัตร..."
                                 />
                             </div>
 
                             {/* Car Reg */}
                             <div className="space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนรถยนต์</label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนรถยนต์</label>
                                 <input
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     type="text"
                                     value={contractFormData.car_registration}
                                     onChange={(e) => setContractFormData({ ...contractFormData, car_registration: e.target.value })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="เช่น กข 1234 กทม."
                                 />
                             </div>
 
                             {/* Motor Reg */}
                             <div className="space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนมอเตอร์ไซค์</label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">ทะเบียนมอเตอร์ไซค์</label>
                                 <input
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     type="text"
                                     value={contractFormData.motorcycle_registration}
                                     onChange={(e) => setContractFormData({ ...contractFormData, motorcycle_registration: e.target.value })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="เช่น 1กข 1234..."
                                 />
                             </div>
 
                             {/* Emergency */}
                             <div className="sm:col-span-2 space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">ผู้ติดต่อฉุกเฉิน</label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">ผู้ติดต่อฉุกเฉิน</label>
                                 <input
                                     readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                     type="text"
                                     value={contractFormData.emergency_contact}
                                     onChange={(e) => setContractFormData({ ...contractFormData, emergency_contact: e.target.value })}
-                                    className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl px-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                    className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl px-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                     placeholder="ชื่อและเบอร์โทร..."
                                 />
                             </div>
@@ -1341,20 +1349,20 @@ export default function DashboardClient() {
 
                             {/* Premium Date Pickers */}
                             <div className="space-y-2 group/date1">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่เริ่มสัญญา <span className="text-red-500">*</span></label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่เริ่มสัญญา <span className="text-red-500">*</span></label>
                                 <div
-                                    className={`relative h-14 transition-all ${!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') ? 'cursor-pointer' : 'cursor-default'}`}
+                                    className={`relative h-12 transition-all ${!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') ? 'cursor-pointer' : 'cursor-default'}`}
                                     onClick={() => {
                                         if (!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled')) {
                                             openCustomCalendar('start_date', contractFormData.start_date);
                                         }
                                     }}
                                 >
-                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-2xl group-focus-within/date1:bg-white group-focus-within/date1:border-primary/30 group-focus-within/date1:shadow-lg group-focus-within/date1:shadow-primary/5 transition-all" />
-                                    <div className="absolute inset-0 px-5 flex items-center justify-between pointer-events-none">
-                                        <div className="flex items-center gap-3">
-                                            <CalendarDaysIcon className="w-5 h-5 text-primary" />
-                                            <span className={`font-bold text-sm ${contractFormData.start_date ? 'text-gray-900' : 'text-gray-400'}`}>
+                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-xl group-focus-within/date1:bg-white group-focus-within/date1:border-primary/30 group-focus-within/date1:shadow-lg group-focus-within/date1:shadow-primary/5 transition-all" />
+                                    <div className="absolute inset-0 px-4 flex items-center justify-between pointer-events-none">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarDaysIcon className="w-4 h-4 text-primary shrink-0" />
+                                            <span className={`font-bold text-xs sm:text-sm ${contractFormData.start_date ? 'text-gray-900' : 'text-gray-400'}`}>
                                                 {contractFormData.start_date ? formatThaiDate(contractFormData.start_date) : 'วว/ดด/พ.ศ.'}
                                             </span>
                                         </div>
@@ -1368,7 +1376,7 @@ export default function DashboardClient() {
                             </div>
 
                             <div className="space-y-2 group/date2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่สิ้นสุดสัญญา <span className="text-red-500">*</span></label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">วันที่สิ้นสุดสัญญา <span className="text-red-500">*</span></label>
 
                                 {/* Quick Duration Chips */}
                                 {!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') && (
@@ -1398,18 +1406,18 @@ export default function DashboardClient() {
                                 )}
 
                                 <div
-                                    className={`relative h-14 transition-all ${!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') ? 'cursor-pointer' : 'cursor-default'}`}
+                                    className={`relative h-12 transition-all ${!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') ? 'cursor-pointer' : 'cursor-default'}`}
                                     onClick={() => {
                                         if (!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled')) {
                                             openCustomCalendar('end_date', contractFormData.end_date);
                                         }
                                     }}
                                 >
-                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-2xl group-focus-within/date2:bg-white group-focus-within/date2:border-primary/30 group-focus-within/date2:shadow-lg group-focus-within/date2:shadow-primary/5 transition-all" />
-                                    <div className="absolute inset-0 px-5 flex items-center justify-between pointer-events-none">
-                                        <div className="flex items-center gap-3">
-                                            <CalendarDaysIcon className="w-5 h-5 text-red-500" />
-                                            <span className={`font-bold text-sm ${contractFormData.end_date ? 'text-gray-900' : 'text-gray-400'}`}>
+                                    <div className="absolute inset-0 bg-gray-50 border-2 border-transparent rounded-xl group-focus-within/date2:bg-white group-focus-within/date2:border-primary/30 group-focus-within/date2:shadow-lg group-focus-within/date2:shadow-primary/5 transition-all" />
+                                    <div className="absolute inset-0 px-4 flex items-center justify-between pointer-events-none">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarDaysIcon className="w-4 h-4 text-red-500 shrink-0" />
+                                            <span className={`font-bold text-xs sm:text-sm ${contractFormData.end_date ? 'text-gray-900' : 'text-gray-400'}`}>
                                                 {contractFormData.end_date ? formatThaiDate(contractFormData.end_date) : 'วว/ดด/พ.ศ.'}
                                             </span>
                                         </div>
@@ -1424,31 +1432,31 @@ export default function DashboardClient() {
 
                             {/* Deposit */}
                             <div className="sm:col-span-2 space-y-2">
-                                <label className="text-[14px] font-bold text-gray-900 uppercase tracking-wide ml-1">เงินมัดจำ/ประกัน <span className="text-red-500">*</span></label>
+                                <label className="text-[12px] sm:text-[13px] font-bold text-gray-900 uppercase tracking-wide ml-1">เงินมัดจำ/ประกัน <span className="text-red-500">*</span></label>
                                 <div className="relative">
-                                    <div className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400">฿</div>
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-gray-400">฿</div>
                                     <input
                                         required
                                         readOnly={editingContract?.status === 'expired' || editingContract?.status === 'cancelled'}
                                         type="number"
                                         value={contractFormData.deposit_amount}
                                         onChange={(e) => setContractFormData({ ...contractFormData, deposit_amount: e.target.value })}
-                                        className="w-full h-14 bg-gray-50 border-2 border-transparent rounded-2xl pl-10 pr-5 font-bold text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
+                                        className="w-full h-12 bg-gray-50 border-2 border-transparent rounded-xl pl-9 pr-4 font-bold text-sm text-gray-900 focus:bg-white focus:border-primary/30 focus:shadow-lg focus:shadow-primary/5 transition-all outline-none"
                                         placeholder="0"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="pt-4">
+                        <div className="pt-3">
                             {!(editingContract?.status === 'expired' || editingContract?.status === 'cancelled') ? (
                                 <button
                                     type="submit"
                                     disabled={isSubmittingContract}
-                                    className="w-full h-16 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-2xl font-black text-lg shadow-xl shadow-green-100/50 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                                    className="w-full h-12 bg-gradient-to-br from-primary to-emerald-600 text-white rounded-xl font-black text-sm sm:text-base shadow-lg shadow-primary/25 hover:from-emerald-600 hover:to-emerald-700 active:from-emerald-700 active:to-emerald-800 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                                 >
                                     {isSubmittingContract ? (
-                                        <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
                                     ) : (
                                         <>{editingContract ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูลสัญญา'}</>
                                     )}
@@ -1457,7 +1465,7 @@ export default function DashboardClient() {
                                 <button
                                     type="button"
                                     onClick={() => setIsContractFormOpen(false)}
-                                    className="w-full h-16 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all"
+                                    className="w-full h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all"
                                 >
                                     ปิดหน้าต่าง
                                 </button>

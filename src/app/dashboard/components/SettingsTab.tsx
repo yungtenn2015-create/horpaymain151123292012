@@ -236,7 +236,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="mb-8">
                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black ${isDormSection ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                     {isDormSection ? <BuildingOfficeIcon className="w-4 h-4" /> : <ChatBubbleLeftRightIcon className="w-4 h-4" />}
-                    {isDormSection ? 'โหมด: ข้อมูลหอพัก' : 'โหมด: การเชื่อมต่อ LINE'}
+                    {isDormSection ? 'โหมด: ข้อมูลหอพัก' : 'โหมด: การเชื่อมต่อ LINE ติดตรงไหน Add LINE ID: yungtenn2015'}
                 </div>
             </div>
 
@@ -599,7 +599,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                 )}
                                 {/* Webhook URL Section */}
                                 <div className="space-y-2">
-                                    <label className="text-[13px] font-black text-gray-500 ml-1">Webhook URL (สำหรับนำไปวางใน LINE Console)</label>
+                                    <label className="text-[13px] font-black text-gray-500 ml-1">Webhook URL (copy นำไปวางหน้า Messaging API)</label>
                                     <div className="relative group/webhook">
                                         <input
                                             readOnly
@@ -710,7 +710,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[13px] font-black text-gray-500 ml-1">Channel Secret</label>
+                                    <label className="text-[13px] font-black text-gray-500 ml-1">Channel Secret อยู่หน้า Basic settings</label>
                                     <input
                                         type="password"
                                         value={lineConfig.channel_secret}
@@ -721,7 +721,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                 </div>
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <label className="text-[13px] font-black text-gray-500 ml-1">Channel Access Token</label>
+                                        <label className="text-[13px] font-black text-gray-500 ml-1">Channel Access Token อยู่หน้า Messaging API</label>
                                         <input
                                             type="password"
                                             value={lineConfig.access_token}
