@@ -77,6 +77,7 @@ export default function HistoryClient() {
                 .select('id, name')
                 .eq('owner_id', user.id)
                 .is('deleted_at', null)
+                .order('created_at', { ascending: false })
                 .limit(1)
 
             if (!dorms || dorms.length === 0) return

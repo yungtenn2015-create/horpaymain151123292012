@@ -19,12 +19,15 @@ export default function RegisterPage() {
     const [showConfirmPass, setShowConfirmPass] = useState(false)
 
     const [acceptedTerms, setAcceptedTerms] = useState(false)
+    const [hasReadTerms, setHasReadTerms] = useState(false)
 
     async function handleRegister() {
         setError('')
 
-        if (!acceptedTerms) {
-            setError('กรุณากดยอมรับข้อกำหนดและเงื่อนไขก่อนดำเนินการต่อ')
+        if (!hasReadTerms || !acceptedTerms) {
+            setError(hasReadTerms
+                ? 'กรุณากดยอมรับข้อกำหนดและเงื่อนไขก่อนดำเนินการต่อ'
+                : 'กรุณากดที่ "ข้อกำหนดและเงื่อนไข" เพื่ออ่านก่อน แล้วจึงติ๊กยอมรับ')
             return
         }
 
@@ -237,27 +240,46 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    {/* Terms */}
-                    <div className="flex items-center gap-2 px-1 mt-2">
+                    {/* Terms — ติ๊กได้เฉพาะหลังอ่านโมดัลและกดยืนยันแล้ว */}
+                    <div className="flex items-start gap-2 px-1 mt-2">
                         <input
                             type="checkbox"
                             id="terms"
-                            className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                            className={`w-4 h-4 accent-emerald-600 shrink-0 mt-0.5 ${hasReadTerms ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                             checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            onChange={(e) => {
+                                if (!hasReadTerms) {
+                                    setError('กรุณากดที่ "ข้อกำหนดและเงื่อนไข" เพื่ออ่านก่อน แล้วจึงติ๊กยอมรับ')
+                                    return
+                                }
+                                setError('')
+                                setAcceptedTerms(e.target.checked)
+                            }}
                         />
-                        <label htmlFor="terms" className="text-xs text-gray-500 select-none">
-                            ฉันยอมรับ <span
-                                onClick={() => setShowTerms(true)}
-                                className="text-emerald-700 font-semibold underline cursor-pointer"
-                            >ข้อกำหนดและเงื่อนไข</span>
+                        <label htmlFor="terms" className="text-xs text-gray-500 select-none leading-relaxed">
+                            ฉันยอมรับ{' '}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowTerms(true)
+                                    setError('')
+                                }}
+                                className="text-emerald-700 font-semibold underline cursor-pointer inline p-0 bg-transparent border-0 align-baseline"
+                            >
+                                ข้อกำหนดและเงื่อนไข
+                            </button>
+                            {!hasReadTerms && (
+                                <span className="block text-[11px] text-amber-600 font-semibold mt-1.5">
+                                    ต้องเปิดอ่านข้อกำหนดและและเงื่อนไขก่อน
+                                </span>
+                            )}
                         </label>
                     </div>
 
                     {/* Register button */}
                     <button
                         onClick={handleRegister}
-                        disabled={loading || !acceptedTerms}
+                        disabled={loading || !acceptedTerms || !hasReadTerms}
                         className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 active:bg-emerald-800 disabled:opacity-30 disabled:bg-gray-400 disabled:shadow-none text-white font-bold text-lg transition-all shadow-lg shadow-emerald-200/50 mt-4"
                     >
                         {loading ? (
@@ -292,8 +314,10 @@ export default function RegisterPage() {
                         <div className="p-6 border-b flex items-center justify-between bg-gray-50">
                             <h3 className="font-bold text-lg text-gray-800">ข้อกำหนดและเงื่อนไข</h3>
                             <button
+                                type="button"
                                 onClick={() => setShowTerms(false)}
                                 className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                                aria-label="ปิด"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-gray-500">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -304,6 +328,7 @@ export default function RegisterPage() {
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">1. การใช้งานระบบ</h4>
                                 <p>HORPAY เป็นระบบจัดการหอพักแบบ Software-as-a-Service (SaaS) เพื่ออำนวยความสะดวกในการบริหารจัดการหอพัก การจัดทำบิล และการเก็บข้อมูลผู้เช่า</p>
+                                <p className="mt-3">ระบบรองรับการแจ้งเตือนผ่าน LINE Official Account เมื่อเจ้าของหอเปิดใช้งานและผู้เช่าผูกบัญชี LINE แล้ว อาจมีการส่งข้อความเกี่ยวกับบิลค่าเช่า สถานะการชำระเงิน หรือประกาศที่เกี่ยวข้องกับการพักอาศัยตามที่ระบบและเจ้าของหอกำหนด</p>
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">2. ระยะเวลาทดลองใช้ (Trial Period)</h4>
@@ -311,19 +336,30 @@ export default function RegisterPage() {
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">3. ข้อมูลส่วนบุคคล (Privacy & PDPA)</h4>
-                                <p>เราให้ความสำคัญกับความปลอดภัยของข้อมูลส่วนบุคคลและปฏิบัติตามมาตรฐาน PDPA โดยข้อมูลจะถูกนำไปใช้เพื่อวัตถุประสงค์ในการให้บริการระบบจัดการหอพักและรักษาความปลอดภัยของบัญชีผู้ใช้เท่านั้น</p>
+                                <p>เราให้ความสำคัญกับความปลอดภัยของข้อมูลส่วนบุคคล และดำเนินการให้สอดคล้องกับพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) ข้อมูลของคุณจะถูกใช้เฉพาะเพื่อการให้บริการผ่าน HORPAY ในการบริหารจัดการหอพัก และเพื่อรักษาความปลอดภัยของบัญชีผู้ใช้</p>
                             </section>
                             <section>
                                 <h4 className="font-bold text-gray-800 mb-2">4. ความรับผิดชอบของผู้ใช้</h4>
-                                <p>ผู้ใช้มีหน้าที่รักษาความลับของรหัสผ่าน และรับผิดชอบต่อความถูกต้องของข้อมูลที่นำเข้าสู่ระบบทั้งหมด (เช่น ยอดค่าน้ำ/ค่าไฟ และข้อมูลการชำระเงิน)</p>
+                                <p>คุณต้องเก็บรหัสผ่านและการเข้าสู่ระบบเป็นความลับ ไม่ให้ผู้อื่นใช้แทนโดยไม่ได้รับอนุญาต และควรเปลี่ยนรหัสหรือแจ้งผู้ดูแลระบบหากสงสัยว่าบัญชีถูกเข้าถึงโดยไม่ชอบ</p>
+
+                                <p className="mt-3">HORPAY ช่วยให้คุณบันทึกข้อมูลและดูภาพรวมงานหอพักได้ง่ายขึ้น แต่คุณยังต้องเป็นคนเช็คเองว่าตัวเลขตรงกับมิเตอร์จริง ยอดในบิลตรงกับเงินที่รับ</p>
+                                <p className="mt-3">เรื่องบัญชี ภาษี หรือสัญญาเช่าที่ซับซ้อน โปรแกรมนี้ไม่ใช่ที่ปรึกษา หากไม่แน่ใจควรถามนักบัญชีหรือที่ปรึกษากฎหมายโดยตรง</p>
                             </section>
                         </div>
-                        <div className="p-6 border-t bg-gray-50">
+                        <div className="p-6 border-t bg-gray-50 space-y-2">
+                            <p className="text-[11px] text-center text-gray-500 font-medium">
+                                กดปุ่มด้านล่างเมื่ออ่านครบแล้ว — จากนั้นจึงติ๊กยอมรับที่ฟอร์มสมัครได้
+                            </p>
                             <button
-                                onClick={() => setShowTerms(false)}
+                                type="button"
+                                onClick={() => {
+                                    setHasReadTerms(true)
+                                    setShowTerms(false)
+                                    setError('')
+                                }}
                                 className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-xl transition-colors"
                             >
-                                ฉันเข้าใจและยอมรับ
+                                ฉันได้อ่านครบแล้ว
                             </button>
                         </div>
                     </div>

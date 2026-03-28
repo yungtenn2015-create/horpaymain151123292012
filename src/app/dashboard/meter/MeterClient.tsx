@@ -73,9 +73,12 @@ export default function MeterClient() {
     const [waterBillingType, setWaterBillingType] = useState<string>('per_unit')
     const [waterFlatRate, setWaterFlatRate] = useState<number>(0)
 
+    const roomIdFromUrl = searchParams.get('roomId')
+
     useEffect(() => {
         fetchData()
-    }, [selectedMonth])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- รีโหลดเมื่อเปลี่ยนเดือนหรือ ?roomId (fetchData อ่าน searchParams ภายใน)
+    }, [selectedMonth, roomIdFromUrl])
 
     async function fetchData() {
         setLoading(true)
@@ -134,7 +137,13 @@ export default function MeterClient() {
 
             if (roomsData) {
                 setRooms(roomsData)
-                if (roomsData.length > 0) {
+                if (roomsData.length === 0) {
+                    setPrevReadings({})
+                    setMeterInputs({})
+                    setRoomsWithBills({})
+                    setSelectedRoomId('')
+                    setSelectedFloor('')
+                } else {
                     const queryRoomId = searchParams.get('roomId')
                     const roomExists = roomsData.some(r => r.id === queryRoomId)
 
@@ -336,7 +345,7 @@ export default function MeterClient() {
                     water_price: currentWaterPrice
                 }
             })
-            .filter(item => item.curr_electric_meter !== null || item.curr_water_meter !== null)
+            .filter(item => item.tenant_id)
 
         if (toSave.length === 0) {
             setErrorMsg('ไม่มีข้อมูลใหม่ให้บันทึก (ห้องที่ออกบิลแล้วไม่สามารถแก้ไขมิเตอร์ได้)')

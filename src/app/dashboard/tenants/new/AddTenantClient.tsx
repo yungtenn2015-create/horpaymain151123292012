@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
@@ -57,6 +57,8 @@ export default function AddTenantClient() {
     // Form inputs
     const [selectedRoomId, setSelectedRoomId] = useState('')
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+    const [roomSearch, setRoomSearch] = useState('')
+    const roomSearchInputRef = useRef<HTMLInputElement>(null)
     const [tenantName, setTenantName] = useState('')
     const [tenantPhone, setTenantPhone] = useState('')
     const [occupation, setOccupation] = useState('')
@@ -127,6 +129,30 @@ export default function AddTenantClient() {
         fetchAvailableRooms()
     }, [router])
 
+    useEffect(() => {
+        if (isDropdownOpen) {
+            roomSearchInputRef.current?.focus()
+        } else {
+            setRoomSearch('')
+        }
+    }, [isDropdownOpen])
+
+    const filteredRooms = useMemo(() => {
+        const raw = roomSearch.trim().toLowerCase()
+        if (!raw) return rooms
+        const tokens = raw.split(/\s+/).filter(Boolean)
+        return rooms.filter((room) => {
+            const hay = [
+                room.room_number,
+                room.floor,
+                room.base_price,
+                room.room_type === 'air' ? 'แอร์ air' : 'พัดลม fan',
+            ]
+                .join(' ')
+                .toLowerCase()
+            return tokens.every((t) => hay.includes(t))
+        })
+    }, [rooms, roomSearch])
 
     const fetchContracts = async (dId: string) => {
         setFetchingContracts(true)
@@ -355,14 +381,29 @@ export default function AddTenantClient() {
                             });
 
                             if (filtered.length === 0) {
+                                const emptyNoContracts = !contractSearch.trim()
                                 return (
-                                    <div className="py-12 flex flex-col items-center text-center px-4">
-                                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                                    <div className="py-12 flex flex-col items-center text-center px-4 gap-5">
+                                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
                                             {contractSearch.trim() ? <DocumentTextIcon className="w-8 h-8" /> : <MagnifyingGlassIcon className="w-8 h-8" />}
                                         </div>
                                         <p className="text-gray-400 font-bold text-sm italic">
-                                            {!contractSearch.trim() ? 'ยังไม่มีรายการสัญญาใหม่ในขณะนี้' : 'ไม่พบข้อมูลบันทึกสัญญาที่ตรงกับเงื่อนไข'}
+                                            {emptyNoContracts
+                                                ? 'ยังไม่มีรายการสัญญาใหม่ ให้ไปสร้างสัญญาใหม่ก่อน'
+                                                : 'ไม่พบข้อมูลบันทึกสัญญาที่ตรงกับเงื่อนไข'}
                                         </p>
+                                        {emptyNoContracts && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsContractSelectorOpen(false)
+                                                    router.push('/dashboard?tab=tenants')
+                                                }}
+                                                className="w-full max-w-[240px] py-3.5 px-4 rounded-2xl bg-primary text-white font-black text-sm shadow-lg shadow-primary/25 hover:opacity-95 active:scale-[0.98] transition-all"
+                                            >
+                                                ไปหน้าบันทึกสัญญา
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             }
@@ -542,33 +583,57 @@ export default function AddTenantClient() {
                                 {isDropdownOpen && (
                                     <>
                                         <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
-                                        <div className="absolute z-20 mt-2 w-full bg-white border border-gray-100 rounded-[1.2rem] shadow-xl max-h-60 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-2">
-                                            {rooms.map(room => (
-                                                <button
-                                                    key={room.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedRoomId(room.id);
-                                                        setIsDropdownOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-5 py-3 hover:bg-green-50 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 ${selectedRoomId === room.id ? 'bg-green-50/50' : ''}`}
-                                                >
-                                                    <div className="flex flex-col">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`font-black tracking-tight ${selectedRoomId === room.id ? 'text-green-700' : 'text-gray-900'}`}>
-                                                                ห้อง {room.room_number}
-                                                            </span>
-                                                            <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">ชั้น {room.floor}</span>
-                                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${room.room_type === 'air' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                                {room.room_type === 'air' ? 'แอร์' : 'พัดลม'}
-                                                            </span>
-                                                        </div>
+                                        <div className="absolute z-20 mt-2 w-full bg-white border border-gray-100 rounded-[1.2rem] shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 flex flex-col max-h-72">
+                                            <div className="p-2 border-b border-gray-100 bg-gray-50/80 shrink-0">
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
                                                     </div>
-                                                    <div className="flex items-center gap-3 pr-2">
-                                                        <span className="font-black text-gray-900">฿{room.base_price.toLocaleString()}<span className="text-xs text-gray-500 font-bold">/เดือน</span></span>
-                                                    </div>
-                                                </button>
-                                            ))}
+                                                    <input
+                                                        ref={roomSearchInputRef}
+                                                        type="text"
+                                                        value={roomSearch}
+                                                        onChange={(e) => setRoomSearch(e.target.value)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-full pl-9 pr-3 py-3 text-sm font-bold text-gray-900 border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary placeholder:text-gray-400"
+                                                        placeholder="ค้นหาเลขห้อง, ชั้น, ราคา, แอร์/พัดลม..."
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="overflow-y-auto py-2 flex-1 min-h-0">
+                                                {filteredRooms.length === 0 ? (
+                                                    <p className="px-5 py-8 text-center text-sm font-bold text-gray-400">
+                                                        {roomSearch.trim() ? 'ไม่พบห้องที่ตรงกับคำค้น' : 'ไม่มีห้องว่าง'}
+                                                    </p>
+                                                ) : (
+                                                    filteredRooms.map((room) => (
+                                                        <button
+                                                            key={room.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedRoomId(room.id)
+                                                                setIsDropdownOpen(false)
+                                                            }}
+                                                            className={`w-full text-left px-5 py-3 hover:bg-green-50 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 ${selectedRoomId === room.id ? 'bg-green-50/50' : ''}`}
+                                                        >
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`font-black tracking-tight ${selectedRoomId === room.id ? 'text-green-700' : 'text-gray-900'}`}>
+                                                                        ห้อง {room.room_number}
+                                                                    </span>
+                                                                    <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">ชั้น {room.floor}</span>
+                                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${room.room_type === 'air' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                                        {room.room_type === 'air' ? 'แอร์' : 'พัดลม'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 pr-2">
+                                                                <span className="font-black text-gray-900">฿{room.base_price.toLocaleString()}<span className="text-xs text-gray-500 font-bold">/เดือน</span></span>
+                                                            </div>
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     </>
                                 )}

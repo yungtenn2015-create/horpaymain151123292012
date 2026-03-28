@@ -65,7 +65,7 @@ interface IssuedMoveOutSnapshot {
     utilityAmount: number;
     otherAmount: number;
     totalAmount: number;
-    items: Array<{ name: string; amount: number }>;
+    items: Array<{ name: string; amount: number; detail?: string }>;
 }
 
 export default function MoveOutClient() {
@@ -141,7 +141,7 @@ export default function MoveOutClient() {
 
                 const { data: items, error: itemsErr } = await supabase
                     .from('bill_items')
-                    .select('name, amount')
+                    .select('name, amount, detail')
                     .eq('bill_id', moveOutBillId)
                     .order('created_at', { ascending: true })
                 if (itemsErr) throw itemsErr
@@ -153,7 +153,8 @@ export default function MoveOutClient() {
                     totalAmount: Number(bill?.total_amount || 0),
                     items: (items || []).map((it: any) => ({
                         name: String(it?.name || '').trim(),
-                        amount: Number(it?.amount || 0)
+                        amount: Number(it?.amount || 0),
+                        detail: it?.detail ? String(it.detail).trim() : undefined
                     }))
                 })
             } catch {
@@ -508,13 +509,28 @@ export default function MoveOutClient() {
                 .single()
             if (billErr) throw billErr
 
-            const lines: Array<{ name: string; amount: number }> = []
+            const ep = Number(settlement.electricPrev || 0)
+            const ec = Number(settlement.electricCurr || 0)
+            const wp = Number(settlement.waterPrev || 0)
+            const wc = Number(settlement.waterCurr || 0)
+
+            const lines: Array<{ name: string; amount: number; detail?: string | null }> = []
             if (outstandingAmount > 0) lines.push({ name: 'ยอดค้างชำระเดิม', amount: outstandingAmount })
-            if (electricAmount > 0) lines.push({ name: `ค่าไฟย้ายออก (${electricUnit} หน่วย)`, amount: electricAmount })
+            if (electricAmount > 0) {
+                lines.push({
+                    name: 'ค่าไฟฟ้า',
+                    amount: electricAmount,
+                    detail: `มิเตอร์: ${ep} → ${ec} หน่วย`
+                })
+            }
             if (waterAmount > 0) {
                 lines.push({
-                    name: settlement.waterBillingType === 'flat_rate' ? 'ค่าน้ำย้ายออก (เหมาจ่าย)' : `ค่าน้ำย้ายออก (${waterUnit} หน่วย)`,
-                    amount: waterAmount
+                    name: 'ค่าน้ำประปา',
+                    amount: waterAmount,
+                    detail:
+                        settlement.waterBillingType === 'flat_rate'
+                            ? '(แบบเหมาจ่าย)'
+                            : `มิเตอร์: ${wp} → ${wc} หน่วย`
                 })
             }
             settlement.additionalItems.forEach((it) => {
@@ -529,7 +545,14 @@ export default function MoveOutClient() {
             if (lines.length > 0) {
                 const { error: itemsErr } = await supabase
                     .from('bill_items')
-                    .insert(lines.map((l) => ({ bill_id: newBill.id, name: l.name, amount: l.amount })))
+                    .insert(
+                        lines.map((l) => ({
+                            bill_id: newBill.id,
+                            name: l.name,
+                            amount: l.amount,
+                            ...(l.detail != null && l.detail !== '' ? { detail: l.detail } : {})
+                        }))
+                    )
                 if (itemsErr) throw itemsErr
             }
 
@@ -827,16 +850,20 @@ export default function MoveOutClient() {
             .filter((it) => test(it.name))
             .reduce((sum, it) => sum + Number(it.amount || 0), 0)
     const issuedOutstanding = getIssuedLineAmount((n) => n.includes('ยอดค้างชำระเดิม'))
-    const issuedElectric = getIssuedLineAmount((n) => n.startsWith('ค่าไฟย้ายออก'))
-    const issuedWater = getIssuedLineAmount((n) => n.startsWith('ค่าน้ำย้ายออก'))
+    const isIssuedElectricName = (n: string) => n === 'ค่าไฟฟ้า' || n.startsWith('ค่าไฟย้ายออก')
+    const isIssuedWaterName = (n: string) => n === 'ค่าน้ำประปา' || n.startsWith('ค่าน้ำย้ายออก')
+    const issuedElectric = getIssuedLineAmount(isIssuedElectricName)
+    const issuedWater = getIssuedLineAmount(isIssuedWaterName)
     const issuedDepositDeduct = Math.abs(getIssuedLineAmount((n) => n.includes('หักเงินมัดจำ')))
     const issuedAdditionalItems = issuedItems.filter((it) => {
         const n = it.name
         return !n.includes('ยอดค้างชำระเดิม') &&
-            !n.startsWith('ค่าไฟย้ายออก') &&
-            !n.startsWith('ค่าน้ำย้ายออก') &&
+            !isIssuedElectricName(n) &&
+            !isIssuedWaterName(n) &&
             !n.includes('หักเงินมัดจำ')
     })
+    const issuedElectricLine = issuedItems.find((it) => isIssuedElectricName(it.name))
+    const issuedWaterLine = issuedItems.find((it) => isIssuedWaterName(it.name))
     const summaryRent = isIssuedSnapshotMode ? Number(issuedMoveOutSnapshot?.roomAmount || 0) : Number(settlement.rentAmount || 0)
     const summaryOutstanding = isIssuedSnapshotMode ? issuedOutstanding : outstandingAmount
     const summaryElectric = isIssuedSnapshotMode ? issuedElectric : electricAmount
@@ -1340,13 +1367,27 @@ export default function MoveOutClient() {
                                             ฿{summaryOutstanding.toLocaleString()}
                                         </span>
                                     </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="font-bold text-gray-800">ค่าไฟย้ายออก</span>
-                                        <span className="font-black text-gray-800">฿{summaryElectric.toLocaleString()}</span>
+                                    <div className="space-y-0.5">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-bold text-gray-800">ค่าไฟฟ้า</span>
+                                            <span className="font-black text-gray-800">฿{summaryElectric.toLocaleString()}</span>
+                                        </div>
+                                        {isIssuedSnapshotMode && issuedElectricLine?.detail && (
+                                            <p className="text-[11px] font-bold text-gray-400 pl-0.5">
+                                                {issuedElectricLine.detail.replace(' - ', ' → ')}
+                                            </p>
+                                        )}
                                     </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="font-bold text-gray-800">ค่าน้ำย้ายออก</span>
-                                        <span className="font-black text-gray-800">฿{summaryWater.toLocaleString()}</span>
+                                    <div className="space-y-0.5">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-bold text-gray-800">ค่าน้ำประปา</span>
+                                            <span className="font-black text-gray-800">฿{summaryWater.toLocaleString()}</span>
+                                        </div>
+                                        {isIssuedSnapshotMode && issuedWaterLine?.detail && (
+                                            <p className="text-[11px] font-bold text-gray-400 pl-0.5">
+                                                {issuedWaterLine.detail.replace(' - ', ' → ')}
+                                            </p>
+                                        )}
                                     </div>
                                     {(isIssuedSnapshotMode
                                         ? issuedAdditionalItems.length > 0

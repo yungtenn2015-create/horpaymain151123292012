@@ -75,7 +75,7 @@ export default function ReceiptPage() {
                 try {
                     const { data, error: billItemsError } = await supabase
                         .from('bill_items')
-                        .select('name, amount')
+                        .select('name, amount, detail')
                         .eq('bill_id', bill.id)
                         .order('created_at', { ascending: true })
                     if (!billItemsError && data) {
@@ -179,7 +179,12 @@ export default function ReceiptPage() {
                         const name = String(it?.name || '').trim()
                         const amt = Number(it?.amount || 0)
                         if (!name || amt === 0) return
-                        items.push({ name, amount: amt })
+                        const d = it?.detail != null ? String(it.detail).trim() : ''
+                        items.push({
+                            name,
+                            amount: amt,
+                            ...(d ? { detail: d } : {})
+                        })
                     })
                 } else if (Number(bill.other_amount || 0) !== 0) {
                     // Legacy fallback when bill_items is unavailable.

@@ -78,6 +78,15 @@ interface SettingsTabProps {
     settingsMessage: string
 }
 
+/** หลังพิมพ์เสร็จ / blur — ค่าว่างหรือไม่ถูกต้องใช้ fallback (ค่าที่บันทึกไว้) */
+function dayFromDraft(raw: string, fallback: number): number {
+    const fb = Math.min(31, Math.max(1, fallback))
+    if (raw.trim() === '') return fb
+    const n = parseInt(raw, 10)
+    if (Number.isNaN(n)) return fb
+    return Math.min(31, Math.max(1, n))
+}
+
 const SettingsTab: React.FC<SettingsTabProps> = ({
     activeSettingsTab,
     setActiveSettingsTab,
@@ -119,6 +128,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         error: string
         success: string
     }>({ code: '', expiresAt: null, usedAt: null, loading: false, error: '', success: '' })
+
+    const [billingDayDraft, setBillingDayDraft] = useState(() => String(settingsData.billing_day))
+    const [paymentDueDraft, setPaymentDueDraft] = useState(() => String(settingsData.payment_due_day))
+
+    useEffect(() => {
+        setBillingDayDraft(String(settingsData.billing_day))
+        setPaymentDueDraft(String(settingsData.payment_due_day))
+    }, [settingsData.billing_day, settingsData.payment_due_day])
 
     const ownerClaimStatus = useMemo(() => {
         if (!ownerClaim.expiresAt) return { isExpired: true, msLeft: 0 }
@@ -327,33 +344,71 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                             </div>
 
                             <div className="space-y-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">วันสรุปยอด (ของเดือน)</label>
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 items-end max-w-[19rem] sm:max-w-[21rem] mx-auto w-full">
+                                    <div className="space-y-1.5 min-w-0">
+                                        <label className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-wide ml-0.5 leading-tight min-h-[2.25rem] sm:min-h-[2.5rem] flex flex-col justify-end gap-0">
+                                            <span>วันจดมิเตอร์</span>
+                                            <span>ตัดรอบบิล</span>
+                                        </label>
                                         <div className="relative">
                                             <input
                                                 type="number"
                                                 min="1"
                                                 max="31"
-                                                value={settingsData.billing_day}
-                                                onChange={(e) => setSettingsData({ ...settingsData, billing_day: parseInt(e.target.value) || 0 })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:bg-white focus:border-orange-500 transition-all outline-none text-center"
+                                                inputMode="numeric"
+                                                value={billingDayDraft}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value
+                                                    setBillingDayDraft(raw)
+                                                    if (raw.trim() === '') return
+                                                    const n = parseInt(raw, 10)
+                                                    if (Number.isNaN(n)) return
+                                                    setSettingsData({
+                                                        ...settingsData,
+                                                        billing_day: Math.min(31, Math.max(1, n)),
+                                                    })
+                                                }}
+                                                onBlur={() => {
+                                                    const c = dayFromDraft(billingDayDraft, settingsData.billing_day)
+                                                    setBillingDayDraft(String(c))
+                                                    setSettingsData({ ...settingsData, billing_day: c })
+                                                }}
+                                                className="w-full h-12 sm:h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-3 pr-11 font-bold text-gray-800 focus:bg-white focus:border-orange-500 transition-all outline-none text-center tabular-nums"
                                             />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">วันที่</div>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300 pointer-events-none">วันที่</div>
                                         </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">วันครบกำหนดชำระ</label>
+                                    <div className="space-y-1.5 min-w-0">
+                                        <label className="text-[10px] sm:text-[11px] font-black text-gray-400 uppercase tracking-wide ml-0.5 leading-tight min-h-[2.25rem] sm:min-h-[2.5rem] flex flex-col justify-end">
+                                            <span>วันครบกำหนด</span>
+                                            <span>ชำระ</span>
+                                        </label>
                                         <div className="relative">
                                             <input
                                                 type="number"
                                                 min="1"
                                                 max="31"
-                                                value={settingsData.payment_due_day}
-                                                onChange={(e) => setSettingsData({ ...settingsData, payment_due_day: parseInt(e.target.value) || 0 })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:bg-white focus:border-orange-500 transition-all outline-none text-center"
+                                                inputMode="numeric"
+                                                value={paymentDueDraft}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value
+                                                    setPaymentDueDraft(raw)
+                                                    if (raw.trim() === '') return
+                                                    const n = parseInt(raw, 10)
+                                                    if (Number.isNaN(n)) return
+                                                    setSettingsData({
+                                                        ...settingsData,
+                                                        payment_due_day: Math.min(31, Math.max(1, n)),
+                                                    })
+                                                }}
+                                                onBlur={() => {
+                                                    const c = dayFromDraft(paymentDueDraft, settingsData.payment_due_day)
+                                                    setPaymentDueDraft(String(c))
+                                                    setSettingsData({ ...settingsData, payment_due_day: c })
+                                                }}
+                                                className="w-full h-12 sm:h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-3 pr-11 font-bold text-gray-800 focus:bg-white focus:border-orange-500 transition-all outline-none text-center tabular-nums"
                                             />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">วันที่</div>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300 pointer-events-none">วันที่</div>
                                         </div>
                                     </div>
                                 </div>

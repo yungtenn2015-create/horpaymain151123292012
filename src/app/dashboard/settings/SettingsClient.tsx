@@ -16,6 +16,14 @@ import {
     ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 
+function normalizeBillingDay(value: unknown, fallback: number): number {
+    const fb = Math.min(31, Math.max(1, Math.floor(Number(fallback)) || 1))
+    if (value === null || value === undefined) return fb
+    const n = Math.floor(Number(value))
+    if (!Number.isFinite(n) || n < 1) return fb
+    return Math.min(31, n)
+}
+
 export default function SettingsClient() {
     const router = useRouter()
     const supabase = createClient()
@@ -61,6 +69,8 @@ export default function SettingsClient() {
                     .from('dorms')
                     .select('*')
                     .eq('owner_id', user.id)
+                    .is('deleted_at', null)
+                    .order('created_at', { ascending: false })
                     .limit(1)
 
                 if (dorms && dorms.length > 0) {
@@ -83,8 +93,8 @@ export default function SettingsClient() {
                             bank_name: settings.bank_name || '',
                             bank_account_no: settings.bank_account_no || '',
                             bank_account_name: settings.bank_account_name || '',
-                            billing_day: settings.billing_day || 30,
-                            payment_due_day: settings.payment_due_day || 5
+                            billing_day: normalizeBillingDay(settings.billing_day, 30),
+                            payment_due_day: normalizeBillingDay(settings.payment_due_day, 5)
                         })
                     }
 
@@ -126,6 +136,8 @@ export default function SettingsClient() {
                 .from('dorms')
                 .select('id')
                 .eq('owner_id', user.id)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
                 .limit(1)
 
             if (dorms && dorms.length > 0) {
@@ -142,8 +154,14 @@ export default function SettingsClient() {
                     bank_name: settingsData.bank_name,
                     bank_account_no: settingsData.bank_account_no,
                     bank_account_name: settingsData.bank_account_name,
-                    billing_day: settingsData.billing_day,
-                    payment_due_day: settingsData.payment_due_day
+                    billing_day: normalizeBillingDay(
+                        settingsData.billing_day === '' ? undefined : settingsData.billing_day,
+                        30
+                    ),
+                    payment_due_day: normalizeBillingDay(
+                        settingsData.payment_due_day === '' ? undefined : settingsData.payment_due_day,
+                        5
+                    )
                 }).eq('dorm_id', dormId)
 
                 // 3. Update LINE Config (Upsert)
@@ -323,13 +341,21 @@ export default function SettingsClient() {
                                     max="31"
                                     value={settingsData.billing_day}
                                     onChange={(e) => {
-                                        let val = parseInt(e.target.value);
-                                        if (val > 31) val = 31;
-                                        setSettingsData({...settingsData, billing_day: isNaN(val) ? ('' as any) : val});
+                                        const raw = e.target.value
+                                        if (raw === '') {
+                                            setSettingsData({ ...settingsData, billing_day: '' as any })
+                                            return
+                                        }
+                                        let val = parseInt(raw, 10)
+                                        if (Number.isNaN(val)) return
+                                        if (val < 1) val = 1
+                                        if (val > 31) val = 31
+                                        setSettingsData({ ...settingsData, billing_day: val })
                                     }}
                                     onBlur={() => {
-                                        if (!settingsData.billing_day || settingsData.billing_day < 1) {
-                                            setSettingsData({...settingsData, billing_day: 1});
+                                        const v = settingsData.billing_day
+                                        if (v === '' || v === undefined || (typeof v === 'number' && (v < 1 || v > 31))) {
+                                            setSettingsData({ ...settingsData, billing_day: 1 })
                                         }
                                     }}
                                     className="w-full h-14 bg-gray-50 border-none rounded-2xl px-4 text-gray-800 font-bold focus:ring-2 focus:ring-amber-500/20 transition-all"
@@ -346,13 +372,21 @@ export default function SettingsClient() {
                                     max="31"
                                     value={settingsData.payment_due_day}
                                     onChange={(e) => {
-                                        let val = parseInt(e.target.value);
-                                        if (val > 31) val = 31;
-                                        setSettingsData({...settingsData, payment_due_day: isNaN(val) ? ('' as any) : val});
+                                        const raw = e.target.value
+                                        if (raw === '') {
+                                            setSettingsData({ ...settingsData, payment_due_day: '' as any })
+                                            return
+                                        }
+                                        let val = parseInt(raw, 10)
+                                        if (Number.isNaN(val)) return
+                                        if (val < 1) val = 1
+                                        if (val > 31) val = 31
+                                        setSettingsData({ ...settingsData, payment_due_day: val })
                                     }}
                                     onBlur={() => {
-                                        if (!settingsData.payment_due_day || settingsData.payment_due_day < 1) {
-                                            setSettingsData({...settingsData, payment_due_day: 5});
+                                        const v = settingsData.payment_due_day
+                                        if (v === '' || v === undefined || (typeof v === 'number' && (v < 1 || v > 31))) {
+                                            setSettingsData({ ...settingsData, payment_due_day: 5 })
                                         }
                                     }}
                                     className="w-full h-14 bg-gray-50 border-none rounded-2xl px-4 text-gray-800 font-bold focus:ring-2 focus:ring-amber-500/20 transition-all"

@@ -101,6 +101,15 @@ export interface TenantContract {
     }[];
 }
 
+/** วันในปฏิทิน (ตัดรอบบิล / ครบกำหนดชำระ) — บังคับ 1–31 เสมอ */
+function normalizeBillingDay(value: unknown, fallback: number): number {
+    const fb = Math.min(31, Math.max(1, Math.floor(Number(fallback)) || 1))
+    if (value === null || value === undefined) return fb
+    const n = Math.floor(Number(value))
+    if (!Number.isFinite(n) || n < 1) return fb
+    return Math.min(31, n)
+}
+
 export default function DashboardClient() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -514,6 +523,11 @@ export default function DashboardClient() {
                     .from('tenant_contracts')
                     .insert([payload])
                 if (error) throw error
+            }
+
+            if (!editingContract) {
+                setContractTab('pending')
+                router.replace('/dashboard?tab=tenants')
             }
 
             setContractSuccess(editingContract ? 'แก้ไขสัญญาสำเร็จ' : 'บันทึกสัญญาสำเร็จ')
@@ -977,8 +991,8 @@ export default function DashboardClient() {
                         bank_name: settings.bank_name || '',
                         bank_account_no: settings.bank_account_no || '',
                         bank_account_name: settings.bank_account_name || '',
-                        billing_day: settings.billing_day || 30,
-                        payment_due_day: settings.payment_due_day || 5,
+                        billing_day: normalizeBillingDay(settings.billing_day, 30),
+                        payment_due_day: normalizeBillingDay(settings.payment_due_day, 5),
                         electric_rate_per_unit: settings.electric_rate_per_unit || 0,
                         water_rate_per_unit: settings.water_rate_per_unit || 0,
                         water_billing_type: settings.water_billing_type || 'per_unit',
@@ -1078,8 +1092,8 @@ export default function DashboardClient() {
                 bank_name: settingsData.bank_name,
                 bank_account_no: settingsData.bank_account_no,
                 bank_account_name: settingsData.bank_account_name,
-                billing_day: settingsData.billing_day,
-                payment_due_day: settingsData.payment_due_day,
+                billing_day: normalizeBillingDay(settingsData.billing_day, 30),
+                payment_due_day: normalizeBillingDay(settingsData.payment_due_day, 5),
                 electric_rate_per_unit: settingsData.electric_rate_per_unit,
                 water_rate_per_unit: settingsData.water_rate_per_unit,
                 water_billing_type: settingsData.water_billing_type,
@@ -1119,6 +1133,11 @@ export default function DashboardClient() {
             }
 
             setSettingsMessage('บันทึกข้อมูลเรียบร้อยแล้ว!')
+            setSettingsData(prev => ({
+                ...prev,
+                billing_day: normalizeBillingDay(prev.billing_day, 30),
+                payment_due_day: normalizeBillingDay(prev.payment_due_day, 5),
+            }))
             // Refresh local dorm name if changed
             setDorm({ ...dorm, name: dormData.name })
             setTimeout(() => setSettingsMessage(''), 3000)

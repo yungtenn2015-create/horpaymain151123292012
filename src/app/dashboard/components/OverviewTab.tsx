@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { differenceInCalendarDays } from 'date-fns'
 import {
     BellIcon,
     ExclamationTriangleIcon,
@@ -108,15 +109,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     setSelectedStatus,
     dbError
 }) => {
+    const [trialNow, setTrialNow] = React.useState(() => new Date());
+    React.useEffect(() => {
+        const id = setInterval(() => setTrialNow(new Date()), 60 * 60 * 1000);
+        return () => clearInterval(id);
+    }, []);
+
     const getTrialDaysLeft = () => {
         if (!userPlan?.trial_expires_at) return 0;
-        const trialEndDate = new Date(userPlan.trial_expires_at);
-        const today = new Date();
-        const diffTime = trialEndDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const days = diffDays > 0 ? diffDays : 0;
-        // Cap at 30 as per business rule (สมัครก็ได้ 30 วันหมด)
-        return days > 30 ? 30 : days;
+        const end = new Date(userPlan.trial_expires_at);
+        const n = Math.max(0, differenceInCalendarDays(end, trialNow));
+        return n;
     };
 
     const isPro = userPlan?.plan_type === 'pro';

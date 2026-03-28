@@ -46,6 +46,9 @@ export default function BillingClient() {
     const searchParams = useSearchParams()
     const [loading, setLoading] = useState(true)
     const [dormName, setDormName] = useState('หอพักของคุณ')
+    /** ที่อยู่ / เบอร์โทรอยู่ที่ตาราง dorms ไม่ใช่ dorm_settings */
+    const [dormAddressLine, setDormAddressLine] = useState('')
+    const [dormContactPhone, setDormContactPhone] = useState('')
     const [billingData, setBillingData] = useState<any[]>([])
     const [selectedDate, setSelectedDate] = useState(() => {
         const queryMonth = searchParams.get('month')
@@ -111,6 +114,7 @@ export default function BillingClient() {
                 .select('*')
                 .eq('owner_id', user.id)
                 .is('deleted_at', null)
+                .order('created_at', { ascending: false })
                 .limit(1)
 
             if (!dorms || dorms.length === 0) {
@@ -119,6 +123,8 @@ export default function BillingClient() {
             }
             const dorm = dorms[0]
             setDormName(dorm.name)
+            setDormAddressLine(typeof dorm.address === 'string' ? dorm.address.trim() : '')
+            setDormContactPhone(typeof dorm.contact_number === 'string' ? dorm.contact_number.trim() : '')
 
             // 1.1 Get Dorm Settings
             const { data: settingsData } = await supabase
@@ -211,6 +217,7 @@ export default function BillingClient() {
                     const isElectricOk = (utils?.electric_unit > 0)
                     const isReady = !!utils && isWaterOk && isElectricOk
 
+                    let status: 'vacant' | 'paid' | 'waiting_verify' | 'issued' | 'pending_meter' | 'ready'
                     if (isVacant) status = 'vacant'
                     else if (bill?.status === 'paid') status = 'paid'
                     else if (bill?.status === 'waiting_verify') status = 'waiting_verify'
@@ -661,8 +668,8 @@ export default function BillingClient() {
             month: formattedMonth,
             dueDate: formattedDueDate,
             dormName: dormName,
-            address: dormSettings?.address || '-',
-            dormPhone: dormSettings?.contact_number || '-',
+            address: dormAddressLine || '-',
+            dormPhone: dormContactPhone || '-',
             roomNumber: item.roomNumber,
             tenantName: item.tenantName || 'ไม่ระบุชื่อ',
             bankName: dormSettings?.bank_name || '-',
@@ -874,9 +881,15 @@ export default function BillingClient() {
 
                         if (filteredData.length === 0) {
                             return (
-                                <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200 mx-2">
+                                <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200 mx-2 px-4">
                                     <h3 className="text-lg font-black text-gray-400">ไม่พบข้อมูลห้องที่ตรงตามเงื่อนไข</h3>
                                     <p className="text-sm text-gray-300 font-bold mt-2">โปรดเปลี่ยนตัวกรองหรือลองใหม่อีกครั้ง</p>
+                                    {billingData.length === 0 && (
+                                        <p className="text-xs text-gray-400 font-bold mt-4 max-w-sm mx-auto leading-relaxed">
+                                            หน้านี้แสดงเฉพาะห้องที่มีผู้เช่าอยู่จริง — ห้องว่างจะไม่ปรากฏจนกว่าจะเพิ่มผู้เช่า
+                                            (เมนูเพิ่มผู้เช่า) หรือตรวจสอบว่าเป็นหอเดียวกับที่ใช้ในหน้าหลัก
+                                        </p>
+                                    )}
                                 </div>
                             )
                         }

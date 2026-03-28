@@ -25,6 +25,9 @@ interface Room {
     deleted_at: string | null;
 }
 
+/** จำกัดจำนวนห้องที่ยังไม่ถูกลบ (soft delete) ต่อหอ — สอดคล้อง setup-dorm */
+const MAX_ACTIVE_ROOMS = 50
+
 export default function RoomsClient() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -62,6 +65,7 @@ export default function RoomsClient() {
     // Restore Modal State
     const [showRestoreModal, setShowRestoreModal] = useState(false)
     const [roomToRestore, setRoomToRestore] = useState<Room | null>(null)
+    const [restoreError, setRestoreError] = useState('')
     const [postMoveRoomId, setPostMoveRoomId] = useState<string | null>(null)
 
     useEffect(() => {
@@ -128,6 +132,28 @@ export default function RoomsClient() {
 
     const handleSaveEdit = async () => {
         if (!editingRoomId || saving) return
+        const trimmed = (editData.room_number || '').trim()
+        if (!trimmed) {
+            setErrorMsg('กรุณาระบุเลขห้อง')
+            setTimeout(() => setErrorMsg(''), 4000)
+            return
+        }
+        const priceNum = Number(editData.base_price)
+        if (!Number.isFinite(priceNum) || priceNum < 0) {
+            setErrorMsg('กรุณาระบุราคาที่ถูกต้อง')
+            setTimeout(() => setErrorMsg(''), 4000)
+            return
+        }
+        /* UNIQUE(dorm_id, room_number) นับรวมแถวที่ลบแล้ว — ห้ามซ้ำกับแถวอื่นใดๆ */
+        const dup = rooms.some(
+            r => r.id !== editingRoomId && r.room_number.trim() === trimmed
+        )
+        if (dup) {
+            setErrorMsg('เลขห้องนี้ถูกใช้แล้ว (รวมห้องในถังขยะ) — ใช้เลขอื่นหรือกู้คืน/ลบห้องเดิมก่อน')
+            setTimeout(() => setErrorMsg(''), 4000)
+            return
+        }
+
         setSaving(true)
         setErrorMsg('')
         const supabase = createClient()
@@ -136,8 +162,8 @@ export default function RoomsClient() {
             const { error } = await supabase
                 .from('rooms')
                 .update({
-                    room_number: editData.room_number,
-                    base_price: editData.base_price,
+                    room_number: trimmed,
+                    base_price: priceNum,
                     room_type: editData.room_type,
                     floor: editData.floor
                 })
@@ -195,13 +221,21 @@ export default function RoomsClient() {
 
     const handleRestore = (room: Room) => {
         setRoomToRestore(room)
+        setRestoreError('')
         setShowRestoreModal(true)
     }
 
     const confirmRestore = async () => {
         if (!roomToRestore) return
 
+        const activeRoomsCount = rooms.filter(r => r.deleted_at === null).length
+        if (activeRoomsCount >= MAX_ACTIVE_ROOMS) {
+            setRestoreError(`มีห้องที่ใช้งานครบ ${MAX_ACTIVE_ROOMS} ห้องแล้ว ไม่สามารถกู้คืนเพิ่มได้`)
+            return
+        }
+
         setSaving(true)
+        setRestoreError('')
         setErrorMsg('')
         const supabase = createClient()
         try {
@@ -218,7 +252,7 @@ export default function RoomsClient() {
             fetchData()
             setTimeout(() => setSuccessMsg(''), 3000)
         } catch (err: any) {
-            setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการกู้คืน')
+            setRestoreError(err.message || 'เกิดข้อผิดพลาดในการกู้คืน')
         } finally {
             setSaving(false)
         }
@@ -236,27 +270,38 @@ export default function RoomsClient() {
     }
 
     const handleConfirmAdd = async () => {
-        const activeRoomsCount = rooms.filter(r => r.deleted_at === null).length;
-        
+        const activeRoomsCount = rooms.filter(r => r.deleted_at === null).length
+
         if (!newData.room_number || newData.room_number.trim() === '') {
             setErrorMsg('กรุณาระบุเลขห้อง')
             return
         }
 
         const trimmedRoomNumber = newData.room_number.trim()
-        const isNewRoom = !rooms.some(r => r.room_number === trimmedRoomNumber);
+        const isNewRoom = !rooms.some(r => r.room_number.trim() === trimmedRoomNumber)
 
-        if (isNewRoom && activeRoomsCount >= 50) {
-            setErrorMsg('ขออภัย ระบบรองรับการสร้างห้องพักได้สูงสุด 50 ห้องเท่านั้นครับ');
-            return;
+        if (isNewRoom && activeRoomsCount >= MAX_ACTIVE_ROOMS) {
+            setErrorMsg(`ขออภัย ระบบรองรับห้องที่ใช้งานได้สูงสุด ${MAX_ACTIVE_ROOMS} ห้องเท่านั้นครับ`)
+            return
         }
 
-        if (rooms.some(r => r.room_number === trimmedRoomNumber && r.deleted_at === null)) {
+        if (rooms.some(r => r.room_number.trim() === trimmedRoomNumber && r.deleted_at === null)) {
             setErrorMsg('เลขห้องนี้มีอยู่แล้วในระบบ')
             return
         }
 
-        const deletedRoom = rooms.find(r => r.room_number === trimmedRoomNumber && r.deleted_at !== null)
+        const deletedRoom = rooms.find(r => r.room_number.trim() === trimmedRoomNumber && r.deleted_at !== null)
+
+        if (deletedRoom && activeRoomsCount >= MAX_ACTIVE_ROOMS) {
+            setErrorMsg(`มีห้องที่ใช้งานครบ ${MAX_ACTIVE_ROOMS} ห้องแล้ว ไม่สามารถกู้คืนห้องนี้เพิ่มได้ — ลบห้องที่ไม่ใช้ออกก่อน`)
+            return
+        }
+
+        const addPrice = Number(newData.base_price)
+        if (!Number.isFinite(addPrice) || addPrice < 0) {
+            setErrorMsg('กรุณาระบุราคาที่ถูกต้อง')
+            return
+        }
 
         setSaving(true)
         const supabase = createClient()
@@ -268,7 +313,7 @@ export default function RoomsClient() {
                         deleted_at: null,
                         floor: newData.floor,
                         room_type: newData.room_type,
-                        base_price: newData.base_price,
+                        base_price: addPrice,
                         status: 'available'
                     })
                     .eq('id', deletedRoom.id)
@@ -283,7 +328,7 @@ export default function RoomsClient() {
                         room_number: trimmedRoomNumber,
                         floor: newData.floor,
                         room_type: newData.room_type,
-                        base_price: newData.base_price,
+                        base_price: addPrice,
                         status: 'available'
                     })
 
@@ -429,8 +474,14 @@ export default function RoomsClient() {
                             <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                                 <p className="text-gray-400 font-bold mb-4">ยังไม่มีข้อมูลห้องพัก</p>
                                 <button
+                                    type="button"
+                                    disabled={activeRooms.length >= MAX_ACTIVE_ROOMS}
                                     onClick={() => openAddModal('1')}
-                                            className="px-6 py-3 bg-primary text-white font-bold rounded-2xl hover:bg-primary/90 transition-all flex items-center gap-2 mx-auto"
+                                    className={`px-6 py-3 font-bold rounded-2xl transition-all flex items-center gap-2 mx-auto ${
+                                        activeRooms.length >= MAX_ACTIVE_ROOMS
+                                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            : 'bg-primary text-white hover:bg-primary/90'
+                                    }`}
                                 >
                                     <PlusIcon className="w-5 h-5" /> สร้างห้องแรก
                                 </button>
@@ -445,8 +496,15 @@ export default function RoomsClient() {
                                                 <h3 className="font-black text-gray-800 text-lg tracking-tight">ชั้น {floorNum}</h3>
                                             </div>
                                             <button
+                                                type="button"
+                                                disabled={activeRooms.length >= MAX_ACTIVE_ROOMS}
+                                                title={activeRooms.length >= MAX_ACTIVE_ROOMS ? `สร้างห้องได้สูงสุด ${MAX_ACTIVE_ROOMS} ห้อง` : undefined}
                                                 onClick={() => openAddModal(floorNum)}
-                                                        className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-all active:scale-95 flex items-center gap-1"
+                                                className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                                                    activeRooms.length >= MAX_ACTIVE_ROOMS
+                                                        ? 'text-gray-300 bg-gray-100 cursor-not-allowed'
+                                                        : 'text-primary bg-primary/10 hover:bg-primary/20 active:scale-95'
+                                                }`}
                                             >
                                                 <PlusIcon className="w-3 h-3 stroke-[3]" /> เพิ่มห้อง
                                             </button>
@@ -476,8 +534,16 @@ export default function RoomsClient() {
                                                                     <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">ราคา/เดือน</label>
                                                                     <input
                                                                         type="number"
-                                                                        value={editData.base_price || 0}
-                                                                        onChange={e => setEditData({ ...editData, base_price: parseInt(e.target.value) })}
+                                                                        min={0}
+                                                                        step="0.01"
+                                                                        value={editData.base_price ?? ''}
+                                                                        onChange={e => {
+                                                                            const v = e.target.value
+                                                                            setEditData({
+                                                                                ...editData,
+                                                                                base_price: v === '' ? 0 : parseFloat(v) || 0,
+                                                                            })
+                                                                        }}
                                                                         className="w-full h-11 bg-gray-50 border-2 border-primary/20 rounded-xl px-4 outline-none focus:border-primary text-gray-800 font-black"
                                                                     />
                                                                 </div>
@@ -639,8 +705,13 @@ export default function RoomsClient() {
                                         <div className="relative">
                                             <input
                                                 type="number"
-                                                value={newData.base_price || ''}
-                                                onChange={e => setNewData({ ...newData, base_price: parseInt(e.target.value) || 0 })}
+                                                min={0}
+                                                step="0.01"
+                                                value={newData.base_price === undefined || newData.base_price === null ? '' : newData.base_price}
+                                                onChange={e => {
+                                                    const v = e.target.value
+                                                    setNewData({ ...newData, base_price: v === '' ? 0 : parseFloat(v) || 0 })
+                                                }}
                                                 className="w-full h-14 bg-gray-50 border-2 border-gray-100 rounded-2xl px-5 pr-12 outline-none focus:border-primary font-black text-gray-800 transition-all text-lg"
                                             />
                                             <span className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">฿</span>
@@ -799,7 +870,10 @@ export default function RoomsClient() {
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-0">
                         <div
                             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300"
-                            onClick={() => setShowRestoreModal(false)}
+                            onClick={() => {
+                                setShowRestoreModal(false)
+                                setRestoreError('')
+                            }}
                         />
                         <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="bg-white px-8 pt-10 pb-6 flex flex-col items-center text-center">
@@ -810,18 +884,33 @@ export default function RoomsClient() {
                                 <p className="text-gray-400 text-xs font-bold mt-2 px-6">คุณต้องการกู้คืนห้องหมายเลข {roomToRestore.room_number} <br /> กลับเข้าสู่ระบบหลักใช่หรือไม่?</p>
                             </div>
 
+                            {restoreError && (
+                                <div className="px-8 -mt-2 pb-2">
+                                    <div className="bg-red-50 text-red-600 text-[11px] font-black p-4 rounded-xl border border-red-100 flex items-center gap-2">
+                                        <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
+                                        {restoreError}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="p-8 flex gap-3">
                                 <button
-                                    onClick={() => setShowRestoreModal(false)}
+                                    type="button"
+                                    onClick={() => {
+                                        setShowRestoreModal(false)
+                                        setRestoreError('')
+                                    }}
                                     className="flex-1 py-4 bg-gray-50 hover:bg-gray-100 text-gray-500 font-black rounded-2xl transition-all active:scale-95"
                                 >
                                     ยกเลิก
                                 </button>
                                 <button
+                                    type="button"
+                                    disabled={saving}
                                     onClick={confirmRestore}
-                                    className="flex-1 py-4 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl shadow-lg shadow-green-100 transition-all active:scale-95"
+                                    className="flex-1 py-4 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl shadow-lg shadow-green-100 transition-all active:scale-95 disabled:opacity-50"
                                 >
-                                    กู้คืนข้อมูล
+                                    {saving ? 'กำลังดำเนินการ...' : 'กู้คืนข้อมูล'}
                                 </button>
                             </div>
                         </div>

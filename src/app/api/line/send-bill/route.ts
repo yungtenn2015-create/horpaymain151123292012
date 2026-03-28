@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     try {
       const { data } = await supabaseAdmin
         .from('bill_items')
-        .select('name, amount')
+        .select('name, amount, detail')
         .eq('bill_id', billId)
         .order('created_at', { ascending: true });
       billItems = data || [];
@@ -143,15 +143,36 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
     '-';
 
   const extraServiceRows = (Array.isArray(billItems) ? billItems : [])
-    .map((s) => ({ name: String(s?.name || '').trim(), price: Number(s?.amount) || 0 }))
+    .map((s) => ({
+      name: String(s?.name || '').trim(),
+      price: Number(s?.amount) || 0,
+      detail: s?.detail ? String(s.detail).trim() : ''
+    }))
     .filter((s) => !!s.name && s.price > 0)
     .slice(0, 6) // keep flex compact
     .map((s) => ({
       type: "box",
-      layout: "horizontal",
+      layout: "vertical",
+      spacing: "xs",
+      margin: "sm",
       contents: [
-        { type: "text", text: s.name, color: "#6B7280", size: "sm", flex: 6, wrap: true },
-        { type: "text", text: `฿${s.price.toLocaleString()}`, color: "#111827", weight: "bold", size: "sm", align: "end", flex: 4 }
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: s.name, color: "#6B7280", size: "sm", flex: 6, wrap: true },
+            { type: "text", text: `฿${s.price.toLocaleString()}`, color: "#111827", weight: "bold", size: "sm", align: "end", flex: 4 }
+          ]
+        },
+        ...(s.detail
+          ? [{
+            type: "text" as const,
+            text: s.detail.replace(/ - /g, ' → '),
+            color: "#9CA3AF",
+            size: "xs" as const,
+            wrap: true
+          }]
+          : [])
       ]
     }));
 

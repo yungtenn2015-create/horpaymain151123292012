@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { log } from 'node:console'
 
 type Service = {
     id: string
@@ -13,7 +12,6 @@ type Service = {
 
 type RoomConfig = {
     number: string
-    active: boolean
     roomType: 'fan' | 'air'
     price: string
 }
@@ -45,8 +43,8 @@ export default function SetupDormPage() {
     const [dormPhone, setDormPhone] = useState('')
     const [ownerName, setOwnerName] = useState('')
     const [ownerPhone, setOwnerPhone] = useState('')
-    const [billingDay, setBillingDay] = useState<number>(1)
-    const [paymentDueDay, setPaymentDueDay] = useState<number>(5)
+    const [billingDay, setBillingDay] = useState<number | ''>('')
+    const [paymentDueDay, setPaymentDueDay] = useState<number | ''>('')
 
     // Step 8: Bank Info
     const [bankName, setBankName] = useState('')
@@ -71,6 +69,7 @@ export default function SetupDormPage() {
     const [services, setServices] = useState<Service[]>([])
     const [newServiceName, setNewServiceName] = useState('')
     const [newServicePrice, setNewServicePrice] = useState('')
+    const [serviceFormError, setServiceFormError] = useState('')
 
     // Step 4: Floor Management
     const [floorCount, setFloorCount] = useState<number>(3)
@@ -83,24 +82,6 @@ export default function SetupDormPage() {
     // Helper functions
     const nextStep = () => setStep(s => s + 1)
     const prevStep = () => setStep(s => s - 1)
-    console.log('floors++++++', floors)
-
-    const generateRoomNumbers = () => {
-        console.log('roomNumber')
-        const updatedFloors = floors.map((f) => ({
-            ...f,
-            rooms: f.rooms.map((room, idx) => {
-                const roomNumber = `${f.floorNumber}${(idx + 1).toString().padStart(2, '0')}`;
-                console.log('roomNumber', roomNumber)
-                return {
-                    ...room,
-                    number: roomNumber // หรือ String(roomNumber)
-                };
-            })
-        }));
-
-        setFloors(updatedFloors);
-    };
 
     useEffect(() => {
         async function fetchUser() {
@@ -113,8 +94,6 @@ export default function SetupDormPage() {
             }
         }
         fetchUser()
-        generateRoomNumbers();
-
     }, [])
     useEffect(() => {
         if (step !== 6) return;
@@ -127,7 +106,6 @@ export default function SetupDormPage() {
                 if (currentRooms.length === 0) {
                     currentRooms = Array.from({ length: f.roomCount }, (_, i) => ({
                         number: `${f.floorNumber}${(i + 1).toString().padStart(2, '0')}`,
-                        active: true,
                         roomType: 'fan' as const,
                         price: ''
                     }));
@@ -137,7 +115,6 @@ export default function SetupDormPage() {
                     if (currentRooms.length < f.roomCount) {
                         const additional = Array.from({ length: f.roomCount - currentRooms.length }, (_, i) => ({
                             number: `${f.floorNumber}${(currentRooms.length + i + 1).toString().padStart(2, '0')}`,
-                            active: true,
                             roomType: 'fan' as const,
                             price: ''
                         }));
@@ -146,7 +123,7 @@ export default function SetupDormPage() {
                         currentRooms = currentRooms.slice(0, f.roomCount);
                     }
                 }
-                // ตรวจสอบห้องที่เปิดใช้งานแต่ยังไม่มีเลขห้อง ให้เติมให้โดยไม่ทับของเดิม
+                // ห้องที่ยังไม่มีเลข ให้เติมตั้งต้นโดยไม่ทับของเดิม
                 else {
                     currentRooms = currentRooms.map((room, i) => ({
                         ...room,
@@ -168,15 +145,33 @@ export default function SetupDormPage() {
     }
 
     const addService = () => {
-        if (!newServiceName || !newServicePrice) return
+        const name = newServiceName.trim()
+        const priceRaw = newServicePrice.trim()
+        const priceNum = parseFloat(priceRaw)
+
+        if (!name && !priceRaw) {
+            setServiceFormError('')
+            return
+        }
+
+        if (!name) {
+            setServiceFormError('โปรดระบุชื่อบริการ')
+            return
+        }
+        if (!priceRaw || Number.isNaN(priceNum) || priceNum <= 0) {
+            setServiceFormError('โปรดระบุจำนวนเงิน')
+            return
+        }
+
         const service: Service = {
             id: Math.random().toString(36).substr(2, 9),
-            name: newServiceName,
-            price: parseFloat(newServicePrice) || 0
+            name,
+            price: priceNum,
         }
         setServices([...services, service])
         setNewServiceName('')
         setNewServicePrice('')
+        setServiceFormError('')
     }
 
     const removeService = (id: string) => {
@@ -222,19 +217,6 @@ export default function SetupDormPage() {
 
 
     const totalRooms = floors.reduce((acc, f) => acc + f.roomCount, 0);
-
-    const toggleRoom = (floorNum: number, roomIndex: number) => {
-        setFloors(floors.map(f => {
-            if (f.floorNumber === floorNum) {
-                const newRooms = [...f.rooms]
-                newRooms[roomIndex].active = !newRooms[roomIndex].active
-                return { ...f, rooms: newRooms }
-            }
-            return f
-        }))
-    }
-
-
 
     const updateRoomNumber = (floorNumber: number, roomIndex: number, newNumber: string) => {
         if (newNumber.length > 10) return;
@@ -285,17 +267,31 @@ export default function SetupDormPage() {
         }))
     }
 
-    const activeRooms = floors.flatMap(f => f.rooms.filter(r => r.active));
-    const roomNums = activeRooms.map(r => r.number.trim());
+    const allRoomSlots = floors.flatMap(f => f.rooms);
+    const roomNums = allRoomSlots.map(r => r.number.trim());
     const duplicateRooms = roomNums.filter((item, index) => roomNums.indexOf(item) !== index && item !== '');
     const hasDuplicates = duplicateRooms.length > 0;
-    const hasEmptyActiveRooms = activeRooms.some(r => r.number.trim() === '');
-    const isStep5Invalid = hasDuplicates || hasEmptyActiveRooms;
-
-    console.log('hasEmptyActiveRooms++++++', hasEmptyActiveRooms)
-    console.log('hasDuplicates++++++', hasEmptyActiveRooms)
+    const hasEmptyRoomNumbers = allRoomSlots.some(r => r.number.trim() === '');
+    /** ใช้ปิดปุ่มถัดไปในขั้นตอน 6 (เลขห้อง) — ชื่อเดิม isStep5Invalid คลาดเคลื่อนกับเลขขั้น */
+    const isStep6RoomLayoutInvalid = hasDuplicates || hasEmptyRoomNumbers;
 
     const handleFinish = async () => {
+        const bd =
+            typeof billingDay === 'number' && billingDay >= 1 && billingDay <= 31 ? billingDay : null
+        const pd =
+            typeof paymentDueDay === 'number' && paymentDueDay >= 1 && paymentDueDay <= 31
+                ? paymentDueDay
+                : null
+        if (bd === null || pd === null) {
+            showModal({
+                title: 'ข้อมูลไม่ครบ',
+                description: 'กรุณากรอกวันจดมิเตอร์/ตัดรอบบิล และวันครบกำหนดชำระ (1–31) ให้ครบถ้วน',
+                type: 'alert',
+                onConfirm: closeModal,
+            })
+            return
+        }
+
         setLoading(true)
         const supabase = createClient()
 
@@ -340,8 +336,8 @@ export default function SetupDormPage() {
                     bank_name: bankName === 'อื่น ๆ' ? otherBankName : bankName,
                     bank_account_no: bankAccountNo,
                     bank_account_name: bankAccountName,
-                    billing_day: billingDay,
-                    payment_due_day: paymentDueDay
+                    billing_day: bd,
+                    payment_due_day: pd,
                 })
 
             if (settingsError) throw settingsError
@@ -362,7 +358,7 @@ export default function SetupDormPage() {
 
             // 4. Create Rooms
             const roomsToInsert = floors.flatMap(f =>
-                f.rooms.filter(r => r.active).map(r => ({
+                f.rooms.map(r => ({
                     dorm_id: dorm.id,
                     room_number: r.number,
                     floor: f.floorNumber.toString(),
@@ -561,37 +557,69 @@ export default function SetupDormPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <label className="text-[12px] text-gray-500 font-bold ml-1">วันจดมิเตอร์ / ตัดรอบบิล</label>
+                                        <label className="text-[12px] text-gray-500 font-bold ml-1">
+                                            วันจดมิเตอร์ / ตัดรอบบิล <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="number"
-                                            min="1" max="31"
-                                            value={billingDay}
+                                            min={1}
+                                            max={31}
+                                            inputMode="numeric"
+                                            placeholder="1–31"
+                                            value={billingDay === '' ? '' : billingDay}
                                             onChange={(e) => {
-                                                let val = parseInt(e.target.value);
-                                                if (val > 31) val = 31;
-                                                setBillingDay(isNaN(val) ? ('' as any) : val);
+                                                const raw = e.target.value
+                                                if (raw === '') {
+                                                    setBillingDay('')
+                                                    return
+                                                }
+                                                let val = parseInt(raw, 10)
+                                                if (Number.isNaN(val)) return
+                                                if (val > 31) val = 31
+                                                if (val < 1) val = 1
+                                                setBillingDay(val)
                                             }}
                                             onBlur={() => {
-                                                if (!billingDay || billingDay < 1) setBillingDay(1);
+                                                if (billingDay === '') return
+                                                if (typeof billingDay === 'number') {
+                                                    if (billingDay < 1) setBillingDay(1)
+                                                    else if (billingDay > 31) setBillingDay(31)
+                                                }
                                             }}
-                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold placeholder:text-gray-400 placeholder:font-semibold"
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[12px] text-gray-500 font-bold ml-1">วันครบกำหนดชำระ</label>
+                                        <label className="text-[12px] text-gray-500 font-bold ml-1">
+                                            วันครบกำหนดชำระ <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="number"
-                                            min="1" max="31"
-                                            value={paymentDueDay}
+                                            min={1}
+                                            max={31}
+                                            inputMode="numeric"
+                                            placeholder="1–31"
+                                            value={paymentDueDay === '' ? '' : paymentDueDay}
                                             onChange={(e) => {
-                                                let val = parseInt(e.target.value);
-                                                if (val > 31) val = 31;
-                                                setPaymentDueDay(isNaN(val) ? ('' as any) : val);
+                                                const raw = e.target.value
+                                                if (raw === '') {
+                                                    setPaymentDueDay('')
+                                                    return
+                                                }
+                                                let val = parseInt(raw, 10)
+                                                if (Number.isNaN(val)) return
+                                                if (val > 31) val = 31
+                                                if (val < 1) val = 1
+                                                setPaymentDueDay(val)
                                             }}
                                             onBlur={() => {
-                                                if (!paymentDueDay || paymentDueDay < 1) setPaymentDueDay(5);
+                                                if (paymentDueDay === '') return
+                                                if (typeof paymentDueDay === 'number') {
+                                                    if (paymentDueDay < 1) setPaymentDueDay(1)
+                                                    else if (paymentDueDay > 31) setPaymentDueDay(31)
+                                                }
                                             }}
-                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold"
+                                            className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold placeholder:text-gray-400 placeholder:font-semibold"
                                         />
                                     </div>
                                 </div>
@@ -600,7 +628,18 @@ export default function SetupDormPage() {
                             <div className="grid grid-cols-2 gap-4 pt-6 mt-auto">
                                 <button onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
                                 <button
-                                    disabled={!dormName || !dormAddress || !ownerName || !ownerPhone}
+                                    disabled={
+                                        !dormName ||
+                                        !dormAddress ||
+                                        !ownerName ||
+                                        !ownerPhone ||
+                                        typeof billingDay !== 'number' ||
+                                        billingDay < 1 ||
+                                        billingDay > 31 ||
+                                        typeof paymentDueDay !== 'number' ||
+                                        paymentDueDay < 1 ||
+                                        paymentDueDay > 31
+                                    }
                                     onClick={nextStep}
                                     className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
@@ -698,29 +737,39 @@ export default function SetupDormPage() {
                                         type="text"
                                         placeholder="ชื่อบริการ (เช่น ค่าส่วนกลาง)"
                                         value={newServiceName}
-                                        onChange={(e) => setNewServiceName(e.target.value)}
+                                        onChange={(e) => {
+                                            setNewServiceName(e.target.value)
+                                            setServiceFormError('')
+                                        }}
                                         className="h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                     />
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="relative flex-1 min-w-[120px]">
                                             <input
                                                 type="number"
                                                 placeholder="ราคา"
                                                 value={newServicePrice}
                                                 onChange={(e) => {
-                                                    if (e.target.value.length > 6) return;
-                                                    setNewServicePrice(e.target.value);
+                                                    if (e.target.value.length > 6) return
+                                                    setNewServicePrice(e.target.value)
+                                                    setServiceFormError('')
                                                 }}
                                                 className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 outline-none focus:border-emerald-500 transition-all text-gray-800 placeholder:text-gray-400"
                                             />
                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">บาท/เดือน</span>
                                         </div>
                                         <button
+                                            type="button"
                                             onClick={addService}
-                                            className="px-6 h-12 bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center hover:from-emerald-700 hover:to-teal-600 active:scale-95 transition-all shadow-md shadow-emerald-100"
+                                            className="px-6 h-12 shrink-0 bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold rounded-xl flex items-center justify-center hover:from-emerald-700 hover:to-teal-600 active:scale-95 transition-all shadow-md shadow-emerald-100"
                                         >
                                             เพิ่ม
                                         </button>
+                                        {serviceFormError && (
+                                            <span className="text-[11px] leading-tight text-red-600 font-semibold w-full sm:w-auto sm:max-w-[9rem]">
+                                                {serviceFormError}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -813,7 +862,10 @@ export default function SetupDormPage() {
                     {/* STEP 6: ROOM LAYOUT */}
                     {step === 6 && (
                         <div className="flex-1 flex flex-col animate-in slide-in-from-right-4 duration-500">
-                            <p className="text-gray-500 text-sm mb-6">ระบุเลขห้องพักตามความต้องการ และติ๊กเพื่อปิดใช้งานห้องกรณีปิดปรับปรุง</p>
+                            <p className="text-gray-500 text-sm mb-6">
+                                ทุกห้องตามจำนวนที่ตั้งในขั้นก่อนจะถูกสร้างเมื่อจบขั้นตอน — ถ้าต้องการห้องน้อยลงให้กดย้อนกลับไปลดจำนวนห้องต่อชั้น
+                                <span className="block mt-1">แก้ไขเลขห้องให้ตรงกับหอพักของท่าน</span>
+                            </p>
 
                             {hasDuplicates && (
                                 <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-sm animate-in fade-in slide-in-from-top-2">
@@ -824,12 +876,12 @@ export default function SetupDormPage() {
                                 </div>
                             )}
 
-                            {hasEmptyActiveRooms && !hasDuplicates && (
+                            {hasEmptyRoomNumbers && !hasDuplicates && (
                                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-100 rounded-xl flex items-center gap-2 text-yellow-700 text-sm animate-in fade-in slide-in-from-top-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                                     </svg>
-                                    <span className="font-bold">กรุณาระบุเลขห้องให้ครบทุกห้องที่เปิดใช้งาน</span>
+                                    <span className="font-bold">กรุณาระบุเลขห้องให้ครบทุกห้อง</span>
                                 </div>
                             )}
 
@@ -845,23 +897,14 @@ export default function SetupDormPage() {
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        className={`flex flex-col gap-2 p-3 rounded-2xl border-2 transition-all ${room.active ? 'bg-white border-gray-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-60'}`}
+                                                        className="flex flex-col gap-2 p-3 rounded-2xl border-2 border-gray-100 bg-white shadow-sm transition-all"
                                                     >
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Room {idx + 1}</label>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={room.active}
-                                                                onChange={() => toggleRoom(f.floorNumber, idx)}
-                                                                className="w-4 h-4 accent-emerald-600"
-                                                            />
-                                                        </div>
+                                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Room {idx + 1}</label>
                                                         <input
-                                                            disabled={!room.active}
                                                             placeholder="ระบุเลขห้อง"
                                                             value={room.number}
                                                             onChange={(e) => updateRoomNumber(f.floorNumber, idx, e.target.value)}
-                                                            className={`font-bold text-lg outline-none rounded-lg px-2 py-1 transition-all ${room.active ? 'bg-gray-50 border-2 border-emerald-100 text-gray-800 focus:border-emerald-500 focus:bg-white' : 'bg-transparent text-gray-400'}`}
+                                                            className="font-bold text-lg outline-none rounded-lg px-2 py-1 bg-gray-50 border-2 border-emerald-100 text-gray-800 focus:border-emerald-500 focus:bg-white transition-all"
                                                         />
                                                     </div>
                                                 )
@@ -875,7 +918,7 @@ export default function SetupDormPage() {
                             <div className="grid grid-cols-2 gap-4 pt-10 mt-auto">
                                 <button onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
                                 <button
-                                    disabled={isStep5Invalid}
+                                    disabled={isStep6RoomLayoutInvalid}
                                     onClick={nextStep}
                                     className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
@@ -888,7 +931,9 @@ export default function SetupDormPage() {
                     {/* STEP 7: ROOM PRICE & TYPE */}
                     {step === 7 && (
                         <div className="flex-1 flex flex-col animate-in slide-in-from-right-4 duration-500">
-                            <p className="text-gray-500 text-sm mb-6">ระบุประเภทห้องและราคาเช่าต่อเดือนครับ สามารถใช้ปุ่ม "ตั้งค่าทั้งชั้น" เพื่อความรวดเร็ว</p>
+                            <p className="text-gray-700 text-[15px] leading-relaxed font-medium mb-6">
+                                เลือกประเภทห้องและใส่ค่าเช่าต่อเดือน · ใช้ <span className="font-bold text-gray-900">ตั้งค่าทั้งชั้น</span> ได้ถ้าต้องการให้ทุกห้องในชั้นนั้นราคาเดียวกัน
+                            </p>
 
                             <div className="flex-1 space-y-8 overflow-y-auto pr-2">
                                 {floors.map(f => (
@@ -896,14 +941,15 @@ export default function SetupDormPage() {
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                                                <h3 className="font-bold text-gray-800">ชั้น {f.floorNumber}</h3>
+                                                <h3 className="text-lg font-bold text-gray-900 tracking-tight">ชั้น {f.floorNumber}</h3>
                                             </div>
 
                                             {/* Floor Bulk Action */}
-                                            <div className="flex items-center gap-2 p-2 bg-white rounded-2xl shadow-sm border border-gray-100">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase ml-2">ตั้งค่าทั้งชั้น:</span>
+                                            <div className="flex items-center gap-2 p-2.5 bg-white rounded-2xl shadow-sm border border-gray-100">
+                                                <span className="text-xs font-bold text-gray-600 shrink-0 ml-1">ตั้งค่าทั้งชั้น</span>
                                                 <div className="flex bg-gray-100 p-1 rounded-xl">
                                                     <button
+                                                        type="button"
                                                         onClick={() => {
                                                             showModal({
                                                                 title: 'ระบุราคา (พัดลม)',
@@ -917,9 +963,10 @@ export default function SetupDormPage() {
                                                                 onCancel: closeModal
                                                             })
                                                         }}
-                                                        className="px-3 py-1 text-[10px] font-bold text-gray-600 hover:bg-white rounded-lg transition-all"
+                                                        className="px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-white rounded-lg transition-all min-h-[2.25rem]"
                                                     >พัดลม</button>
                                                     <button
+                                                        type="button"
                                                         onClick={() => {
                                                             showModal({
                                                                 title: 'ระบุราคา (แอร์)',
@@ -933,40 +980,44 @@ export default function SetupDormPage() {
                                                                 onCancel: closeModal
                                                             })
                                                         }}
-                                                        className="px-3 py-1 text-[10px] font-bold text-gray-600 hover:bg-white rounded-lg transition-all"
+                                                        className="px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-white rounded-lg transition-all min-h-[2.25rem]"
                                                     >แอร์</button>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {f.rooms.filter(r => r.active).map((room, idx) => (
-                                                <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="font-black text-gray-800 tracking-tight">ห้อง {room.number || '???'}</span>
-                                                        <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
-                                                            <button
-                                                                onClick={() => updateRoomType(f.floorNumber, idx, 'fan')}
-                                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${room.roomType === 'fan' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-400'}`}
-                                                            >พัดลม</button>
-                                                            <button
-                                                                onClick={() => updateRoomType(f.floorNumber, idx, 'air')}
-                                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${room.roomType === 'air' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}
-                                                            >แอร์</button>
+                                            {f.rooms.map((room, roomIndex) => {
+                                                return (
+                                                    <div key={roomIndex} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                                                        <div className="flex justify-between items-center gap-2">
+                                                            <span className="text-base font-bold text-gray-900 tracking-tight">ห้อง {room.number || '???'}</span>
+                                                            <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100 shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateRoomType(f.floorNumber, roomIndex, 'fan')}
+                                                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-w-[3.25rem] ${room.roomType === 'fan' ? 'bg-white shadow-sm text-emerald-700' : 'text-gray-500'}`}
+                                                                >พัดลม</button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateRoomType(f.floorNumber, roomIndex, 'air')}
+                                                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all min-w-[3.25rem] ${room.roomType === 'air' ? 'bg-white shadow-sm text-blue-700' : 'text-gray-500'}`}
+                                                                >แอร์</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0.00"
+                                                                value={room.price}
+                                                                onChange={(e) => updateRoomPrice(f.floorNumber, roomIndex, e.target.value)}
+                                                                className="w-full h-12 bg-gray-50 border-2 border-gray-100 rounded-xl pl-3 pr-[5.5rem] outline-none focus:border-emerald-500 transition-all text-gray-900 text-base font-bold tabular-nums placeholder:text-gray-400"
+                                                            />
+                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-600 pointer-events-none">บาท/เดือน</span>
                                                         </div>
                                                     </div>
-                                                    <div className="relative">
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0.00"
-                                                            value={room.price}
-                                                            onChange={(e) => updateRoomPrice(f.floorNumber, idx, e.target.value)}
-                                                            className="w-full h-10 bg-gray-50 border border-gray-100 rounded-xl px-3 outline-none focus:border-emerald-500 transition-all text-gray-800 font-bold placeholder:text-gray-300"
-                                                        />
-                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">บาท/เดือน</span>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                )
+                                            })}
                                         </div>
                                     </div>
                                 ))}
@@ -975,7 +1026,7 @@ export default function SetupDormPage() {
                             <div className="grid grid-cols-2 gap-4 mt-auto pt-6">
                                 <button onClick={prevStep} className="py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-2xl hover:bg-gray-50 transition-all">ย้อนกลับ</button>
                                 <button
-                                    disabled={floors.some(f => f.rooms.filter(r => r.active).some(r => !r.price || parseFloat(r.price) <= 0))}
+                                    disabled={floors.some(f => f.rooms.some(r => !r.price || parseFloat(r.price) <= 0))}
                                     onClick={nextStep}
                                     className="py-4 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold rounded-2xl disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none transition-all shadow-lg shadow-emerald-200/50"
                                 >
