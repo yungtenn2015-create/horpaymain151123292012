@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { differenceInCalendarDays } from 'date-fns'
+import { HorpayHouseMark } from '@/src/components/HorpayHouseMark'
 import {
     BellIcon,
     ExclamationTriangleIcon,
@@ -120,27 +121,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         const id = setInterval(() => setTrialNow(new Date()), 60 * 60 * 1000);
         return () => clearInterval(id);
     }, []);
-
-    React.useEffect(() => {
-        if (!isNotificationsOpen && !isMenuOpen) return;
-
-        const onPointerDown = (e: PointerEvent) => {
-            const target = e.target as Node;
-            if (isNotificationsOpen) {
-                const inTrigger = notifTriggerRef.current?.contains(target);
-                const inPanel = notifPanelRef.current?.contains(target);
-                if (!inTrigger && !inPanel) setIsNotificationsOpen(false);
-            }
-            if (isMenuOpen) {
-                const inTrigger = menuTriggerRef.current?.contains(target);
-                const inPanel = menuPanelRef.current?.contains(target);
-                if (!inTrigger && !inPanel) setIsMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('pointerdown', onPointerDown, true);
-        return () => document.removeEventListener('pointerdown', onPointerDown, true);
-    }, [isNotificationsOpen, isMenuOpen, setIsNotificationsOpen, setIsMenuOpen]);
 
     const getTrialDaysLeft = () => {
         if (!userPlan?.trial_expires_at) return 0;
@@ -319,16 +299,28 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="relative z-50 pt-8 pb-10 px-10">
                     {/* Header */}
                     <div className="relative z-20 flex justify-between items-center mb-6 px-1">
-                        <div className="flex items-center gap-3">
+                        <div className="relative flex items-center gap-3">
                             {!isPro && (
-                                <div className="absolute top-[-1.5rem] left-[-0.5rem] bg-white/10 backdrop-blur-md px-2 py-1 rounded-full border border-white/10 flex items-center gap-1.5 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700 pointer-events-none">
+                                <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-1 flex items-center gap- rounded-full border border-white/10 bg-white/10 px-2 py-1 shadow-sm backdrop-blur-md animate-in fade-in slide-in-from-left-4 duration-700 sm:mb-2.5">
                                     <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
                                     <span className="text-[10px] font-bold text-white/90 uppercase tracking-tight">
                                         ทดลองใช้ฟรี {getTrialDaysLeft()} วัน
                                     </span>
                                 </div>
                             )}
-                            <span className="text-xl sm:text-4xl font-black tracking-tight text-white">HORPAY</span>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1.35rem] shadow-lg ring-4 ring-white/25 sm:h-16 sm:w-16">
+                                    <HorpayHouseMark className="h-full w-full" />
+                                </div>
+                                <div className="min-w-0 flex flex-col justify-center leading-tight">
+                                    <span className="text-2xl font-bold text-white tracking-tight truncate sm:text-3xl">
+                                        HORPAY
+                                    </span>
+                                    <span className="text-[10px] font-medium text-white/70 truncate sm:text-sm">
+                                        ระบบจัดการหอพัก
+                                    </span>
+                                </div>
+                            </div>
                             {isPro && (
                                 <div className="bg-amber-400/20 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-amber-400/30 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700">
                                     <span className="material-symbols-outlined text-[14px] text-amber-400 font-bold">workspace_premium</span>
@@ -441,7 +433,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <p className="text-white text-sm font-bold flex items-center gap-2">
                             สวัสดีคุณ {userName} 👋
                         </p>
-                        <h1 className="text-4xl font-headline font-extrabold mt-1 tracking-tight truncate max-w-[300px]">
+                        <h1 className="text-3xl sm:text-3xl font-headline font-extrabold mt-1 leading-snug sm:leading-normal tracking-normal max-w-[min(100%,18rem)] sm:max-w-md break-words pb-0.5">
                             {dorm?.name || 'หอพักของฉัน'}
                         </h1>
                     </div>

@@ -53,30 +53,35 @@ export default function TenantsTab({
     userName
 }: TenantsTabProps) {
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/20 overflow-hidden">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/30 overflow-hidden">
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-                {/* Premium Hero Header (Green Theme) */}
-                <div className="relative pt-8 pb-10 px-6 sm:px-10 min-h-[210px]">
-                    {/* Background with clipping */}
+                {/* Header — โครงเดียวกับหน้าสถานะห้อง (RoomsTab) */}
+                <div className="relative min-h-[210px] shrink-0">
+                    {/* พื้นเขียว + มุมมน — คลาสเดียวกับ RoomsTab */}
                     <div className="absolute inset-0 bg-primary rounded-b-[2.5rem] sm:rounded-t-[2.5rem] shadow-lg overflow-hidden z-0">
                         <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
                         <div className="absolute bottom-[-10%] left-[-10%] w-56 h-56 bg-white/5 rounded-full blur-2xl" />
                     </div>
 
-                    {/* Header Content */}
-                    <div className="relative z-50 flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-4 sm:gap-6 min-w-0 pr-24 sm:pr-0">
+                    {/* แถบหัวข้อ: โค้ดชุดเดียวกับ RoomsTab (แถวเดียว icon + หัวข้อ + บรรทัดรอง) */}
+                    <div className="relative z-50 pt-8 pb-10 px-6 sm:px-10">
+                        <div className="flex items-center gap-4 sm:gap-6">
                             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-[20px] rounded-[1.8rem] sm:rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
                                 <UsersIcon className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="text-3xl sm:text-4xl font-headline font-extrabold text-white tracking-tight underline decoration-white/20 underline-offset-8 leading-tight">
+                                <h1 className="text-3xl sm:text-4xl font-headline font-extrabold tracking-tight text-white leading-tight underline decoration-white/20 underline-offset-8">
                                     บันทึกสัญญา
                                 </h1>
-                                <p className="text-white/95 font-bold text-sm sm:text-base mt-2">จัดการข้อมูลผู้เช่าและสัญญา</p>
+                                <p className="text-sm sm:text-base text-white/95 font-bold tracking-tight mt-2">
+                                    จัดการข้อมูลผู้เช่าและสัญญา
+                                </p>
                             </div>
                         </div>
+
+                        {/* ปุ่มเฉพาะหน้านี้: ไม่แย่งแถวกับหัวข้อ — มือถือแถวล่างเต็มความกว้าง, sm+ มุมขวาบน */}
                         <button
+                            type="button"
                             onClick={() => {
                                 setEditingContract(null);
                                 setContractFormData({
@@ -87,7 +92,7 @@ export default function TenantsTab({
                                 });
                                 setIsContractFormOpen(true);
                             }}
-                            className="absolute top-[5rem] right-0 h-11 sm:static sm:top-auto sm:right-auto sm:h-12 px-5 sm:px-6 w-fit bg-white text-primary rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-green-900/20 transition-all active:scale-95 group font-black text-sm sm:text-base"
+                            className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-primary shadow-xl shadow-green-900/20 transition-all active:scale-95 group sm:absolute sm:right-10 sm:top-8 sm:mt-0 sm:h-12 sm:w-auto sm:px-6 sm:text-base"
                         >
                             <PlusIcon className="w-4 h-4 stroke-[3]" />
                             เพิ่มสัญญา

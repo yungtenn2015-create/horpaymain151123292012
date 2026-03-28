@@ -8,17 +8,13 @@ import {
     ArrowLeftIcon,
     UserCircleIcon,
     PhoneIcon,
-    IdentificationIcon,
     BuildingOfficeIcon,
     CheckCircleIcon,
     TruckIcon,
     DocumentTextIcon,
     CalendarDaysIcon,
     BanknotesIcon,
-    ArrowPathIcon,
     MagnifyingGlassIcon,
-    UserPlusIcon,
-    PlusCircleIcon,
     BriefcaseIcon,
     MapPinIcon,
     PlusIcon
@@ -82,7 +78,8 @@ export default function AddTenantClient() {
     const [isContractSelectorOpen, setIsContractSelectorOpen] = useState(false)
     const [fetchingContracts, setFetchingContracts] = useState(false)
     const [contractSearch, setContractSearch] = useState('')
-    const [isFromContract, setIsFromContract] = useState(false) // Only true when data is pulled from a contract
+
+    const hasPulledContract = Boolean(fromContractId)
 
     useEffect(() => {
         async function fetchAvailableRooms() {
@@ -171,8 +168,9 @@ export default function AddTenantClient() {
             if (fromContractId && data) {
                 const contract = data.find(c => c.id === fromContractId)
                 if (contract) {
-                    setIsFromContract(true)
                     applyContract(contract)
+                } else {
+                    setFromContractId(null)
                 }
             }
         } catch (err) {
@@ -195,7 +193,6 @@ export default function AddTenantClient() {
         setStartDate(contract.start_date)
         setEndDate(contract.end_date || '')
         setFromContractId(contract.id)
-        setIsFromContract(true)
         setIsContractSelectorOpen(false)
     }
 
@@ -243,6 +240,10 @@ export default function AddTenantClient() {
             setErrorMsg('กรุณาเลือกห้องพัก')
             return
         }
+        if (!fromContractId) {
+            setErrorMsg('กรุณาดึงข้อมูลจากบันทึกสัญญาก่อน')
+            return
+        }
         if (!tenantName.trim()) {
             setErrorMsg('กรุณากรอกชื่อ-นามสกุลผู้เช่า')
             return
@@ -286,29 +287,10 @@ export default function AddTenantClient() {
                 throw new Error(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
             }
 
-            // Update Contract Status if pulled from contract
-            if (fromContractId) {
-                // If the user unlocked to edit (!isFromContract), sync the edited values back to the contract record
-                const updatePayload: any = { status: 'moved_in' }
-                
-                if (!isFromContract) {
-                    updatePayload.name = tenantName.trim()
-                    updatePayload.phone = tenantPhone.trim()
-                    updatePayload.occupation = occupation.trim() || null
-                    updatePayload.address = address.trim() || null
-                    updatePayload.car_registration = carRegistration.trim() || null
-                    updatePayload.motorcycle_registration = motorcycleRegistration.trim() || null
-                    updatePayload.emergency_contact = emergencyContact.trim() || null
-                    updatePayload.deposit_amount = depositAmount || 0
-                    updatePayload.start_date = startDate
-                    updatePayload.end_date = finalEndDate
-                }
-
-                await supabase
-                    .from('tenant_contracts')
-                    .update(updatePayload)
-                    .eq('id', fromContractId)
-            }
+            await supabase
+                .from('tenant_contracts')
+                .update({ status: 'moved_in' })
+                .eq('id', fromContractId)
 
             setSuccess(true)
         } catch (err: any) {
@@ -316,20 +298,6 @@ export default function AddTenantClient() {
         } finally {
             setSubmitting(false)
         }
-    }
-
-    const resetForm = () => {
-        setTenantName('')
-        setTenantPhone('')
-        setOccupation('')
-        setAddress('')
-        setCarRegistration('')
-        setMotorcycleRegistration('')
-        setEmergencyContact('')
-        setDepositAmount(0)
-        setStartDate(new Date().toISOString().split('T')[0])
-        setEndDate('')
-        // Removed setIsFromContract(false) to maintain lock
     }
 
     const renderContractSelectorModal = () => {
@@ -488,7 +456,6 @@ export default function AddTenantClient() {
                                 setContracts(contracts.filter(c => c.id !== fromContractId))
                             }
                             setFromContractId('')
-                            setIsFromContract(false)
                             setContractSearch('')
                         }}
                         className="w-full mt-3 bg-white border-2 border-gray-100 hover:bg-gray-50 text-gray-500 font-bold py-4 rounded-2xl transition-all active:scale-95"
@@ -643,34 +610,36 @@ export default function AddTenantClient() {
                             )}
                         </div>
 
-                        <div className="pt-2">
-                            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsContractSelectorOpen(true)}
-                                    className={`flex-1 h-[4.5rem] rounded-2xl flex items-center justify-center gap-4 px-5 font-black text-lg transition-all active:scale-95 group 
-                                        ${tenantName
-                                            ? 'bg-yellow-50/80 text-yellow-700 border-2 border-yellow-100'
-                                            : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-2 border-yellow-200'
-                                        }`}
-                                >
-                                    {tenantName ? (
-                                        <><DocumentTextIcon className="w-7 h-7" /> เปลี่ยนสัญญาโอนข้อมูล</>
-                                    ) : (
-                                        <><MagnifyingGlassIcon className="w-7 h-7 group-hover:scale-110 transition-transform" /> ดึงข้อมูลจาก &ldquo;บันทึกสัญญา&rdquo;</>
-                                    )}
-                                </button>
-                                
-                                {isFromContract && (
+                        <div className="pt-2 space-y-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsContractSelectorOpen(true)}
+                                className={`w-full h-[4rem] rounded-2xl flex items-center justify-center gap-4 px-4 font-black text-lg transition-all active:scale-95 group 
+                                    ${hasPulledContract
+                                        ? 'bg-yellow-50/80 text-yellow-700 border-2 border-yellow-100'
+                                        : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-2 border-yellow-200'
+                                    }`}
+                            >
+                                {hasPulledContract ? (
+                                    <><DocumentTextIcon className="w-7 h-7" /> เปลี่ยนสัญญาโอนข้อมูล</>
+                                ) : (
+                                    <><MagnifyingGlassIcon className="w-7 h-7 group-hover:scale-110 transition-transform" /> ดึงข้อมูลจาก &ldquo;บันทึกสัญญา&rdquo;</>
+                                )}
+                            </button>
+
+                            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3.5 text-[13px] font-bold text-amber-950 leading-snug">
+                                <p className="font-black text-amber-900 mb-1.5">ข้อมูลผู้เช่าในหน้านี้ดึงจากบันทึกสัญญาเท่านั้น แก้ไขที่หน้านี้ไม่ได้ครับ</p>
+                                <p className="text-amber-900/90">
+                                    ถ้าต้องการแก้สัญญาเช่า กรุณาไปแก้ที่แท็บ{' '}
                                     <button
                                         type="button"
-                                        onClick={() => setIsFromContract(false)}
-                                        className="h-14 px-6 bg-white border-2 border-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center gap-2 font-black text-xs hover:bg-emerald-50 transition-all active:scale-95 shadow-sm"
+                                        onClick={() => router.push('/dashboard?tab=tenants')}
+                                        className="text-primary underline underline-offset-2 font-black hover:opacity-90"
                                     >
-                                        <ArrowPathIcon className="w-4 h-4" />
-                                        ปลดล็อคเพื่อแก้ไข
+                                        บันทึกสัญญา
                                     </button>
-                                )}
+                                    {' '}ก่อน แล้วกลับมากดดึงข้อมูลใหม่
+                                </p>
                             </div>
                         </div>
 
@@ -684,15 +653,10 @@ export default function AddTenantClient() {
                                 <input
                                     type="text"
                                     value={tenantName}
-                                    onChange={(e) => setTenantName(e.target.value)}
-                                    readOnly={isFromContract}
-                                    className={`block w-full pl-11 pr-4 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold 
-                                        ${isFromContract
-                                            ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                            : 'bg-white border-gray-200 focus:ring-emerald-500/10 focus:border-emerald-600 text-gray-900'
-                                        }`}
+                                    readOnly
+                                    className="block w-full pl-11 pr-4 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
                                     required
-                                    placeholder="กรอกชื่อ-นามสกุล..."
+                                    placeholder="กดปุ่มด้านบนเพื่อดึงจากบันทึกสัญญา"
                                 />
                             </div>
                         </div>
@@ -707,14 +671,9 @@ export default function AddTenantClient() {
                                 <input
                                     type="tel"
                                     value={tenantPhone}
-                                    onChange={(e) => setTenantPhone(e.target.value.replace(/\D/g, ''))}
-                                    readOnly={isFromContract}
-                                    className={`block w-full pl-11 pr-4 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold tracking-wide
-                                        ${isFromContract
-                                            ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                            : 'bg-white border-gray-200 focus:ring-emerald-500/10 focus:border-emerald-600 text-gray-900'
-                                        }`}
-                                    placeholder="0xxxxxxxxx"
+                                    readOnly
+                                    className="block w-full pl-11 pr-4 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold tracking-wide bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                    placeholder="—"
                                 />
                             </div>
                         </div>
@@ -730,14 +689,9 @@ export default function AddTenantClient() {
                                     <input
                                         type="text"
                                         value={occupation}
-                                        onChange={(e) => setOccupation(e.target.value)}
-                                        readOnly={isFromContract}
-                                        className={`block w-full pl-11 pr-4 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold
-                                            ${isFromContract
-                                                ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                : 'bg-white border-gray-200 focus:ring-emerald-500/10 focus:border-emerald-600 text-gray-900'
-                                            }`}
-                                        placeholder="ระบุอาชีพ..."
+                                        readOnly
+                                        className="block w-full pl-11 pr-4 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                        placeholder="—"
                                     />
                                 </div>
                             </div>
@@ -751,14 +705,9 @@ export default function AddTenantClient() {
                                     <textarea
                                         rows={2}
                                         value={address}
-                                        onChange={(e) => setAddress(e.target.value)}
-                                        readOnly={isFromContract}
-                                        className={`block w-full pl-11 pr-4 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold resize-none
-                                            ${isFromContract
-                                                ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                : 'bg-white border-gray-200 focus:ring-emerald-500/10 focus:border-emerald-600 text-gray-900'
-                                            }`}
-                                        placeholder="ใส่ที่อยู่ตามบัตร..."
+                                        readOnly
+                                        className="block w-full pl-11 pr-4 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold resize-none bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                        placeholder="—"
                                     />
                                 </div>
                             </div>
@@ -776,14 +725,9 @@ export default function AddTenantClient() {
                                     <input
                                         type="text"
                                         value={carRegistration}
-                                        onChange={(e) => setCarRegistration(e.target.value)}
-                                        readOnly={isFromContract}
-                                        className={`block w-full px-5 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold 
-                                            ${isFromContract
-                                                ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                : 'bg-white border-gray-100 focus:border-emerald-600 focus:ring-emerald-500/5 text-gray-900'
-                                            }`}
-                                        placeholder="เช่น กข 1234 กทม."
+                                        readOnly
+                                        className="block w-full px-5 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                        placeholder="—"
                                     />
                                 </div>
                                 <div className="space-y-4">
@@ -791,14 +735,9 @@ export default function AddTenantClient() {
                                     <input
                                         type="text"
                                         value={motorcycleRegistration}
-                                        onChange={(e) => setMotorcycleRegistration(e.target.value)}
-                                        readOnly={isFromContract}
-                                        className={`block w-full px-5 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold 
-                                            ${isFromContract
-                                                ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                : 'bg-white border-gray-100 focus:border-emerald-600 focus:ring-emerald-500/5 text-gray-900'
-                                            }`}
-                                        placeholder="เช่น 1กข 1234..."
+                                        readOnly
+                                        className="block w-full px-5 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                        placeholder="—"
                                     />
                                 </div>
 
@@ -807,14 +746,9 @@ export default function AddTenantClient() {
                                     <input
                                         type="text"
                                         value={emergencyContact}
-                                        onChange={(e) => setEmergencyContact(e.target.value)}
-                                        readOnly={isFromContract}
-                                        className={`block w-full px-5 py-4 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold 
-                                            ${isFromContract
-                                                ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                : 'bg-white border-gray-200 focus:border-emerald-600 focus:ring-emerald-500/5 text-gray-900'
-                                            }`}
-                                        placeholder="ระบุชื่อและเบอร์โทรศัพท์..."
+                                        readOnly
+                                        className="block w-full px-5 py-4 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
+                                        placeholder="—"
                                     />
                                 </div>
                             </div>
@@ -876,13 +810,8 @@ export default function AddTenantClient() {
                                         <input
                                             type="number"
                                             value={depositAmount || ''}
-                                            onChange={(e) => setDepositAmount(Number(e.target.value) || 0)}
-                                            readOnly={isFromContract}
-                                            className={`block w-full pl-10 pr-4 h-14 border-2 focus:ring-4 sm:text-sm rounded-[1.2rem] transition-all font-bold 
-                                                ${isFromContract
-                                                    ? 'bg-gray-50/80 border-gray-100 text-gray-500 cursor-not-allowed'
-                                                    : 'bg-white border-gray-200 focus:border-emerald-600 focus:ring-emerald-500/5 text-gray-900'
-                                                }`}
+                                            readOnly
+                                            className="block w-full pl-10 pr-4 h-14 border-2 sm:text-sm rounded-[1.2rem] transition-all font-bold bg-gray-50/80 border-gray-100 text-gray-600 cursor-not-allowed"
                                             placeholder="0"
                                         />
                                     </div>
@@ -896,9 +825,9 @@ export default function AddTenantClient() {
                 <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-6 z-50 rounded-b-[2.5rem]">
                     <button
                         onClick={handleSubmit}
-                        disabled={submitting || rooms.length === 0}
+                        disabled={submitting || rooms.length === 0 || !hasPulledContract}
                         className={`w-full py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-100/50 transition-all flex items-center justify-center gap-3
-                            ${submitting || rooms.length === 0
+                            ${submitting || rooms.length === 0 || !hasPulledContract
                                 ? 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
                                 : 'bg-green-600 text-white hover:bg-green-700 active:scale-95'
                             }`}

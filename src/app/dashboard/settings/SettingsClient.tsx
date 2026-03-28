@@ -466,7 +466,7 @@ export default function SettingsClient() {
                             <ul className="text-xs text-blue-700 font-bold space-y-1 ml-4 list-disc">
                                 <li>ไปที่ LINE Developers Console เลือก Channel Messaging API</li>
                                 <li>คัดลอก Channel ID, Secret และ Issue &apos;Channel access token&apos;</li>
-                                <li>ตั้งค่า Webhook URL เป็น: <code className="bg-white/80 px-1 rounded">https://yourdomain.com/api/line/webhook</code></li>
+                                <li>ตั้งค่า Webhook URL เป็น: <code className="bg-white/80 px-1 rounded">https://horpay.app/api/line/webhook</code></li>
                                 <li>กด &ldquo;บันทึกการตั้งค่า&rdquo; ในหน้านี้</li>
                             </ul>
                         </div>

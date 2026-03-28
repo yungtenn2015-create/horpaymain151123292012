@@ -425,7 +425,7 @@ export default function RoomsClient() {
 
     return (
         <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
+            <div className="relative flex min-h-screen w-full flex-col overflow-hidden bg-emerald-50/30 sm:max-w-lg sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl">
 
                 <header className="bg-primary pt-12 pb-10 px-6 rounded-b-[2.5rem] relative shrink-0 shadow-lg shadow-green-100">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />

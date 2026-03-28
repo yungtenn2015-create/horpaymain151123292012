@@ -659,7 +659,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             <div className="space-y-1">
                                                 <p className="text-sm font-black text-gray-800 flex items-center gap-2">
                                                     <KeyIcon className="w-4 h-4 text-emerald-600" />
-                                                    ใช้รหัสเพื่อผูกเจ้าของให้ถูกคน
+                                                    ผูกกับLineOAหอพักเพื่อรับแจ้งเตือนสลิป
                                                 </p>
                                                 <p className="text-[11px] font-bold text-gray-400 leading-relaxed">
                                                     ให้เจ้าของหอเปิด LINE ที่แอด OA นี้ แล้วพิมพ์: <span className="font-black text-gray-600">owner-xxxxxx</span>
