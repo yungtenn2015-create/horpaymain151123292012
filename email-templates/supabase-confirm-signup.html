@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>ยืนยันอีเมล — HORPAY</title>
+  <!--
+    Supabase Dashboard → Authentication → Email Templates → Confirm signup
+    Subject (แนะนำ): ยืนยันอีเมล — HORPAY ระบบจัดการหอพัก
+
+    ตัวแปรที่ใช้ได้ (โฮสต์ Supabase):
+    {{ .ConfirmationURL }}  ลิงก์ยืนยัน (จำเป็น)
+    {{ .SiteURL }}           URL โปรเจกต์
+    {{ .Email }}             อีเมลผู้สมัคร
+    {{ .Token }}             (ถ้าเปิดใช้แบบ OTP แทนลิงก์ — ดูเอกสารเวอร์ชันของคุณ)
+
+    โลโก้: อัปโหลดรูปไปที่ public ของเว็บ แล้วแก้ src ด้านล่างเป็น URL เต็ม
+    เช่น https://horpay.app/email-logo.png
+  -->
+</head>
+<body style="margin:0;padding:0;background-color:#ecfdf5;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <!-- preheader (ซ่อนใน inbox แต่ช่วย preview) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    กดปุ่มด้านล่างเพื่อยืนยันอีเมลและเปิดใช้งานบัญชี HORPAY ของคุณ
+  </div>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ecfdf5;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 12px 40px rgba(5,150,105,0.12);">
+          <!-- header bar เขียวแบบแอป -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);background-color:#10b981;padding:28px 32px;text-align:center;">
+              <!-- ถ้ามีโลโก้ PNG บนเซิร์ฟเวอร์ ให้ uncomment และใส่ URL จริง -->
+              <!--
+              <img src="{{ .SiteURL }}/email-horpay-logo.png" width="120" height="auto" alt="HORPAY" style="display:block;margin:0 auto 12px;border:0;outline:none;" />
+              -->
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.02em;">
+                HORPAY
+              </p>
+              <p style="margin:6px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;color:rgba(255,255,255,0.88);">
+                ระบบจัดการหอพัก
+              </p>
+            </td>
+          </tr>
+          <!-- body -->
+          <tr>
+            <td style="padding:32px 32px 8px;font-family:Arial,Helvetica,sans-serif;">
+              <h1 style="margin:0 0 12px;font-size:22px;line-height:1.35;font-weight:800;color:#0f172a;">
+                ยืนยันอีเมลของคุณ
+              </h1>
+              <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#475569;">
+                ขอบคุณที่สมัครใช้ <strong style="color:#0f172a;">HORPAY</strong> กดปุ่มด้านล่างเพื่อยืนยันที่อยู่อีเมลและเริ่มจัดการหอพักได้ทันที
+              </p>
+              <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#64748b;">
+                อีเมลที่ลงทะเบียน: <span style="color:#0f172a;font-weight:700;">{{ .Email }}</span>
+              </p>
+            </td>
+          </tr>
+          <!-- CTA -->
+          <tr>
+            <td style="padding:8px 32px 28px;font-family:Arial,Helvetica,sans-serif;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#10b981" style="border-radius:14px;background:linear-gradient(135deg,#10b981,#059669);background-color:#10b981;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:14px;">
+                      ยืนยันอีเมล
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:12px;line-height:1.55;color:#64748b;text-align:center;">
+                ถ้ากดปุ่มไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์<br />
+                <a href="{{ .ConfirmationURL }}" style="color:#059669;word-break:break-all;">{{ .ConfirmationURL }}</a>
+              </p>
+            </td>
+          </tr>
+          <!-- footer -->
+          <tr>
+            <td style="padding:0 32px 28px;font-family:Arial,Helvetica,sans-serif;">
+              <p style="margin:0;padding-top:20px;border-top:1px solid #e2e8f0;font-size:11px;line-height:1.6;color:#94a3b8;text-align:center;">
+                อีเมลนี้ส่งอัตโนมัติจากระบบ HORPAY<br />
+                หากคุณไม่ได้เป็นผู้สมัคร สามารถละเว้นอีเมลนี้ได้
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

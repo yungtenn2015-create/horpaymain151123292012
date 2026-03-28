@@ -53,11 +53,14 @@ export default function RegisterPage() {
         try {
             const supabase = createClient()
 
-            // Sign up with metadata
-            const { error: signUpError } = await supabase.auth.signUp({
+            const origin = window.location.origin
+            // ลิงก์ในอีเมลยืนยันจะพากลับมาที่นี่ → แลก code เป็น session แล้วไปหน้าถัดไป
+            // ต้องเพิ่ม `${origin}/auth/callback` ใน Supabase → Redirect URLs ด้วย
+            const { data: signData, error: signUpError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
+                    emailRedirectTo: `${origin}/auth/callback?next=/setup-dorm`,
                     data: {
                         name: name,
                         phone: phone,
@@ -68,10 +71,12 @@ export default function RegisterPage() {
 
             if (signUpError) throw signUpError
 
-            // Success! 
-            // Note: If email confirmation is enabled in Supabase, 
-            // they might need to check email first. 
-            // For now, redirect to login or dashboard.
+            // เปิดยืนยันอีเมลใน Supabase → มักได้ user แต่ไม่มี session จนกว่าจะคลิกลิงก์
+            if (signData.user && !signData.session) {
+                router.push(`/register/check-email?email=${encodeURIComponent(email)}`)
+                return
+            }
+
             alert('ลงทะเบียนสำเร็จ! กรุณาเข้าสู่ระบบ')
             router.push('/login')
 
@@ -331,7 +336,7 @@ export default function RegisterPage() {
                                 <p className="mt-3">ระบบรองรับการแจ้งเตือนผ่าน LINE Official Account เมื่อเจ้าของหอเปิดใช้งานและผู้เช่าผูกบัญชี LINE แล้ว อาจมีการส่งข้อความเกี่ยวกับบิลค่าเช่า สถานะการชำระเงิน หรือประกาศที่เกี่ยวข้องกับการพักอาศัยตามที่ระบบและเจ้าของหอกำหนด</p>
                             </section>
                             <section>
-                                <h5 className="font-bold text-gray-800 mb-2">2. ระยะเวลาทดลองใช้ (Trial Period)</h5>
+                                <h4 className="font-bold text-gray-800 mb-2">2. ระยะเวลาทดลองใช้ (Trial Period)</h4>
                                 <p>ผู้สมัครใหม่จะได้รับสิทธิ์ทดลองใช้งานทุกฟีเจอร์ฟรีเป็นเวลา 30 วัน นับจากวันที่สมัครสมาชิก หลังจากครบกำหนด ระบบอาจจำกัดการเข้าถึงบางฟีเจอร์หากไม่มีการอัปเกรดแผนการใช้งาน</p>
                             </section>
                             <section>

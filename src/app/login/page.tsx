@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { HorpayHouseMark } from '@/src/components/HorpayHouseMark'
@@ -13,6 +13,14 @@ export default function LoginPage() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const [showPass, setShowPass] = useState(false)
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('error') === 'auth_callback') {
+            setError('ลิงก์ยืนยันไม่สำเร็จหรือหมดอายุ ลองเข้าสู่ระบบ หรือขอลิงก์ใหม่จากอีเมล')
+            window.history.replaceState({}, '', '/login')
+        }
+    }, [])
 
     async function handleLogin() {
         setError('')
