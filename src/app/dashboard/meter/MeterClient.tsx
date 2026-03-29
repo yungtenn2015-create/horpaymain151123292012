@@ -5,13 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { format } from 'date-fns'
 import {
-    ArrowLeftIcon,
     BoltIcon,
     CalendarDaysIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     BanknotesIcon
 } from '@heroicons/react/24/outline'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 
 interface Room {
@@ -108,11 +108,24 @@ export default function MeterClient() {
             const currentDormId = dormsData[0].id
             setDormId(currentDormId)
 
-            const { data: settingsData } = await supabase
-                .from('dorm_settings')
-                .select('electric_rate_per_unit, water_rate_per_unit, water_billing_type, water_flat_rate')
-                .eq('dorm_id', currentDormId)
-                .single()
+            const [{ data: settingsData }, { data: roomsData, error: roomsError }] = await Promise.all([
+                supabase
+                    .from('dorm_settings')
+                    .select('electric_rate_per_unit, water_rate_per_unit, water_billing_type, water_flat_rate')
+                    .eq('dorm_id', currentDormId)
+                    .single(),
+                supabase
+                    .from('rooms')
+                    .select(`
+                    *,
+                    tenants(id, name, status)
+                `)
+                    .eq('dorm_id', currentDormId)
+                    .eq('status', 'occupied')
+                    .is('deleted_at', null)
+                    .order('floor', { ascending: true })
+                    .order('room_number', { ascending: true }),
+            ])
 
             if (settingsData) {
                 setElectricRate(settingsData.electric_rate_per_unit || 0)
@@ -120,18 +133,6 @@ export default function MeterClient() {
                 setWaterBillingType(settingsData.water_billing_type || 'per_unit')
                 setWaterFlatRate(settingsData.water_flat_rate || 0)
             }
-
-            const { data: roomsData, error: roomsError } = await supabase
-                .from('rooms')
-                .select(`
-                    *,
-                    tenants(id, name, status)
-                `)
-                .eq('dorm_id', currentDormId)
-                .eq('status', 'occupied')
-                .is('deleted_at', null)
-                .order('floor', { ascending: true })
-                .order('room_number', { ascending: true })
 
             if (roomsError) throw roomsError
 
@@ -160,19 +161,20 @@ export default function MeterClient() {
                     const roomIds = roomsData.map((r: Room) => r.id)
 
                     if (roomIds.length > 0) {
-                        const { data: utilsData, error: utilsError } = await supabase
-                            .from('utilities')
-                            .select('room_id, tenant_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date')
-                            .in('room_id', roomIds)
-                            .order('meter_date', { ascending: false })
+                        const [{ data: utilsData, error: utilsError }, { data: billsData }] = await Promise.all([
+                            supabase
+                                .from('utilities')
+                                .select('room_id, tenant_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date')
+                                .in('room_id', roomIds)
+                                .order('meter_date', { ascending: false }),
+                            supabase
+                                .from('bills')
+                                .select('room_id, tenant_id')
+                                .in('room_id', roomIds)
+                                .eq('billing_month', `${selectedMonth}-01`),
+                        ])
 
                         if (utilsError) throw utilsError
-
-                        const { data: billsData } = await supabase
-                            .from('bills')
-                            .select('room_id, tenant_id')
-                            .in('room_id', roomIds)
-                            .eq('billing_month', `${selectedMonth}-01`)
 
                         const billedMap: Record<string, boolean> = {}
                         roomsData.forEach((r: any) => {
@@ -382,7 +384,7 @@ export default function MeterClient() {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <div className="w-full max-w-lg bg-white min-h-[640px] rounded-[2.5rem] flex flex-col items-center justify-center gap-4 shadow-xl">
+                <div className="w-full max-w-lg bg-white min-h-[640px] rounded-[2.5rem] flex flex-col items-center justify-center gap-4 shadow-xl border border-gray-100">
                     <div className="w-12 h-12 border-4 border-green-100 border-t-green-600 rounded-full animate-spin" />
                     <p className="text-sm font-bold text-green-600 animate-pulse">กำลังดึงข้อมูลมิเตอร์เก่า...</p>
                 </div>
@@ -391,43 +393,25 @@ export default function MeterClient() {
     }
 
     return (
-        <div className="min-h-screen bg-[#fcfdfd] sm:flex sm:items-center sm:justify-center sm:py-8 font-body text-slate-800 antialiased">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-visible flex flex-col relative border-gray-100 sm:border">
-
-                <div className="relative z-30">
-                    <div className="absolute inset-0 bg-emerald-600 rounded-b-[2.5rem] shadow-lg shadow-emerald-100 overflow-hidden -z-10">
-                        <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
-                        <div className="absolute bottom-[-10%] left-[-10%] w-56 h-56 bg-white/5 rounded-full blur-2xl" />
-                    </div>
-
-                    <header className="pt-6 pb-6 px-6 relative z-10 font-body">
-                        <div className="flex items-center justify-between mb-8">
-                            <button
-                                onClick={() => router.push('/dashboard')}
-                                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-2xl flex items-center justify-center text-white backdrop-blur-md transition-all active:scale-95 border border-white/20 shadow-sm"
-                            >
-                                <ArrowLeftIcon className="w-5 h-5 stroke-[3]" />
-                            </button>
-
-                            <button
-                                onClick={() => router.push(`/dashboard/billing?month=${selectedMonth}`)}
-                                className="h-10 px-3 rounded-xl bg-emerald-50 flex items-center justify-center gap-1.5 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all shadow-sm border border-emerald-100"
-                            >
-                                <BanknotesIcon className="w-4 h-4 stroke-[2.5]" />
-                                <span className="text-[10px] font-black uppercase tracking-tight">ออกบิล</span>
-                            </button>
-                        </div>
-
-                        <div>
-                            <h1 className="text-3xl font-headline font-black text-white tracking-tight drop-shadow-sm">จดมิเตอร์น้ำ-ไฟ</h1>
-                            <p className="text-emerald-50/80 text-xs font-bold mt-1.5 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-pulse" />
-                                บันทึกข้อมูลมิเตอร์ประจำเดือน {formatDisplayMonth(selectedMonth)}
-                            </p>
-                        </div>
-                    </header>
-                </div>
-
+        <DashboardMenuPageChrome
+            title="จดมิเตอร์น้ำ-ไฟ"
+            subtitle={
+                <p className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-emerald-200 rounded-full animate-pulse shrink-0" />
+                    บันทึกข้อมูลมิเตอร์ประจำเดือน {formatDisplayMonth(selectedMonth)}
+                </p>
+            }
+            headerRight={
+                <button
+                    type="button"
+                    onClick={() => router.push(`/dashboard/billing?month=${selectedMonth}`)}
+                    className="h-10 px-3 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center gap-1.5 text-white border border-white/25 active:scale-95 transition-all shadow-sm"
+                >
+                    <BanknotesIcon className="w-4 h-4 stroke-[2.5]" />
+                    <span className="text-[10px] font-black uppercase tracking-tight">ออกบิล</span>
+                </button>
+            }
+        >
                 <div className="flex-1 overflow-y-auto pb-32">
                     <div className="p-6 space-y-6">
 
@@ -646,7 +630,7 @@ export default function MeterClient() {
                                     const eDiff = ceNum !== null ? ceNum - parseInt(p.electric || '0') : 0;
 
                                     return (
-                                        <div key={room.id} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-5">
+                                        <div key={room.id} className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm space-y-4">
                                             <div className="flex items-center justify-between border-b border-gray-50 pb-3">
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex flex-col">
@@ -666,9 +650,9 @@ export default function MeterClient() {
                                                 )}
                                             </div>
 
-                                            <div className={`grid gap-6 ${utilityFilter === 'all' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                            <div className={`grid ${utilityFilter === 'all' ? 'grid-cols-2 gap-0' : 'grid-cols-1 gap-6'}`}>
                                                 {(utilityFilter === 'all' || utilityFilter === 'electric') && (
-                                                    <div>
+                                                    <div className={utilityFilter === 'all' ? 'pr-3 sm:pr-4' : undefined}>
                                                         <div className="flex items-center justify-between h-6 mb-2">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-5 h-5 flex items-center justify-center">
@@ -680,31 +664,34 @@ export default function MeterClient() {
                                                                 {electricRate.toLocaleString()}.-/หน่วย
                                                             </span>
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <div className="flex justify-between items-center text-[10px] text-black-400 font-bold px-1">
-                                                                <span>เลขเดือนก่อน:</span>
-                                                                <div className={`w-[85px] flex items-center justify-between bg-gray-50 rounded-lg px-2 py-0.5 border ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
+                                                        <div className="space-y-1.5">
+                                                            <div>
+                                                                <span className="block text-[10px] font-bold text-gray-500 px-0.5 mb-0.5">เลขก่อนหน้า</span>
+                                                                <div className={`w-full flex items-center bg-gray-50 rounded-lg px-2 py-1.5 border-2 ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
                                                                     <input
                                                                         type="tel"
                                                                         value={p.electric}
                                                                         disabled={roomsWithBills[room.id]}
                                                                         onChange={(e) => handlePrevInput(room.id, 'electric', e.target.value)}
-                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
+                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-center text-xs tabular-nums"
                                                                         placeholder="0"
                                                                     />
                                                                     {p.isInitial && <span className="text-[8px] text-green-600 font-black ml-1 shrink-0"></span>}
                                                                 </div>
                                                             </div>
-                                                            <input
-                                                                type="tel"
-                                                                placeholder="เลขมิเตอร์ใหม่"
-                                                                value={c.currElectric}
-                                                                disabled={roomsWithBills[room.id]}
-                                                                onChange={(e) => handleInput(room.id, 'electric', e.target.value)}
-                                                                className={`w-full bg-orange-50/30 border-2 rounded-xl px-3 py-2 text-sm font-black text-gray-800 focus:outline-none transition-all text-center
+                                                            <div>
+                                                                <span className="block text-[10px] font-bold text-gray-500 px-0.5 mb-0.5">เลขปัจจุบัน</span>
+                                                                <input
+                                                                    type="tel"
+                                                                    placeholder="เลขมิเตอร์ใหม่"
+                                                                    value={c.currElectric}
+                                                                    disabled={roomsWithBills[room.id]}
+                                                                    onChange={(e) => handleInput(room.id, 'electric', e.target.value)}
+                                                                    className={`w-full bg-orange-50/30 border-2 rounded-lg px-2 py-1.5 text-xs font-black text-gray-800 focus:outline-none transition-all text-center tabular-nums
                                                                     ${roomsWithBills[room.id] ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : eDiff < 0 ? 'border-red-400 focus:border-red-500' : ceNum !== null ? 'border-orange-400' : 'border-gray-100 focus:border-orange-400'}
                                                                 `}
-                                                            />
+                                                                />
+                                                            </div>
                                                             {ceNum !== null && (
                                                                 <div className={`text-[10px] font-black text-right pr-1 ${eDiff < 0 ? 'text-red-500' : 'text-orange-500'}`}>
                                                                     ใช้ไฟ {eDiff} ยูนิต ({(Math.max(0, eDiff) * electricRate).toLocaleString()}.-)
@@ -715,7 +702,7 @@ export default function MeterClient() {
                                                 )}
 
                                                 {(utilityFilter === 'all' || utilityFilter === 'water') && (
-                                                    <div>
+                                                    <div className={utilityFilter === 'all' ? 'border-l border-gray-200 pl-3 sm:pl-4' : undefined}>
                                                         <div className="flex items-center justify-between h-6 mb-2">
                                                             <div className="flex items-center gap-1.5">
                                                                 <div className="w-5 h-5 flex items-center justify-center">
@@ -735,31 +722,34 @@ export default function MeterClient() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="space-y-2">
-                                                            <div className="flex justify-between items-center text-[10px] text-black-400 font-bold px-1">
-                                                                <span>เลขเดือนก่อน:</span>
-                                                                <div className={`w-[85px] flex items-center justify-between bg-gray-50 rounded-lg px-2 py-0.5 border ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
+                                                        <div className="space-y-1.5">
+                                                            <div>
+                                                                <span className="block text-[10px] font-bold text-gray-500 px-0.5 mb-0.5">เลขก่อนหน้า</span>
+                                                                <div className={`w-full flex items-center bg-gray-50 rounded-lg px-2 py-1.5 border-2 ${p.isInitial ? 'border-dashed border-gray-300' : 'border-gray-200'}`}>
                                                                     <input
                                                                         type="tel"
                                                                         value={p.water}
                                                                         disabled={roomsWithBills[room.id]}
                                                                         onChange={(e) => handlePrevInput(room.id, 'water', e.target.value)}
-                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-right text-xs"
+                                                                        className="w-full bg-transparent text-gray-700 font-black focus:outline-none text-center text-xs tabular-nums"
                                                                         placeholder="0"
                                                                     />
                                                                     {p.isInitial && <span className="text-[8px] text-green-600 font-black ml-1 shrink-0"></span>}
                                                                 </div>
                                                             </div>
-                                                            <input
-                                                                type="tel"
-                                                                placeholder="เลขมิเตอร์ใหม่"
-                                                                value={c.currWater}
-                                                                disabled={roomsWithBills[room.id]}
-                                                                onChange={(e) => handleInput(room.id, 'water', e.target.value)}
-                                                                className={`w-full bg-blue-50/30 border-2 rounded-xl px-3 py-2 text-sm font-black text-gray-800 focus:outline-none transition-all text-center
+                                                            <div>
+                                                                <span className="block text-[10px] font-bold text-gray-500 px-0.5 mb-0.5">เลขปัจจุบัน</span>
+                                                                <input
+                                                                    type="tel"
+                                                                    placeholder="เลขมิเตอร์ใหม่"
+                                                                    value={c.currWater}
+                                                                    disabled={roomsWithBills[room.id]}
+                                                                    onChange={(e) => handleInput(room.id, 'water', e.target.value)}
+                                                                    className={`w-full bg-blue-50/30 border-2 rounded-lg px-2 py-1.5 text-xs font-black text-gray-800 focus:outline-none transition-all text-center tabular-nums
                                                                     ${roomsWithBills[room.id] ? 'bg-gray-50 border-gray-100 text-gray-400 cursor-not-allowed' : wDiff < 0 ? 'border-red-400 focus:border-red-500' : cwNum !== null ? 'border-blue-400' : 'border-gray-100 focus:border-blue-400'}
                                                                 `}
-                                                            />
+                                                                />
+                                                            </div>
                                                             {cwNum !== null && (
                                                                 <div className={`text-[10px] font-black text-right pr-1 ${wDiff < 0 ? 'text-red-500' : 'text-blue-500'}`}>
                                                                     ใช้{waterBillingType === 'flat_rate' ? 'น้ำ' : `น้ำ ${wDiff} ยูนิต`} ({(waterBillingType === 'flat_rate' ? waterFlatRate : (Math.max(0, wDiff) * waterRate)).toLocaleString()}.-)
@@ -806,7 +796,6 @@ export default function MeterClient() {
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+        </DashboardMenuPageChrome>
     )
 }

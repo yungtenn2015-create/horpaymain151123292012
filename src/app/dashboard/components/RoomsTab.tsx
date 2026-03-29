@@ -153,9 +153,9 @@ export default function RoomsTab({
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 border-dashed text-center">
-                                <h3 className="text-[13px] font-black text-emerald-900">ห้องว่าง</h3>
-                                <p className="text-[10px] font-bold text-emerald-600/70 mt-0.5">พร้อมสำหรับการรับผู้เช่าใหม่</p>
+                            <div className="bg-gray-100 rounded-2xl p-4 border border-gray-200 border-dashed text-center">
+                                <h3 className="text-[13px] font-black text-gray-800">ห้องว่าง</h3>
+                                <p className="text-[10px] font-bold text-gray-500 mt-0.5">พร้อมสำหรับการรับผู้เช่าใหม่</p>
                             </div>
                         )}
 
@@ -237,7 +237,7 @@ export default function RoomsTab({
         );
     };
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/30">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-gray-50">
             {/* Premium Header (Green Theme) */}
             <div className="relative min-h-[210px]">
                 {/* Background with clipping */}
@@ -265,17 +265,17 @@ export default function RoomsTab({
 
             <div className="px-5 -mt-20 relative z-20 space-y-6 pb-8">
                 {/* Filters UI */}
-                <div className="space-y-6 rounded-[2.5rem] border-2 border-emerald-100/90 bg-gradient-to-b from-emerald-100 to-emerald-50 p-6 shadow-xl shadow-emerald-900/10">
+                <div className="space-y-6 rounded-[2.5rem] border-2 border-gray-100 bg-gradient-to-b from-gray-50 to-white p-6 shadow-sm">
                     {/* Floor Filter */}
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2 px-1">
                             <div className="h-4 w-1.5 rounded-full bg-primary" />
-                            <p className="text-[11px] font-black text-emerald-950/90 uppercase tracking-[0.15em]">เลือกชั้น</p>
+                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">เลือกชั้น</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             <button
                                 onClick={() => setSelectedFloor('all')}
-                                className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
+                                className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
                             >
                                 ทุกชั้น
                             </button>
@@ -283,7 +283,7 @@ export default function RoomsTab({
                                 <button
                                     key={floor}
                                     onClick={() => setSelectedFloor(floor)}
-                                    className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
+                                    className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
                                 >
                                     ชั้น {floor}
                                 </button>
@@ -295,7 +295,7 @@ export default function RoomsTab({
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2 px-1">
                             <div className="h-4 w-1.5 rounded-full bg-primary" />
-                            <p className="text-[11px] font-black text-emerald-950/90 uppercase tracking-[0.15em]">สถานะห้อง</p>
+                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">สถานะห้อง</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {[
@@ -309,7 +309,7 @@ export default function RoomsTab({
                                 <button
                                     key={status.id}
                                     onClick={() => setSelectedStatus(status.id)}
-                                    className={`whitespace-nowrap rounded-2xl border-2 px-5 py-3 text-[12px] font-black transition-all ${selectedStatus === status.id ? `${status.color} text-white shadow-lg` : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
+                                    className={`whitespace-nowrap rounded-2xl border-2 px-5 py-3 text-[12px] font-black transition-all ${selectedStatus === status.id ? `${status.color} text-white shadow-lg` : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
                                 >
                                     {status.label}
                                 </button>

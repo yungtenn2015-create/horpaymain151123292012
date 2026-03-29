@@ -53,30 +53,25 @@ function LIFFBillContent() {
                 }
                 setBillStatus(bill.status)
 
-                // 2. Fetch Room Info
-                const { data: room } = await supabase
-                    .from('rooms')
-                    .select('room_number, dorm_id')
-                    .eq('id', bill.room_id)
-                    .single()
+                const utilPromise = bill.utility_id
+                    ? supabase
+                          .from('utilities')
+                          .select('*')
+                          .eq('id', bill.utility_id)
+                          .single()
+                    : Promise.resolve({ data: null as any })
 
-                // 3. Fetch Tenant Info
-                const { data: tenant } = await supabase
-                    .from('tenants')
-                    .select('name')
-                    .eq('id', bill.tenant_id)
-                    .single()
+                const [{ data: room }, { data: tenant }, utilRes] = await Promise.all([
+                    supabase
+                        .from('rooms')
+                        .select('room_number, dorm_id')
+                        .eq('id', bill.room_id)
+                        .single(),
+                    supabase.from('tenants').select('name').eq('id', bill.tenant_id).single(),
+                    utilPromise,
+                ])
 
-                // 4. Fetch Utility Info
-                let utility = null
-                if (bill.utility_id) {
-                    const { data: u } = await supabase
-                        .from('utilities')
-                        .select('*')
-                        .eq('id', bill.utility_id)
-                        .single()
-                    utility = u
-                }
+                const utility = utilRes?.data ?? null
 
                 // 5. Fetch Dorm & Settings
                 let dorm = null

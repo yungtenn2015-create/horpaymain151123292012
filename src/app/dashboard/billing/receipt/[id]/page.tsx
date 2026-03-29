@@ -70,63 +70,64 @@ export default function ReceiptPage() {
                 }
                 setBillStatus(bill.status)
 
-                // 1.1 Fetch snapshot bill items (extra services)
-                // Fallback safely when table doesn't exist yet (migration not applied).
-                let billItems: any[] = []
-                try {
-                    const { data, error: billItemsError } = await supabase
-                        .from('bill_items')
-                        .select('name, amount, detail')
-                        .eq('bill_id', bill.id)
-                        .order('created_at', { ascending: true })
-                    if (!billItemsError && data) {
-                        billItems = data
+                const billItemsPromise = (async (): Promise<any[]> => {
+                    try {
+                        const { data, error: billItemsError } = await supabase
+                            .from('bill_items')
+                            .select('name, amount, detail')
+                            .eq('bill_id', bill.id)
+                            .order('created_at', { ascending: true })
+                        if (!billItemsError && data) return data
+                    } catch {
+                        /* migration may not exist */
                     }
-                } catch (e) {
-                    billItems = []
-                }
+                    return []
+                })()
 
-                // 2. Fetch Slip from payments table
-                const { data: payment } = await supabase
-                    .from('payments')
-                    .select('slip_url')
-                    .eq('bill_id', bill.id)
-                    .order('payment_date', { ascending: false })
-                    .limit(1)
-                    .maybeSingle()
+                const utilPromise = bill.utility_id
+                    ? supabase
+                          .from('utilities')
+                          .select('*')
+                          .eq('id', bill.utility_id)
+                          .single()
+                    : Promise.resolve({ data: null as any, error: null as any })
+
+                const [
+                    billItems,
+                    { data: payment },
+                    { data: room, error: roomError },
+                    { data: tenant, error: tenantError },
+                    utilRes,
+                ] = await Promise.all([
+                    billItemsPromise,
+                    supabase
+                        .from('payments')
+                        .select('slip_url')
+                        .eq('bill_id', bill.id)
+                        .order('payment_date', { ascending: false })
+                        .limit(1)
+                        .maybeSingle(),
+                    supabase
+                        .from('rooms')
+                        .select('room_number, dorm_id')
+                        .eq('id', bill.room_id)
+                        .single(),
+                    supabase.from('tenants').select('name').eq('id', bill.tenant_id).single(),
+                    utilPromise,
+                ])
+
+                if (roomError) console.error('Error fetching room:', roomError)
+                if (tenantError) console.error('Error fetching tenant:', tenantError)
 
                 if (payment?.slip_url) {
                     setSlipUrl(payment.slip_url)
                 }
 
-                // 3. Fetch Room Info
-                const { data: room, error: roomError } = await supabase
-                    .from('rooms')
-                    .select('room_number, dorm_id')
-                    .eq('id', bill.room_id)
-                    .single()
-
-                if (roomError) console.error('Error fetching room:', roomError)
-
-                // 3.5 Fetch Tenant Info directly from bill
-                const { data: tenant, error: tenantError } = await supabase
-                    .from('tenants')
-                    .select('name')
-                    .eq('id', bill.tenant_id)
-                    .single()
-
-                if (tenantError) console.error('Error fetching tenant:', tenantError)
-
-                // 4. Fetch Utility Info for meter readings
                 let utility = null
-                if (bill.utility_id) {
-                    const { data: u, error: uError } = await supabase
-                        .from('utilities')
-                        .select('*')
-                        .eq('id', bill.utility_id)
-                        .single()
-                    if (uError) console.error('Error fetching utilities:', uError)
-                    utility = u
+                if (utilRes?.data != null) {
+                    utility = utilRes.data
+                } else if (utilRes?.error) {
+                    console.error('Error fetching utilities:', utilRes.error)
                 }
 
                 // 5. Fetch Dorm & Settings

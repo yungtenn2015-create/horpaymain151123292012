@@ -75,22 +75,18 @@ export default function SettingsClient() {
                     return
                 }
 
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('name')
-                    .eq('id', user.id)
-                    .maybeSingle()
+                const [{ data: profile }, { data: dorms }] = await Promise.all([
+                    supabase.from('users').select('name').eq('id', user.id).maybeSingle(),
+                    supabase
+                        .from('dorms')
+                        .select('*')
+                        .eq('owner_id', user.id)
+                        .is('deleted_at', null)
+                        .order('created_at', { ascending: false })
+                        .limit(1),
+                ])
                 const ownerNameFromDb =
                     typeof profile?.name === 'string' ? profile.name.trim() : ''
-
-                // Get Dorm (Assume one for now)
-                const { data: dorms } = await supabase
-                    .from('dorms')
-                    .select('*')
-                    .eq('owner_id', user.id)
-                    .is('deleted_at', null)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
 
                 if (dorms && dorms.length > 0) {
                     const dorm = dorms[0]
@@ -101,12 +97,18 @@ export default function SettingsClient() {
                         owner_name: ownerNameFromDb
                     })
 
-                    // Get Settings
-                    const { data: settings } = await supabase
-                        .from('dorm_settings')
-                        .select('*')
-                        .eq('dorm_id', dorm.id)
-                        .single()
+                    const [{ data: settings }, { data: lineOa }] = await Promise.all([
+                        supabase
+                            .from('dorm_settings')
+                            .select('*')
+                            .eq('dorm_id', dorm.id)
+                            .single(),
+                        supabase
+                            .from('line_oa_configs')
+                            .select('*')
+                            .eq('dorm_id', dorm.id)
+                            .maybeSingle(),
+                    ])
 
                     if (settings) {
                         setSettingsData({
@@ -117,13 +119,6 @@ export default function SettingsClient() {
                             payment_due_day: normalizeBillingDay(settings.payment_due_day, 5)
                         })
                     }
-
-                    // Get LINE Config
-                    const { data: lineOa } = await supabase
-                        .from('line_oa_configs')
-                        .select('*')
-                        .eq('dorm_id', dorm.id)
-                        .maybeSingle()
 
                     if (lineOa) {
                         setLineConfig({

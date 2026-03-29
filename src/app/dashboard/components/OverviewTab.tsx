@@ -292,7 +292,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     };
 
     return (
-        <div className="bg-emerald-50/30 font-body text-slate-800 antialiased min-h-screen pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
+        <div className="bg-gray-50 font-body text-slate-800 antialiased min-h-screen pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
             {/* Hero Section */}
             <div className="relative min-h-[210px]">
                 {/* Background with clipping */}
@@ -501,7 +501,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             { icon: 'history', label: 'ประวัติบิล', color: 'bg-purple-50 text-purple-600 border-purple-100', path: '/dashboard/history' },
                             { icon: 'badge', label: 'ข้อมูลผู้เช่า', color: 'bg-blue-50 text-blue-600 border-blue-100', path: '/dashboard/tenants' },
                             { icon: 'person_add', label: 'เพิ่มผู้เช่า', color: 'bg-orange-50 text-orange-600 border-orange-100', path: '/dashboard/tenants/new' },
-                            { icon: 'logout', label: 'แจ้งออก/ย้ายออก', color: 'bg-rose-50 text-rose-600 border-rose-100', path: '/dashboard/move-out' },
+                            { icon: 'logout', label: 'แจ้งออก', color: 'bg-rose-50 text-rose-600 border-rose-100', path: '/dashboard/move-out' },
                         ].map((item) => (
                             <button
                                 key={item.label}

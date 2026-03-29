@@ -464,6 +464,15 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
                 weight: "bold"
               }
             ]
+          },
+          {
+            type: "text",
+            text: "ข้อมูลนี้ใช้เพื่อการออกบิลและแจ้งยอดค้างชำระผ่านระบบ HORPAY เท่านั้น",
+            color: "#9CA3AF",
+            size: "xxs",
+            margin: "lg",
+            wrap: true,
+            align: "center"
           }
         ]
       }

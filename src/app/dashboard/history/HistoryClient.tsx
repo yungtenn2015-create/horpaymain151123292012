@@ -17,6 +17,7 @@ import {
     TrashIcon,
     BanknotesIcon
 } from '@heroicons/react/24/outline'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Bill {
     id: string;
@@ -84,17 +85,14 @@ export default function HistoryClient() {
             const dorm = dorms[0]
             setDormName(dorm.name)
 
-            // 2. Get Bills for selected month
+            // 2. Get Bills for selected month (monthly + move-out in parallel)
             const monthStr = format(selectedDate, 'yyyy-MM-01')
             const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
             const nextMonthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1)
             const monthStartIso = monthStart.toISOString()
             const nextMonthStartIso = nextMonthStart.toISOString()
 
-            // Monthly bills: group by billing_month
-            const { data: monthlyBills, error: monthlyErr } = await supabase
-                .from('bills')
-                .select(`
+            const billSelect = `
                     id,
                     total_amount,
                     room_amount,
@@ -107,34 +105,28 @@ export default function HistoryClient() {
                     tenant_id,
                     rooms!inner (room_number, dorm_id),
                     tenants (name)
-                `)
-                .eq('billing_month', monthStr)
-                .eq('rooms.dorm_id', dorm.id)
-                .order('created_at', { ascending: false })
-            if (monthlyErr) throw monthlyErr
+                `
 
-            // Move-out bills: user expects by issued month (created_at), not billing_month
-            const { data: moveOutBills, error: moveOutErr } = await supabase
-                .from('bills')
-                .select(`
-                    id,
-                    total_amount,
-                    room_amount,
-                    utility_amount,
-                    other_amount,
-                    status,
-                    bill_type,
-                    created_at,
-                    billing_month,
-                    tenant_id,
-                    rooms!inner (room_number, dorm_id),
-                    tenants (name)
-                `)
-                .eq('bill_type', 'move_out')
-                .eq('rooms.dorm_id', dorm.id)
-                .gte('created_at', monthStartIso)
-                .lt('created_at', nextMonthStartIso)
-                .order('created_at', { ascending: false })
+            const [
+                { data: monthlyBills, error: monthlyErr },
+                { data: moveOutBills, error: moveOutErr },
+            ] = await Promise.all([
+                supabase
+                    .from('bills')
+                    .select(billSelect)
+                    .eq('billing_month', monthStr)
+                    .eq('rooms.dorm_id', dorm.id)
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('bills')
+                    .select(billSelect)
+                    .eq('bill_type', 'move_out')
+                    .eq('rooms.dorm_id', dorm.id)
+                    .gte('created_at', monthStartIso)
+                    .lt('created_at', nextMonthStartIso)
+                    .order('created_at', { ascending: false }),
+            ])
+            if (monthlyErr) throw monthlyErr
             if (moveOutErr) throw moveOutErr
 
             const mergedById = new Map<string, any>()
@@ -227,39 +219,32 @@ export default function HistoryClient() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-md bg-white h-screen sm:h-[850px] shadow-2xl flex flex-col relative overflow-hidden sm:rounded-[2.5rem] border border-gray-100">
-
-                {/* ── HEADER ── */}
-                <header className="px-6 pt-10 pb-6 bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-50">
-                    <div className="flex items-center justify-between mb-6">
-                        <button
-                            onClick={() => router.push('/dashboard')}
-                            className="w-11 h-11 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 active:scale-95 transition-all"
-                        >
-                            <ChevronLeftIcon className="w-6 h-6 stroke-[2.5]" />
-                        </button>
-                        <div className="text-center">
-                            <h1 className="text-xl font-black text-gray-800 tracking-tight">ประวัติบิล</h1>
-                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest leading-none mt-1">{dormName}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => router.push('/dashboard/billing')}
-                                className="h-10 px-3 rounded-xl bg-emerald-50 flex items-center justify-center gap-1.5 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all shadow-sm border border-emerald-100"
-                            >
-                                <BanknotesIcon className="w-4 h-4 stroke-[2.5]" />
-                                <span className="text-[10px] font-black uppercase tracking-tight">ออกบิล</span>
-                            </button>
-                            <button
-                                onClick={fetchHistory}
-                                className="w-11 h-11 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 hover:bg-purple-100 active:scale-95 transition-all shadow-sm"
-                            >
-                                <ArrowPathIcon className={`w-5 h-5 stroke-[2.5] ${loading ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
-
+        <DashboardMenuPageChrome
+            title="ประวัติบิล"
+            subtitle={
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">{dormName}</span>
+            }
+            headerRight={
+                <>
+                    <button
+                        type="button"
+                        onClick={() => router.push('/dashboard/billing')}
+                        className="h-10 px-3 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center gap-1.5 text-white border border-white/25 active:scale-95 transition-all shadow-sm"
+                    >
+                        <BanknotesIcon className="w-4 h-4 stroke-[2.5]" />
+                        <span className="text-[10px] font-black uppercase tracking-tight">ออกบิล</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => fetchHistory()}
+                        className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white border border-white/25 active:scale-95 transition-all shadow-sm"
+                    >
+                        <ArrowPathIcon className={`w-5 h-5 stroke-[2.5] ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </>
+            }
+        >
+                <header className="px-6 pt-4 pb-6 bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-50">
                     {/* Month Selector */}
                     <div className="flex items-center justify-between bg-purple-50 rounded-[1.5rem] p-4 mb-6 shadow-inner ring-1 ring-purple-100/50">
                         <button
@@ -490,7 +475,6 @@ export default function HistoryClient() {
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+        </DashboardMenuPageChrome>
     )
 }

@@ -53,7 +53,7 @@ export default function TenantsTab({
     userName
 }: TenantsTabProps) {
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-emerald-50/30 overflow-hidden">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col relative z-10 bg-gray-50 overflow-hidden">
             <div className="flex-1 flex flex-col h-full overflow-hidden">
                 {/* Header — โครงเดียวกับหน้าสถานะห้อง (RoomsTab) */}
                 <div className="relative min-h-[210px] shrink-0">

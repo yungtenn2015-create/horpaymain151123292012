@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/line/send-overdue",
-      "schedule": "0 5 * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }

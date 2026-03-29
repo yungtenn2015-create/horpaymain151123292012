@@ -179,8 +179,8 @@ const ReceiptView = forwardRef<HTMLDivElement, ReceiptViewProps>(({ data, slipUr
 
             {/* Footer Message */}
             <div className="py-6 text-center bg-gray-50/50 border-t border-gray-100">
-                <p className="text-[10px] font-black text-gray-300 italic uppercase tracking-widest">
-                    Powered by HorPay - Smart Dorm Management
+                <p className="text-[12px] font-black text-gray-300 italic uppercase tracking-widest">
+                "ข้อมูลนี้ใช้เพื่อการออกบิลและแจ้งยอดค้างชำระผ่านระบบ HORPAY เท่านั้น"
                 </p>
             </div>
         </div>

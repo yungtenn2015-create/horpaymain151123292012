@@ -738,12 +738,24 @@ export default function DashboardClient() {
             setDbError('')
             console.log("Refreshing Dashboard Data...");
             let loadedOwnerName = '';
-            // 0. Get User Plan + ชื่อเจ้าของ (users.name)
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('plan_type, trial_expires_at, name')
-                .eq('id', user.id)
-                .single();
+            // 0–1: user profile + latest dorm in parallel (both keyed by user.id)
+            const [
+                { data: userData, error: userError },
+                { data: dormsData, error: dormError },
+            ] = await Promise.all([
+                supabase
+                    .from('users')
+                    .select('plan_type, trial_expires_at, name')
+                    .eq('id', user.id)
+                    .single(),
+                supabase
+                    .from('dorms')
+                    .select('*')
+                    .eq('owner_id', user.id)
+                    .is('deleted_at', null)
+                    .order('created_at', { ascending: false })
+                    .limit(1),
+            ]);
 
             if (!userError && userData) {
                 setUserPlan({
@@ -755,15 +767,6 @@ export default function DashboardClient() {
                 setUserName(displayName);
                 setUserInitial(displayName.charAt(0).toUpperCase());
             }
-
-            // 1. Get Latest Dorm
-            const { data: dormsData, error: dormError } = await supabase
-                .from('dorms')
-                .select('*')
-                .eq('owner_id', user.id)
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false })
-                .limit(1);
 
             if (dormError) throw dormError;
             if (!dormsData || dormsData.length === 0) {
@@ -803,23 +806,30 @@ export default function DashboardClient() {
 
             console.log("Fetching bills for month >= ", dateStr);
 
-            // Current Month Bills
-            const { data: monthBills, error: billsErr } = await supabase
-                .from('bills')
-                .select('*, utilities(*)')
-                .in('room_id', activeRooms.map(r => r.id))
-                .neq('status', 'cancelled')
-                .gte('billing_month', dateStr);
-
-            if (billsErr) throw billsErr;
-
-            // Historical Data (Revenue & Utilities)
-            const { data: historyBills } = await supabase
-                .from('bills')
-                .select('total_amount, billing_month, utilities(curr_water_meter, prev_water_meter, curr_electric_meter, prev_electric_meter, water_price, electric_price)')
-                .in('room_id', activeRooms.map(r => r.id))
-                .neq('status', 'cancelled')
-                .gte('billing_month', historyDateStr);
+            const roomIdsForBills = activeRooms.map(r => r.id);
+            let monthBills: any[] | null = null;
+            let historyBills: any[] | null = null;
+            if (roomIdsForBills.length > 0) {
+                const [{ data: mb, error: billsErr }, { data: hb }] = await Promise.all([
+                    supabase
+                        .from('bills')
+                        .select('*, utilities(*)')
+                        .in('room_id', roomIdsForBills)
+                        .neq('status', 'cancelled')
+                        .gte('billing_month', dateStr),
+                    supabase
+                        .from('bills')
+                        .select(
+                            'total_amount, billing_month, utilities(curr_water_meter, prev_water_meter, curr_electric_meter, prev_electric_meter, water_price, electric_price)'
+                        )
+                        .in('room_id', roomIdsForBills)
+                        .neq('status', 'cancelled')
+                        .gte('billing_month', historyDateStr),
+                ]);
+                if (billsErr) throw billsErr;
+                monthBills = mb;
+                historyBills = hb;
+            }
 
             // Process Current Month Stats - Unified Room-Centric Logic
             let collected = 0;
@@ -1025,11 +1035,26 @@ export default function DashboardClient() {
 
             // 5. Get Settings & LINE Config (Only once or if needed)
             if (isInitial) {
-                const { data: settings } = await supabase
-                    .from('dorm_settings')
-                    .select('*')
-                    .eq('dorm_id', currentDorm.id)
-                    .single();
+                const [settledSettings, settledServices, settledLine] = await Promise.allSettled([
+                    supabase
+                        .from('dorm_settings')
+                        .select('*')
+                        .eq('dorm_id', currentDorm.id)
+                        .single(),
+                    supabase.from('dorm_services').select('*').eq('dorm_id', currentDorm.id),
+                    supabase
+                        .from('line_oa_configs')
+                        .select('*')
+                        .eq('dorm_id', currentDorm.id)
+                        .maybeSingle(),
+                ]);
+
+                const settings =
+                    settledSettings.status === 'fulfilled' ? settledSettings.value.data : null;
+                const servicesData =
+                    settledServices.status === 'fulfilled' ? settledServices.value.data : null;
+                const lineOa =
+                    settledLine.status === 'fulfilled' ? settledLine.value.data : null;
 
                 if (settings) {
                     setSettingsData({
@@ -1045,12 +1070,6 @@ export default function DashboardClient() {
                     });
                 }
 
-                // Get Itemized Services
-                const { data: servicesData } = await supabase
-                    .from('dorm_services')
-                    .select('*')
-                    .eq('dorm_id', currentDorm.id);
-
                 if (servicesData) {
                     setServices(servicesData.map(s => ({
                         id: s.id,
@@ -1059,22 +1078,14 @@ export default function DashboardClient() {
                     })));
                 }
 
-                try {
-                    const { data: lineOa } = await supabase
-                        .from('line_oa_configs')
-                        .select('*')
-                        .eq('dorm_id', currentDorm.id)
-                        .maybeSingle();
-
-                    if (lineOa) {
-                        setLineConfig({
-                            channel_id: lineOa.channel_id || '',
-                            channel_secret: lineOa.channel_secret || '',
-                            access_token: lineOa.access_token || '',
-                            owner_line_user_id: lineOa.owner_line_user_id || ''
-                        });
-                    }
-                } catch (e) { }
+                if (lineOa) {
+                    setLineConfig({
+                        channel_id: lineOa.channel_id || '',
+                        channel_secret: lineOa.channel_secret || '',
+                        access_token: lineOa.access_token || '',
+                        owner_line_user_id: lineOa.owner_line_user_id || ''
+                    });
+                }
 
                 setDormData({
                     name: currentDorm.name || '',
@@ -1513,7 +1524,7 @@ export default function DashboardClient() {
 
     return (
         <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-emerald-50/30 min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col relative pb-24 border-gray-100 sm:border">
+            <div className="w-full sm:max-w-lg bg-gray-50 min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col relative pb-24 border-gray-100 sm:border">
 
                 {renderCustomCalendar()}
                 {renderContractFormModal()}

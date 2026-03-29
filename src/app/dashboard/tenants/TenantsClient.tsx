@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
 import {
-    ArrowLeftIcon,
     HomeIcon,
     MagnifyingGlassIcon,
     UserCircleIcon,
@@ -26,6 +25,7 @@ import {
     MapPinIcon,
     DocumentTextIcon
 } from '@heroicons/react/24/outline'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Tenant {
     id: string;
@@ -175,27 +175,12 @@ export default function TenantsClient() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
-
-                {/* ── Header ── */}
+        <DashboardMenuPageChrome
+            title="ข้อมูลผู้เช่า"
+            subtitle="จัดการข้อมูลพื้นฐานและการติดต่อ"
+        >
                 <div className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
                     <div className="px-6 py-4 sm:py-6">
-                        <div className="flex items-center justify-between mb-4 sm:mb-6">
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => router.push('/dashboard')}
-                                    className="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 transition-all active:scale-95"
-                                >
-                                    <ArrowLeftIcon className="w-5 h-5 stroke-[2.5]" />
-                                </button>
-                                <div>
-                                    <h1 className="text-xl font-black text-gray-800 tracking-tight">ข้อมูลผู้เช่า</h1>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">จัดการข้อมูลพื้นฐานและการติดต่อ</p>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Search Bar */}
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -433,7 +418,7 @@ export default function TenantsClient() {
 
                                         {/* Financial Summary */}
                                         <div className="grid grid-cols-2 gap-4 pt-2">
-                                            <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100/50">
+                                            <div className="p-6 bg-gray-50/80 rounded-3xl border border-gray-100">
                                                 <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">ค่าเช่าหลัก</p>
                                                 <p className="text-2xl font-black text-black">
                                                     ฿{(selectedTenant.lease_contracts?.[0]?.rent_price || selectedTenant.rooms.base_price).toLocaleString()}
@@ -474,7 +459,6 @@ export default function TenantsClient() {
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+        </DashboardMenuPageChrome>
     )
 }

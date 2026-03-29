@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
 import {
-    ArrowLeftIcon,
     MagnifyingGlassIcon,
     XMarkIcon,
     ClockIcon,
@@ -18,6 +17,7 @@ import {
     BoltIcon,
     BeakerIcon
 } from '@heroicons/react/24/outline'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Tenant {
     id: string;
@@ -205,14 +205,30 @@ export default function MoveOutClient() {
         const supabase = createClient()
 
         try {
-            const { data: leaseRows, error: leaseErr } = await supabase
-                .from('lease_contracts')
-                .select('rent_price, deposit_amount')
-                .eq('tenant_id', tenant.id)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false })
-                .limit(1)
+            const [
+                { data: leaseRows, error: leaseErr },
+                { data: room, error: roomErr },
+                { data: latestUtilities, error: utilErr },
+            ] = await Promise.all([
+                supabase
+                    .from('lease_contracts')
+                    .select('rent_price, deposit_amount')
+                    .eq('tenant_id', tenant.id)
+                    .eq('status', 'active')
+                    .order('created_at', { ascending: false })
+                    .limit(1),
+                supabase.from('rooms').select('dorm_id').eq('id', tenant.room_id).maybeSingle(),
+                supabase
+                    .from('utilities')
+                    .select('curr_electric_meter, curr_water_meter')
+                    .eq('room_id', tenant.room_id)
+                    .order('meter_date', { ascending: false })
+                    .limit(1),
+            ])
             if (leaseErr) throw leaseErr
+            if (roomErr) throw roomErr
+            if (utilErr) throw utilErr
+
             let lease = leaseRows?.[0]
             if (!lease) {
                 const { data: fallbackRows, error: fbErr } = await supabase
@@ -225,13 +241,6 @@ export default function MoveOutClient() {
                 lease = fallbackRows?.[0]
             }
 
-            const { data: room, error: roomErr } = await supabase
-                .from('rooms')
-                .select('dorm_id')
-                .eq('id', tenant.room_id)
-                .maybeSingle()
-            if (roomErr) throw roomErr
-
             let settings: any = null
             if (room?.dorm_id) {
                 const { data: s } = await supabase
@@ -241,14 +250,6 @@ export default function MoveOutClient() {
                     .maybeSingle()
                 settings = s
             }
-
-            const { data: latestUtilities, error: utilErr } = await supabase
-                .from('utilities')
-                .select('curr_electric_meter, curr_water_meter')
-                .eq('room_id', tenant.room_id)
-                .order('meter_date', { ascending: false })
-                .limit(1)
-            if (utilErr) throw utilErr
 
             const latest = latestUtilities?.[0]
             const prevElectric = Number(latest?.curr_electric_meter || 0)
@@ -286,11 +287,23 @@ export default function MoveOutClient() {
 
         try {
             await loadSettlementData(tenant)
-            const { data: bills, error } = await supabase
-                .from('bills')
-                .select('*')
-                .eq('tenant_id', tenant.id)
-                .in('status', ['unpaid', 'overdue', 'waiting_verify'])
+            const [{ data: bills, error }, { data: existingMoveOutBill, error: existingMoveOutErr }] =
+                await Promise.all([
+                    supabase
+                        .from('bills')
+                        .select('*')
+                        .eq('tenant_id', tenant.id)
+                        .in('status', ['unpaid', 'overdue', 'waiting_verify']),
+                    supabase
+                        .from('bills')
+                        .select('id, status')
+                        .eq('tenant_id', tenant.id)
+                        .eq('bill_type', 'move_out')
+                        .in('status', ['unpaid', 'overdue', 'waiting_verify', 'paid'])
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle(),
+                ])
 
             if (error) throw error
 
@@ -303,16 +316,6 @@ export default function MoveOutClient() {
                 return type !== 'move_out' && total > 0
             })
 
-            // If there is an existing move-out bill, keep its id/status for next-step button gating.
-            const { data: existingMoveOutBill, error: existingMoveOutErr } = await supabase
-                .from('bills')
-                .select('id, status')
-                .eq('tenant_id', tenant.id)
-                .eq('bill_type', 'move_out')
-                .in('status', ['unpaid', 'overdue', 'waiting_verify', 'paid'])
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
             if (existingMoveOutErr) throw existingMoveOutErr
             if (existingMoveOutBill?.id) {
                 setMoveOutBillId(existingMoveOutBill.id)
@@ -875,27 +878,12 @@ export default function MoveOutClient() {
     )
 
     return (
-        <div className="min-h-screen bg-gray-50 flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
-
-                {/* ── Header ── */}
+        <DashboardMenuPageChrome
+            title="แจ้งออก/ย้ายออก"
+            subtitle="จัดการการคืนห้องพัก"
+        >
                 <div className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
                     <div className="px-6 py-4 sm:py-6">
-                        <div className="flex items-center justify-between mb-4 sm:mb-6">
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => router.push('/dashboard')}
-                                    className="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 transition-all active:scale-95"
-                                >
-                                    <ArrowLeftIcon className="w-5 h-5 stroke-[2.5]" />
-                                </button>
-                                <div>
-                                    <h1 className="text-xl font-black text-gray-800 tracking-tight">แจ้งออก/ย้ายออก</h1>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">จัดการการคืนห้องพัก</p>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Search */}
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -1568,7 +1556,6 @@ export default function MoveOutClient() {
                     </div>
                 )}
 
-            </div>
-        </div>
+        </DashboardMenuPageChrome>
     )
 }

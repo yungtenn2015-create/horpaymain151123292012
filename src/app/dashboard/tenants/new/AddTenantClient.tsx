@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
 import {
-    ArrowLeftIcon,
     UserCircleIcon,
     PhoneIcon,
     BuildingOfficeIcon,
@@ -19,6 +18,7 @@ import {
     MapPinIcon,
     PlusIcon
 } from '@heroicons/react/24/outline'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Room {
     id: string;
@@ -105,21 +105,43 @@ export default function AddTenantClient() {
                 const currentDormId = dormsData[0].id
                 setDormId(currentDormId)
 
-                // Get Available Rooms
-                const { data: roomsData } = await supabase
-                    .from('rooms')
-                    .select('*')
-                    .eq('dorm_id', currentDormId)
-                    .eq('status', 'available')
-                    .is('deleted_at', null)
-                    .order('room_number', { ascending: true })
+                setFetchingContracts(true)
+                const [{ data: roomsData }, { data: contractData, error: contractError }] =
+                    await Promise.all([
+                        supabase
+                            .from('rooms')
+                            .select('*')
+                            .eq('dorm_id', currentDormId)
+                            .eq('status', 'available')
+                            .is('deleted_at', null)
+                            .order('room_number', { ascending: true }),
+                        supabase
+                            .from('tenant_contracts')
+                            .select('*')
+                            .eq('dorm_id', currentDormId)
+                            .eq('status', 'pending')
+                            .order('created_at', { ascending: false }),
+                    ])
+                setFetchingContracts(false)
 
                 if (roomsData) {
                     setRooms(roomsData)
                 }
 
-                // Fetch Contracts
-                fetchContracts(currentDormId)
+                if (!contractError && contractData) {
+                    setContracts(contractData)
+                    if (fromContractId && contractData.length > 0) {
+                        const contract = contractData.find((c) => c.id === fromContractId)
+                        if (contract) {
+                            applyContract(contract as TenantContract)
+                        } else {
+                            setFromContractId(null)
+                        }
+                    }
+                } else {
+                    setContracts([])
+                    if (contractError) console.error('Fetch contracts error:', contractError)
+                }
             }
             setLoading(false)
         }
@@ -468,37 +490,21 @@ export default function AddTenantClient() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
-
-                {/* ── Header ── */}
-                <header className="bg-gradient-to-br from-primary to-emerald-600 pt-12 pb-10 px-6 rounded-b-[2.5rem] relative shadow-lg shadow-primary/20 shrink-0">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3" />
-                    <div className="relative z-10 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => router.push('/dashboard')}
-                                className="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-[1rem] flex items-center justify-center text-white transition-all active:scale-95 border border-white/20"
-                            >
-                                <ArrowLeftIcon className="w-5 h-5 stroke-[2.5]" />
-                            </button>
-                            <div>
-                                <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-md">เพิ่มผู้เช่าใหม่</h1>
-                                <p className="text-emerald-100 text-xs font-bold mt-0.5">เพิ่มข้อมูลผู้เช่าเข้าสู่ห้องว่าง</p>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => router.push('/dashboard?tab=tenants')}
-                            className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-4 py-2.5 rounded-[1.2rem] border border-white/20 flex items-center gap-2 text-white transition-all active:scale-95 group"
-                        >
-                            <DocumentTextIcon className="w-5 h-5 opacity-70 group-hover:opacity-100 transition-opacity" />
-                            <span className="hidden sm:inline text-[11px] font-black uppercase tracking-[0.1em]">ไปยังหน้าบันทึกสัญญา</span>
-                        </button>
-                    </div>
-                </header>
-
-                {/* ── Form Content ── */}
+        <DashboardMenuPageChrome
+            title="เพิ่มผู้เช่าใหม่"
+            subtitle="เพิ่มข้อมูลผู้เช่าเข้าสู่ห้องว่าง"
+            headerRight={
+                <button
+                    type="button"
+                    onClick={() => router.push('/dashboard?tab=tenants')}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 sm:px-4 py-2.5 rounded-xl border border-white/20 flex items-center gap-2 text-white transition-all active:scale-95 group shrink-0"
+                >
+                    <DocumentTextIcon className="w-5 h-5 opacity-90 group-hover:opacity-100 transition-opacity shrink-0" />
+                    <span className="hidden sm:inline text-[11px] font-black uppercase tracking-[0.1em]">บันทึกสัญญา</span>
+                </button>
+            }
+        >
+                <div className="relative flex-1 min-h-0 flex flex-col">
                 <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-2">
@@ -842,8 +848,8 @@ export default function AddTenantClient() {
                         )}
                     </button>
                 </div>
-            </div>
+                </div>
             {renderContractSelectorModal()}
-        </div>
+        </DashboardMenuPageChrome>
     )
 }

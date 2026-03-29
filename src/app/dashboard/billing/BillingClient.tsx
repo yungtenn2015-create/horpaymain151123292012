@@ -22,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline'
 import ReceiptView from '@/src/components/ReceiptView'
 import { formatMeterScheduleLine } from '@/lib/meter-schedule'
+import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Room {
     id: string;
@@ -149,7 +150,7 @@ export default function BillingClient() {
             // 1. Get Dorm
             const { data: dorms } = await supabase
                 .from('dorms')
-                .select('*')
+                .select('id, name, address, contact_number')
                 .eq('owner_id', user.id)
                 .is('deleted_at', null)
                 .order('created_at', { ascending: false })
@@ -164,36 +165,27 @@ export default function BillingClient() {
             setDormAddressLine(typeof dorm.address === 'string' ? dorm.address.trim() : '')
             setDormContactPhone(typeof dorm.contact_number === 'string' ? dorm.contact_number.trim() : '')
 
-            // 1.1 Get Dorm Settings
-            const { data: settingsData } = await supabase
-                .from('dorm_settings')
-                .select('*')
-                .eq('dorm_id', dorm.id)
-                .single()
+            const monthStart = format(selectedDate, 'yyyy-MM-01')
 
-            if (settingsData) {
-                setDormSettings(settingsData)
-                setDueDay(settingsData.payment_due_day || 5)
-                setBillingDay(settingsData.billing_day || 25)
-            }
-
-            // 1.2 Get Dorm Services (Extra monthly services)
-            const { data: servicesData } = await supabase
-                .from('dorm_services')
-                .select('id, name, price')
-                .eq('dorm_id', dorm.id)
-                .order('created_at', { ascending: true })
-
-            setDormServices((servicesData || []).map((s: any) => ({
-                id: s.id,
-                name: s.name,
-                price: Number(s.price) || 0
-            })))
-
-            // 2. Get Rooms & Active Tenants
-            const { data: roomsData } = await supabase
-                .from('rooms')
-                .select(`
+            // 1.1–2: settings, services, rooms in parallel (same dorm_id)
+            const [
+                { data: settingsData },
+                { data: servicesData },
+                { data: roomsData },
+            ] = await Promise.all([
+                supabase
+                    .from('dorm_settings')
+                    .select('*')
+                    .eq('dorm_id', dorm.id)
+                    .single(),
+                supabase
+                    .from('dorm_services')
+                    .select('id, name, price')
+                    .eq('dorm_id', dorm.id)
+                    .order('created_at', { ascending: true }),
+                supabase
+                    .from('rooms')
+                    .select(`
                     id, 
                     room_number, 
                     status, 
@@ -201,36 +193,48 @@ export default function BillingClient() {
                     base_price,
                     tenants(id, name, line_user_id, status)
                 `)
-                .eq('dorm_id', dorm.id)
-                .is('deleted_at', null)
-                .order('room_number', { ascending: true })
+                    .eq('dorm_id', dorm.id)
+                    .is('deleted_at', null)
+                    .order('room_number', { ascending: true }),
+            ])
+
+            if (settingsData) {
+                setDormSettings(settingsData)
+                setDueDay(settingsData.payment_due_day || 5)
+                setBillingDay(settingsData.billing_day || 25)
+            }
+
+            setDormServices((servicesData || []).map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                price: Number(s.price) || 0
+            })))
 
             if (roomsData) {
                 const roomIds = roomsData.map(r => r.id)
-                const monthStart = format(selectedDate, 'yyyy-MM-01')
 
-                // 3. Get Utilities for this month
-                const { data: utilsData } = await supabase
-                    .from('utilities')
-                    .select('*')
-                    .in('room_id', roomIds)
-                    .eq('meter_date', monthStart)
-
-                // 4. Get Existing Bills for this month
-                const { data: billsData } = await supabase
-                    .from('bills')
-                    .select('*')
-                    .in('room_id', roomIds)
-                    .eq('billing_month', monthStart)
-                    .neq('status', 'cancelled')
-
-                // 5. Get Lease Contracts for Rent Price
-                // Better to fetch only active contracts for these rooms
-                const { data: contractsData } = await supabase
-                    .from('lease_contracts')
-                    .select('*')
-                    .in('room_id', roomIds)
-                    .eq('status', 'active')
+                // 3–5: utilities, bills, contracts in parallel (depend only on roomIds + month)
+                const [{ data: utilsData }, { data: billsData }, { data: contractsData }] =
+                    roomIds.length === 0
+                        ? [{ data: null }, { data: null }, { data: null }]
+                        : await Promise.all([
+                              supabase
+                                  .from('utilities')
+                                  .select('*')
+                                  .in('room_id', roomIds)
+                                  .eq('meter_date', monthStart),
+                              supabase
+                                  .from('bills')
+                                  .select('*')
+                                  .in('room_id', roomIds)
+                                  .eq('billing_month', monthStart)
+                                  .neq('status', 'cancelled'),
+                              supabase
+                                  .from('lease_contracts')
+                                  .select('*')
+                                  .in('room_id', roomIds)
+                                  .eq('status', 'active'),
+                          ])
 
                 // 6. Map to UI format
                 const servicesTotal = (servicesData || []).reduce((sum: number, s: any) => sum + (Number(s.price) || 0), 0)
@@ -749,7 +753,7 @@ export default function BillingClient() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
             </div>
         )
@@ -786,36 +790,29 @@ export default function BillingClient() {
     const readyToIssueCount = filteredData.filter(d => d.status === 'ready').length
 
     return (
-        <div className="min-h-screen bg-gray-50 sm:flex sm:items-center sm:justify-center font-sans">
-            <div className="w-full sm:max-w-lg bg-white min-h-screen sm:min-h-[850px] overflow-hidden flex flex-col relative pb-32 border-gray-100 sm:border sm:rounded-[2.5rem] sm:shadow-2xl">
-
-                {/* ── HEADER ── */}
-                <header className="px-6 pt-10 pb-6 bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-gray-50">
-                    <div className="flex items-center justify-between mb-4">
-                        <button
-                            onClick={() => router.push('/dashboard')}
-                            className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 active:scale-95 transition-all"
-                        >
-                            <ChevronLeftIcon className="w-6 h-6 stroke-[2.5]" />
-                        </button>
-                        <h1 className="text-xl font-black text-gray-800 tracking-tight">สรุปยอดบิลค่าเช่า</h1>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => router.push('/dashboard/history')}
-                                className="h-10 px-3 rounded-xl bg-purple-50 flex items-center justify-center gap-1.5 text-purple-600 hover:bg-purple-100 active:scale-95 transition-all shadow-sm border border-purple-100"
-                            >
-                                <ClockIcon className="w-4 h-4 stroke-[2.5]" />
-                                <span className="text-[10px] font-black uppercase tracking-tight">ประวัติบิล</span>
-                            </button>
-                            <button
-                                onClick={() => fetchData()}
-                                className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all shadow-sm"
-                            >
-                                <ArrowPathIcon className={`w-5 h-5 stroke-[2.5] ${loading ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
-
+        <DashboardMenuPageChrome
+            title="สรุปยอดบิลค่าเช่า"
+            headerRight={
+                <>
+                    <button
+                        type="button"
+                        onClick={() => router.push('/dashboard/history')}
+                        className="h-10 px-3 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center gap-1.5 text-white border border-white/25 active:scale-95 transition-all shadow-sm"
+                    >
+                        <ClockIcon className="w-4 h-4 stroke-[2.5]" />
+                        <span className="text-[10px] font-black uppercase tracking-tight">ประวัติบิล</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => fetchData()}
+                        className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white border border-white/25 active:scale-95 transition-all shadow-sm"
+                    >
+                        <ArrowPathIcon className={`w-5 h-5 stroke-[2.5] ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </>
+            }
+        >
+                <header className="px-6 pt-4 pb-6 bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-gray-50">
                     <div className="flex items-center justify-between bg-emerald-50 rounded-2xl p-4">
                         <button
                             onClick={prevMonth}
@@ -843,7 +840,7 @@ export default function BillingClient() {
                 </header>
 
                 {/* ── FILTERS ── */}
-                <div className="px-6 py-4 bg-white border-b border-gray-50 flex flex-col gap-4 sticky top-[152px] z-20">
+                <div className="px-6 py-4 bg-white border-b border-gray-50 flex flex-col gap-4 sticky top-[120px] z-20">
                     <div className="flex flex-col gap-1.5">
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">กรองตามชั้น</span>
                         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -1417,7 +1414,6 @@ export default function BillingClient() {
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+        </DashboardMenuPageChrome>
     )
 }
