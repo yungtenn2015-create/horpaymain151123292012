@@ -83,7 +83,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 </div>
             </div>
 
-            <div className="px-5 -mt-6 relative z-20 space-y-6 pb-8">
+            <div className="px-5 -mt-20 relative z-20 space-y-6 pb-8">
                 {fetchingOverview ? (
                     <div className="bg-white rounded-[2rem] p-12 shadow-xl border border-gray-50 flex flex-col items-center justify-center gap-4">
                         <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-500 rounded-full animate-spin" />

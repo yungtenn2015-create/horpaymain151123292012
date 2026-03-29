@@ -192,8 +192,8 @@ export default function LoginPage() {
                         ลงทะเบียน — ทดลองใช้ฟรี 30 วัน
                     </button>
 
-                    <p className="mt-auto pt-8 text-center text-xs text-emerald-600">
-                        แจ้งปัญหาติดต่อ LINE ID : yungtenn2015
+                    <p className="mt-auto pt-8 text-center text-xs text-gray-500">
+                        © 2026 Horpay · ระบบจัดการหอพัก
                     </p>
                 </div>
             </div>

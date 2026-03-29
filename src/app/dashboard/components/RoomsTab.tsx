@@ -263,19 +263,19 @@ export default function RoomsTab({
                 </div>
             </div>
 
-            <div className="px-5 -mt-6 relative z-20 space-y-6 pb-8">
+            <div className="px-5 -mt-20 relative z-20 space-y-6 pb-8">
                 {/* Filters UI */}
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-xl shadow-slate-100/50 border border-gray-50 space-y-6">
+                <div className="space-y-6 rounded-[2.5rem] border-2 border-emerald-100/90 bg-gradient-to-b from-emerald-100 to-emerald-50 p-6 shadow-xl shadow-emerald-900/10">
                     {/* Floor Filter */}
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2 px-1">
-                            <div className="w-1.5 h-4 bg-green-500 rounded-full" />
-                            <p className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">เลือกชั้น</p>
+                            <div className="h-4 w-1.5 rounded-full bg-primary" />
+                            <p className="text-[11px] font-black text-emerald-950/90 uppercase tracking-[0.15em]">เลือกชั้น</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                             <button
                                 onClick={() => setSelectedFloor('all')}
-                                className={`px-6 py-3 rounded-2xl font-black text-[12px] transition-all whitespace-nowrap border-2 ${selectedFloor === 'all' ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-100/50' : 'bg-gray-50 border-transparent text-slate-500 hover:bg-white hover:border-gray-200'}`}
+                                className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
                             >
                                 ทุกชั้น
                             </button>
@@ -283,7 +283,7 @@ export default function RoomsTab({
                                 <button
                                     key={floor}
                                     onClick={() => setSelectedFloor(floor)}
-                                    className={`px-6 py-3 rounded-2xl font-black text-[12px] transition-all whitespace-nowrap border-2 ${selectedFloor === floor ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-100/50' : 'bg-gray-50 border-transparent text-slate-400 hover:bg-white hover:border-gray-200'}`}
+                                    className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
                                 >
                                     ชั้น {floor}
                                 </button>
@@ -294,22 +294,22 @@ export default function RoomsTab({
                     {/* Status Filter */}
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2 px-1">
-                            <div className="w-1.5 h-4 bg-emerald-500 rounded-full" />
-                            <p className="text-[11px] font-black text-slate-800 uppercase tracking-[0.15em]">สถานะห้อง</p>
+                            <div className="h-4 w-1.5 rounded-full bg-primary" />
+                            <p className="text-[11px] font-black text-emerald-950/90 uppercase tracking-[0.15em]">สถานะห้อง</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                             {[
-                                { id: 'all', label: 'ทั้งหมด', color: 'bg-emerald-600 border-emerald-600 shadow-emerald-100/50' },
-                                { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-100/50' },
-                                { id: 'occupied', label: 'มีคนพัก', color: 'bg-blue-600 border-blue-600 shadow-blue-100/50' },
-                                { id: 'waiting', label: 'รอชำระ', color: 'bg-sky-500 border-sky-500 shadow-sky-100/50' },
-                                { id: 'overdue', label: 'ค้างชำระ', color: 'bg-orange-500 border-orange-500 shadow-orange-100/50' },
-                                { id: 'moving_out', label: 'แจ้งออก', color: 'bg-amber-500 border-amber-500 shadow-amber-100/50' }
+                                { id: 'all', label: 'ทั้งหมด', color: 'bg-primary border-primary shadow-emerald-900/20' },
+                                { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-900/15' },
+                                { id: 'occupied', label: 'มีคนพัก', color: 'bg-blue-600 border-blue-600 shadow-blue-900/15' },
+                                { id: 'waiting', label: 'รอชำระ', color: 'bg-sky-500 border-sky-500 shadow-sky-900/15' },
+                                { id: 'overdue', label: 'ค้างชำระ', color: 'bg-orange-500 border-orange-500 shadow-orange-900/15' },
+                                { id: 'moving_out', label: 'แจ้งออก', color: 'bg-amber-500 border-amber-500 shadow-amber-900/15' }
                             ].map(status => (
                                 <button
                                     key={status.id}
                                     onClick={() => setSelectedStatus(status.id)}
-                                    className={`px-5 py-3 rounded-2xl font-black text-[12px] transition-all whitespace-nowrap border-2 ${selectedStatus === status.id ? `${status.color} text-white shadow-lg` : 'bg-gray-50 border-transparent text-slate-500 hover:bg-white hover:border-gray-200'}`}
+                                    className={`whitespace-nowrap rounded-2xl border-2 px-5 py-3 text-[12px] font-black transition-all ${selectedStatus === status.id ? `${status.color} text-white shadow-lg` : 'border-emerald-200/90 bg-white/70 text-emerald-900/75 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-emerald-950'}`}
                                 >
                                     {status.label}
                                 </button>

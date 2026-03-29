@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
+import { getSupportLineAddFriendUrl } from '@/lib/support-line-url'
 import RoomsTab from './components/RoomsTab'
 import OverviewTab from './components/OverviewTab'
 import TenantsTab from './components/TenantsTab'
@@ -158,7 +159,8 @@ export default function DashboardClient() {
     const [dormData, setDormData] = useState({
         name: '',
         address: '',
-        contact_number: ''
+        contact_number: '',
+        owner_name: ''
     })
     const [settingsData, setSettingsData] = useState({
         bank_name: '',
@@ -728,22 +730,30 @@ export default function DashboardClient() {
             return;
         }
 
-        const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Owner';
-        setUserName(name);
-        setUserInitial(name.charAt(0).toUpperCase());
+        const fallbackOwnerName = user.user_metadata?.name || user.email?.split('@')[0] || 'Owner';
+        setUserName(fallbackOwnerName);
+        setUserInitial(fallbackOwnerName.charAt(0).toUpperCase());
 
         try {
             setDbError('')
             console.log("Refreshing Dashboard Data...");
-            // 0. Get User Plan to check trial status
+            let loadedOwnerName = '';
+            // 0. Get User Plan + ชื่อเจ้าของ (users.name)
             const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('plan_type, trial_expires_at')
+                .select('plan_type, trial_expires_at, name')
                 .eq('id', user.id)
                 .single();
 
             if (!userError && userData) {
-                setUserPlan(userData);
+                setUserPlan({
+                    plan_type: userData.plan_type,
+                    trial_expires_at: userData.trial_expires_at
+                });
+                loadedOwnerName = typeof userData.name === 'string' ? userData.name.trim() : '';
+                const displayName = loadedOwnerName || fallbackOwnerName;
+                setUserName(displayName);
+                setUserInitial(displayName.charAt(0).toUpperCase());
             }
 
             // 1. Get Latest Dorm
@@ -1069,7 +1079,8 @@ export default function DashboardClient() {
                 setDormData({
                     name: currentDorm.name || '',
                     address: currentDorm.address || '',
-                    contact_number: currentDorm.contact_number || ''
+                    contact_number: currentDorm.contact_number || '',
+                    owner_name: loadedOwnerName
                 });
             }
 
@@ -1138,6 +1149,13 @@ export default function DashboardClient() {
                 address: dormData.address,
                 contact_number: dormData.contact_number
             }).eq('id', dorm.id)
+
+            const ownerFallback =
+                user.user_metadata?.name || user.email?.split('@')[0] || 'Owner';
+            const nextOwnerName = dormData.owner_name.trim() || ownerFallback;
+            await supabase.from('users').update({ name: nextOwnerName }).eq('id', user.id);
+            setUserName(nextOwnerName);
+            setUserInitial(nextOwnerName.charAt(0).toUpperCase());
 
             // 2. Update Settings
             await supabase.from('dorm_settings').update({
@@ -1525,6 +1543,7 @@ export default function DashboardClient() {
                         setActiveSettingsTab={setActiveSettingsTab}
                         setSelectedStatus={setSelectedStatus}
                         dbError={dbError}
+                        supportLineUrl={getSupportLineAddFriendUrl()}
                     />
                 )}
 

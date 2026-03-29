@@ -14,7 +14,8 @@ import {
     CheckCircleIcon,
     ArrowPathIcon,
     ChatBubbleLeftRightIcon,
-    XMarkIcon
+    XMarkIcon,
+    UserIcon
 } from '@heroicons/react/24/outline'
 
 function normalizeBillingDay(value: unknown, fallback: number): number {
@@ -38,7 +39,8 @@ export default function SettingsClient() {
     const [dormData, setDormData] = useState({
         name: '',
         address: '',
-        contact_number: ''
+        contact_number: '',
+        owner_name: ''
     })
     
     const [settingsData, setSettingsData] = useState<{
@@ -73,6 +75,14 @@ export default function SettingsClient() {
                     return
                 }
 
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('name')
+                    .eq('id', user.id)
+                    .maybeSingle()
+                const ownerNameFromDb =
+                    typeof profile?.name === 'string' ? profile.name.trim() : ''
+
                 // Get Dorm (Assume one for now)
                 const { data: dorms } = await supabase
                     .from('dorms')
@@ -87,7 +97,8 @@ export default function SettingsClient() {
                     setDormData({
                         name: dorm.name || '',
                         address: dorm.address || '',
-                        contact_number: dorm.contact_number || ''
+                        contact_number: dorm.contact_number || '',
+                        owner_name: ownerNameFromDb
                     })
 
                     // Get Settings
@@ -157,6 +168,13 @@ export default function SettingsClient() {
                     address: dormData.address,
                     contact_number: dormData.contact_number
                 }).eq('id', dormId)
+
+                const ownerFallback =
+                    user.user_metadata?.name || user.email?.split('@')[0] || 'Owner'
+                await supabase
+                    .from('users')
+                    .update({ name: dormData.owner_name.trim() || ownerFallback })
+                    .eq('id', user.id)
 
                 // 2. Update Settings
                 await supabase.from('dorm_settings').update({
@@ -247,16 +265,21 @@ export default function SettingsClient() {
                         </div>
 
                         <div>
-                            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">ที่อยู่หอพัก</label>
+                            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">ชื่อเจ้าของหอ</label>
                             <div className="relative group">
-                                <MapPinIcon className="absolute left-4 top-5 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
-                                <textarea 
-                                    rows={3}
-                                    maxLength={100}
-                                    value={dormData.address}
-                                    onChange={(e) => setDormData({...dormData, address: e.target.value.slice(0, 100)})}
-                                    placeholder="เลขที่, ซอย, ถนน, แขวง/ตำบล..."
-                                    className="w-full bg-gray-50 border-none rounded-2xl pl-12 pr-4 pt-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none"
+                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
+                                <input
+                                    type="text"
+                                    maxLength={80}
+                                    value={dormData.owner_name}
+                                    onChange={(e) =>
+                                        setDormData({
+                                            ...dormData,
+                                            owner_name: e.target.value.slice(0, 80)
+                                        })
+                                    }
+                                    placeholder="ชื่อ-นามสกุลเจ้าของหอ"
+                                    className="w-full h-14 bg-gray-50 border-none rounded-2xl pl-12 pr-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                                 />
                             </div>
                         </div>
@@ -275,6 +298,21 @@ export default function SettingsClient() {
                                     }}
                                     placeholder="เช่น 0812345678"
                                     className="w-full h-14 bg-gray-50 border-none rounded-2xl pl-12 pr-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">ที่อยู่หอพัก</label>
+                            <div className="relative group">
+                                <MapPinIcon className="absolute left-4 top-5 w-5 h-5 text-gray-300 group-focus-within:text-indigo-500 transition-colors" />
+                                <textarea 
+                                    rows={3}
+                                    maxLength={100}
+                                    value={dormData.address}
+                                    onChange={(e) => setDormData({...dormData, address: e.target.value.slice(0, 100)})}
+                                    placeholder="เลขที่, ซอย, ถนน, แขวง/ตำบล..."
+                                    className="w-full bg-gray-50 border-none rounded-2xl pl-12 pr-4 pt-4 text-gray-800 font-bold placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none"
                                 />
                             </div>
                         </div>

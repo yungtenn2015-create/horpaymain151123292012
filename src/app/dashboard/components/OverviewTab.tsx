@@ -87,6 +87,8 @@ interface OverviewTabProps {
     setActiveSettingsTab: (tab: string) => void;
     setSelectedStatus: (status: string) => void;
     dbError: string | null;
+    /** ลิงก์เปิด LINE / แอดเพื่อน (สร้างจาก lib/support-line-url) */
+    supportLineUrl: string;
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -112,7 +114,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     setIsChangePasswordOpen,
     setActiveSettingsTab,
     setSelectedStatus,
-    dbError
+    dbError,
+    supportLineUrl
 }) => {
     const [trialNow, setTrialNow] = React.useState(() => new Date());
     const notifTriggerRef = React.useRef<HTMLButtonElement>(null);
@@ -387,9 +390,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                             ref={menuPanelRef}
                                             className="absolute right-0 top-full mt-4 w-[260px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right"
                                         >
-                                            <div className="px-6 py-6 bg-gradient-to-b from-gray-50/80 to-white border-b border-gray-100">
-                                                <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5 leading-none">แจ้งปัญหาติดต่อ</p>
-                                                <p className="text-[14px] font-black text-gray-800 tracking-tight leading-none truncate">Line : yungtenn2015</p>
+                                            <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/80 to-white px-6 py-5">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0 flex-1 pr-1">
+                                                        <p className="text-[13px] font-black leading-snug tracking-tight text-gray-600 sm:text-[13px]">
+                                                            อ่านคู่มือและแจ้งปัญหาติดต่อ
+                                                        </p>
+                                                    </div>
+                                                    <a
+                                                        href={supportLineUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#06C755] px-3.5 py-2.5 text-[11px] font-black text-white shadow-md shadow-emerald-900/20 transition-all hover:brightness-105 active:scale-[0.98]"
+                                                        onClick={() => setIsMenuOpen(false)}
+                                                    >
+                                                        <ChatBubbleLeftRightIcon className="h-4 w-4 stroke-[2.5]" />
+                                                        Add LINE
+                                                    </a>
+                                                </div>
                                             </div>
                                             <div className="p-2.5 space-y-1">
                                                 <button onClick={() => { setIsMenuOpen(false); setActiveTab('settings'); setActiveSettingsTab('dorm'); }} className="w-full flex items-center gap-4 px-4 py-4 text-left text-gray-700 hover:bg-green-50 rounded-2xl transition-all font-bold text-[14.5px] group">

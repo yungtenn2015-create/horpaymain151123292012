@@ -18,7 +18,8 @@ import {
     BoltIcon,
     Squares2X2Icon,
     KeyIcon,
-    XMarkIcon
+    XMarkIcon,
+    UserIcon
 } from '@heroicons/react/24/outline'
 
 import {
@@ -38,6 +39,7 @@ interface SettingsTabProps {
         name: string
         address: string
         contact_number: string
+        owner_name: string
     }
     setDormData: (data: any) => void
     settingsData: {
@@ -236,7 +238,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="mb-8">
                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black ${isDormSection ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                     {isDormSection ? <BuildingOfficeIcon className="w-4 h-4" /> : <ChatBubbleLeftRightIcon className="w-4 h-4" />}
-                    {isDormSection ? 'โหมด: ข้อมูลหอพัก' : 'โหมด: การเชื่อมต่อ LINE ติดตรงไหน Add LINE ID: yungtenn2015'}
+                    {isDormSection ? 'โหมด: ข้อมูลหอพัก' : 'โหมด: การเชื่อมต่อ LINE '}
                 </div>
             </div>
 
@@ -270,17 +272,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ที่อยู่หอพัก</label>
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ชื่อเจ้าของหอ</label>
                                     <div className="relative group">
-                                        <div className="absolute left-4 top-4 text-gray-300 group-focus-within:text-green-500 transition-colors">
-                                            <MapPinIcon className="w-5 h-5" />
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-green-500 transition-colors">
+                                            <UserIcon className="w-5 h-5" />
                                         </div>
-                                        <textarea
-                                            rows={3}
-                                            value={dormData.address}
-                                            onChange={(e) => setDormData({ ...dormData, address: e.target.value })}
-                                            className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 py-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none resize-none shadow-sm"
-                                            placeholder="ระบุที่อยู่..."
+                                        <input
+                                            type="text"
+                                            value={dormData.owner_name}
+                                            onChange={(e) => setDormData({ ...dormData, owner_name: e.target.value })}
+                                            className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none shadow-sm"
+                                            placeholder="ชื่อ-นามสกุลเจ้าของหอ..."
                                         />
                                     </div>
                                 </div>
@@ -297,6 +299,22 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             onChange={(e) => setDormData({ ...dormData, contact_number: e.target.value })}
                                             className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none shadow-sm"
                                             placeholder="08X-XXX-XXXX"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ที่อยู่หอพัก</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-4 text-gray-300 group-focus-within:text-green-500 transition-colors">
+                                            <MapPinIcon className="w-5 h-5" />
+                                        </div>
+                                        <textarea
+                                            rows={3}
+                                            value={dormData.address}
+                                            onChange={(e) => setDormData({ ...dormData, address: e.target.value })}
+                                            className="w-full bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 py-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none resize-none shadow-sm"
+                                            placeholder="ระบุที่อยู่..."
                                         />
                                     </div>
                                 </div>

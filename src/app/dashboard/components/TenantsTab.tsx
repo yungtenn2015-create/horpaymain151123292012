@@ -105,40 +105,42 @@ export default function TenantsTab({
                     <div className="mb-4 space-y-4">
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+                                <MagnifyingGlassIcon className="h-5 w-5 text-emerald-600/70 group-focus-within:text-primary transition-colors" />
                             </div>
                             <input
                                 type="text"
                                 value={contractSearchQuery}
                                 onChange={(e) => setContractSearchQuery(e.target.value)}
-                                className="w-full h-14 bg-white border-2 border-gray-100 rounded-2xl pl-12 pr-4 font-bold text-gray-900 focus:border-green-500 focus:bg-white transition-all outline-none shadow-sm"
+                                className="w-full h-14 rounded-2xl border-2 border-emerald-200 bg-white pl-12 pr-4 font-bold text-gray-900 shadow-md shadow-emerald-900/10 outline-none transition-all placeholder:text-gray-500 focus:border-primary focus:shadow-lg focus:shadow-emerald-900/15 focus:ring-2 focus:ring-primary/20"
                                 placeholder="ค้นหาตาม ชื่อ, เบอร์โทรศัพท์ หรือ ห้อง..."
                             />
                         </div>
 
                         {/* Category Tabs */}
-                        <div className="bg-gray-50 p-1.5 rounded-[2rem] flex gap-1 border border-gray-100/50 shadow-inner">
-                            <button
-                                onClick={() => setContractTab('active')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'active' ? 'bg-white text-blue-600 shadow-md ring-1 ring-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                <UsersIcon className="w-4 h-4" />
-                                กำลังเข้าพัก
-                            </button>
-                            <button
-                                onClick={() => setContractTab('pending')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'pending' ? 'bg-white text-green-600 shadow-md ring-1 ring-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                <PlusIcon className="w-4 h-4" />
-                                สัญญาใหม่
-                            </button>
-                            <button
-                                onClick={() => setContractTab('old')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'old' ? 'bg-white text-green-600 shadow-md ring-1 ring-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                <ClockIcon className="w-4 h-4" />
-                                สัญญาเก่า
-                            </button>
+                        <div className="rounded-[2rem] border-2 border-emerald-200 bg-white p-1.5 shadow-md shadow-emerald-900/10">
+                            <div className="flex gap-1 rounded-[1.75rem] bg-emerald-100 p-1">
+                                <button
+                                    onClick={() => setContractTab('active')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'active' ? 'bg-white text-blue-600 shadow-md ring-1 ring-emerald-300/80 shadow-emerald-900/10' : 'text-emerald-900/55 hover:bg-white/70 hover:text-emerald-900'}`}
+                                >
+                                    <UsersIcon className="w-4 h-4" />
+                                    กำลังเข้าพัก
+                                </button>
+                                <button
+                                    onClick={() => setContractTab('pending')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'pending' ? 'bg-white text-blue-600 shadow-md ring-1 ring-emerald-300/80 shadow-emerald-900/10' : 'text-emerald-900/55 hover:bg-white/70 hover:text-emerald-900'}`}
+                                >
+                                    <PlusIcon className="w-4 h-4" />
+                                    สัญญาใหม่
+                                </button>
+                                <button
+                                    onClick={() => setContractTab('old')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[1.5rem] font-black text-[13px] transition-all duration-300 ${contractTab === 'old' ? 'bg-white text-blue-600 shadow-md ring-1 ring-emerald-300/80 shadow-emerald-900/10' : 'text-emerald-900/55 hover:bg-white/70 hover:text-emerald-900'}`}
+                                >
+                                    <ClockIcon className="w-4 h-4" />
+                                    สัญญาเก่า
+                                </button>
+                            </div>
                         </div>
                     </div>
 
