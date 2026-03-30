@@ -352,6 +352,12 @@ export default function BillingClient() {
     const [confirmVerify, setConfirmVerify] = useState<any | null>(null)
     const [confirmRevert, setConfirmRevert] = useState<any | null>(null)
     const [confirmIssueAll, setConfirmIssueAll] = useState<any[] | null>(null)
+    /** ผลลัพธ์ออกบิลทั้งหมด — ใช้โมดอลธีมแอป แทน window.alert */
+    const [issueAllSummaryModal, setIssueAllSummaryModal] = useState<null | {
+        variant: 'success' | 'warning'
+        title: string
+        lines: string[]
+    }>(null)
 
     const handleVerifyPayment = async (item: any) => {
         if (verifying || !item.billId) return
@@ -813,7 +819,11 @@ export default function BillingClient() {
         setIssuing(null)
 
         if (hardFailedRooms.length === 0 && lineFailedRooms.length === 0) {
-            alert(`ออกบิลทั้งหมดสำเร็จ ${roomsToIssue.length} ห้อง และส่ง LINE เรียบร้อย`)
+            setIssueAllSummaryModal({
+                variant: 'success',
+                title: 'ออกบิลทั้งหมดสำเร็จ',
+                lines: [`ออกบิลครบ ${roomsToIssue.length} ห้อง และส่ง LINE เรียบร้อย`],
+            })
             return
         }
 
@@ -825,7 +835,11 @@ export default function BillingClient() {
             lines.push(`ออกบิลสำเร็จแต่ส่ง LINE ไม่สำเร็จ: ห้อง ${lineFailedRooms.join(', ')}`)
             lines.push('คุณสามารถกดปุ่มส่ง LINE ซ้ำรายห้องได้')
         }
-        alert(lines.join('\n\n'))
+        setIssueAllSummaryModal({
+            variant: 'warning',
+            title: 'ออกบิลทั้งหมดเสร็จแล้ว (มีบางรายการต้องตรวจ)',
+            lines,
+        })
     }
 
     if (loading) {
@@ -1455,6 +1469,49 @@ export default function BillingClient() {
                                     className="flex-1 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-lg shadow-emerald-100 active:scale-95 transition-all font-noto"
                                 >
                                     ยืนยันออกบิล
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Issue-all result (themed, ไม่ใช้ browser alert) ── */}
+                {issueAllSummaryModal && (
+                    <div className="fixed inset-0 z-[115] flex items-center justify-center p-6">
+                        <div
+                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300"
+                            onClick={() => setIssueAllSummaryModal(null)}
+                            aria-hidden
+                        />
+                        <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-emerald-100/80 bg-white shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div
+                                className={`px-8 pb-6 pt-8 text-center ${issueAllSummaryModal.variant === 'success' ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-amber-500 to-orange-600'}`}
+                            >
+                                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
+                                    {issueAllSummaryModal.variant === 'success' ? (
+                                        <CheckCircleIcon className="h-9 w-9 text-white" />
+                                    ) : (
+                                        <ExclamationTriangleIcon className="h-9 w-9 text-white" />
+                                    )}
+                                </div>
+                                <h3 className="font-noto text-xl font-black text-white drop-shadow-sm">
+                                    {issueAllSummaryModal.title}
+                                </h3>
+                            </div>
+                            <div className="space-y-3 border-b border-gray-100 bg-white px-6 py-5">
+                                {issueAllSummaryModal.lines.map((line, i) => (
+                                    <p key={i} className="font-noto text-sm font-bold leading-relaxed text-gray-600">
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                            <div className="bg-gray-50 p-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setIssueAllSummaryModal(null)}
+                                    className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 py-4 font-noto text-lg font-black text-white shadow-lg shadow-emerald-200/50 transition-all active:scale-[0.98] hover:from-emerald-700 hover:to-teal-600"
+                                >
+                                    ตกลง
                                 </button>
                             </div>
                         </div>
