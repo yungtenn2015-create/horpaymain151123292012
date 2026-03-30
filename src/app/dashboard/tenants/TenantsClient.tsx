@@ -277,7 +277,7 @@ export default function TenantsClient() {
                                         <span className="text-3xl font-black text-white leading-none">{selectedTenant.rooms.room_number}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h2 className="text-2xl font-black text-white leading-tight truncate drop-shadow-sm">{selectedTenant.name}</h2>
+                                        <h2 className="text-xl font-black text-white leading-tight truncate drop-shadow-sm">{selectedTenant.name}</h2>
                                         <div className="flex flex-wrap gap-2 mt-2">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${selectedTenant.planned_move_out_date ? 'bg-amber-500' : 'bg-sky-500'} text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md transition-colors`}>
                                                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -297,7 +297,7 @@ export default function TenantsClient() {
                             </div>
 
                             {/* Modal Content - Scrollable */}
-                            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 bg-white relative z-20 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 bg-white relative z-20 custom-scrollbar pb-dashboard-nav">
                                 {/* 1. ข้อมูลพื้นฐาน (Basic Info) */}
                                 <div className="space-y-6">
                                     <h3 className="text-[11px] font-black text-primary flex items-center gap-2 uppercase tracking-[0.2em] opacity-90">
@@ -437,15 +437,6 @@ export default function TenantsClient() {
                                 </div>
                             </div>
 
-                            {/* Modal Footer */}
-                            <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 shrink-0 flex flex-col gap-3">
-                                <button
-                                    onClick={() => setSelectedTenant(null)}
-                                    className="w-full bg-primary text-white font-black py-4 rounded-2xl transition-all active:scale-95 shadow-xl shadow-emerald-500/25 hover:brightness-105 text-lg"
-                                >
-                                    ปิดหน้าต่าง
-                                </button>
-                            </div>
                         </div>
                     </div>
                 )}

@@ -3,6 +3,17 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+  const n = (tenantName ?? '').trim();
+  if (!n) return 'ผู้เช่า';
+  if (n.startsWith('คุณ')) {
+    const rest = n.replace(/^คุณ\s*/, '');
+    return rest ? `คุณ${rest}` : 'คุณ';
+  }
+  if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ', '-'].includes(n)) return n;
+  return `คุณ${n}`;
+}
+
 // Initialize Supabase Admin (since webhook needs to bypass RLS to write line_user_id)
 export async function POST(req: Request) {
   const supabaseAdmin = createClient(
@@ -411,7 +422,7 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
                       contents: [
                         {
                           type: 'text',
-                          text: `ยินดีต้อนรับคุณ ${tenant.name}`,
+                          text: `ยินดีต้อนรับคุณ${tenant.name}`,
                           wrap: true,
                           weight: 'bold'
                         },
@@ -668,7 +679,7 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
 
           const ownerFlex = {
             type: 'flex',
-            altText: `ตรวจสลิป ห้อง ${roomNumber} (${tenant.name || 'ผู้เช่า'})`,
+            altText: `ตรวจสลิป ห้อง ${roomNumber} (${formatTenantNameWithPrefix(tenant.name || 'ผู้เช่า')})`,
             contents: {
               type: 'bubble',
               header: {
@@ -687,7 +698,7 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
                 paddingAll: '18px',
                 spacing: 'md',
                 contents: [
-                  { type: 'text', text: tenant.name || 'ผู้เช่า', size: 'md', weight: 'bold', color: '#111827' },
+                  { type: 'text', text: formatTenantNameWithPrefix(tenant.name || 'ผู้เช่า'), size: 'md', weight: 'bold', color: '#111827' },
                   { type: 'text', text: `รอบบิล: ${billingMonth}`, size: 'sm', color: '#6B7280' },
                   {
                     type: 'box',
@@ -848,7 +859,7 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
             // so we push a simple confirmation flex directly.
             const totalAmount = Number((bill as any).total_amount) || 0
             const roomNumber = (bill as any).rooms?.room_number || '-'
-            const tenantName = (bill as any).tenants?.name || 'ผู้เช่า'
+            const tenantName = formatTenantNameWithPrefix((bill as any).tenants?.name || 'ผู้เช่า')
             const billingMonth = (bill as any).billing_month
               ? new Date((bill as any).billing_month).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
               : '-'

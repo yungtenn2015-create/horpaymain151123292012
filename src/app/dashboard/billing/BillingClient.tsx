@@ -1432,7 +1432,7 @@ export default function BillingClient() {
                             </button>
                         </div>
 
-                        <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-10">
+                        <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-dashboard-nav">
                             <div className="max-w-xl mx-auto relative">
                                 {/* Close button for desktop */}
                                 <button
@@ -1449,14 +1449,6 @@ export default function BillingClient() {
                                         </p>
                                     </div>
                                     <ReceiptView data={previewData} />
-                                    <div className="p-6 bg-gray-50 text-center flex justify-center">
-                                        <button
-                                            onClick={() => setShowPreview(false)}
-                                            className="px-10 py-4 bg-gray-900 text-white rounded-2xl font-black shadow-xl active:scale-95 transition-all"
-                                        >
-                                            ปิดหน้าต่าง
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         </div>

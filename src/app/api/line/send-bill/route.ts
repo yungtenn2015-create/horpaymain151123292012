@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { formatMeterScheduleLine } from '@/lib/meter-schedule';
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+  const n = (tenantName ?? '').trim()
+  if (!n) return 'ผู้เช่า'
+  if (n === '-' ) return '-'
+  if (n.startsWith('คุณ')) {
+    const rest = n.replace(/^คุณ\s*/, '')
+    return rest ? `คุณ${rest}` : 'คุณ'
+  }
+  if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ'].includes(n)) return n
+  return `คุณ${n}`
+}
+
 export async function POST(req: Request) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -225,7 +237,7 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
               },
               {
                 type: "text",
-                text: bill.tenants?.name || '-',
+                    text: formatTenantNameWithPrefix(bill.tenants?.name || '-'),
                 color: "#111827",
                 weight: "bold",
                 size: "sm",

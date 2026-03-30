@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+  const n = (tenantName ?? '').trim();
+  if (!n) return 'ผู้เช่า';
+  if (n.startsWith('คุณ')) {
+    const rest = n.replace(/^คุณ\s*/, '');
+    return rest ? `คุณ${rest}` : 'คุณ';
+  }
+  if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ'].includes(n)) return n;
+  return `คุณ${n}`;
+}
+
 export async function POST(req: Request) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,7 +123,7 @@ function createConfirmFlexMessage(bill: any, dormName: string) {
         contents: [
           {
             type: "text",
-            text: bill.tenants?.name || 'ผู้เช่า',
+            text: formatTenantNameWithPrefix(bill.tenants?.name || 'ผู้เช่า'),
             weight: "bold",
             size: "xl",
             color: "#111827",

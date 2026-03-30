@@ -27,6 +27,22 @@ export function bahtText(amount: number): string {
     return `${isNegative ? 'ติดลบ' : ''}${res}บาทถ้วน`
 }
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+    const n = (tenantName ?? '').trim()
+    if (!n) return 'ผู้เช่า'
+
+    // Avoid double prefix and ensure no space: `คุณสมชาย`
+    if (n.startsWith('คุณ')) {
+        const rest = n.replace(/^คุณ\s*/, '')
+        return rest ? `คุณ${rest}` : 'คุณ'
+    }
+
+    // Keep placeholders as-is.
+    if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ', '-'].includes(n)) return n
+
+    return `คุณ${n}`
+}
+
 interface ReceiptViewProps {
     data: {
         receiptId: string;
@@ -101,7 +117,7 @@ const ReceiptView = forwardRef<HTMLDivElement, ReceiptViewProps>(({ data, slipUr
                 {/* Tenant Name */}
                 <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
                     <span className="text-gray-500 font-bold">ชื่อผู้เช่า</span>
-                    <span className="text-gray-900 font-black text-lg">{data.tenantName}</span>
+                    <span className="text-gray-900 font-black text-lg">{formatTenantNameWithPrefix(data.tenantName)}</span>
                 </div>
 
                 {/* Items Breakdown */}

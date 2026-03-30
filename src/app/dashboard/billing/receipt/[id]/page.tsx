@@ -41,6 +41,17 @@ function bahtText(amount: number): string {
     return res + 'บาทถ้วน'
 }
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+    const n = (tenantName ?? '').trim()
+    if (!n) return 'ผู้เช่า'
+    if (n.startsWith('คุณ')) {
+        const rest = n.replace(/^คุณ\s*/, '')
+        return rest ? `คุณ${rest}` : 'คุณ'
+    }
+    if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ', '-'].includes(n)) return n
+    return `คุณ${n}`
+}
+
 export default function ReceiptPage() {
     const router = useRouter()
     const params = useParams()
@@ -268,7 +279,7 @@ export default function ReceiptPage() {
 
     const handleShareLine = () => {
         if (!data) return
-        const message = `📋 สรุปยอดบิลค่าเช่า ${data.month}\n🏠 ห้อง: ${data.roomNumber}\n👤 ผู้เช่า: ${data.tenantName}\n------------------\n💰 ยอดรวมทั้งสิ้น: ฿${data.total.toLocaleString()}\n------------------\n🏦 โอนเข้า: ${data.bankName}\n🔢 เลขบัญชี: ${data.bankNo}\n👤 ชื่อบัญชี: ${data.bankAccount}\n------------------\n🙏 ขอบคุณครับ/ค่ะ`
+        const message = `📋 สรุปยอดบิลค่าเช่า ${data.month}\n🏠 ห้อง: ${data.roomNumber}\n👤 ผู้เช่า: ${formatTenantNameWithPrefix(data.tenantName)}\n------------------\n💰 ยอดรวมทั้งสิ้น: ฿${data.total.toLocaleString()}\n------------------\n🏦 โอนเข้า: ${data.bankName}\n🔢 เลขบัญชี: ${data.bankNo}\n👤 ชื่อบัญชี: ${data.bankAccount}\n------------------\n🙏 ขอบคุณครับ/ค่ะ`
         const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`
         window.open(lineUrl, '_blank')
     }

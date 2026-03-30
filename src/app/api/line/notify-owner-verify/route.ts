@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+function formatTenantNameWithPrefix(tenantName?: string): string {
+  const n = (tenantName ?? '').trim()
+  if (!n) return 'ผู้เช่า'
+  if (n.startsWith('คุณ')) {
+    const rest = n.replace(/^คุณ\s*/, '')
+    return rest ? `คุณ${rest}` : 'คุณ'
+  }
+  if (['ผู้เช่า', 'ผู้เช่าพัก', 'ไม่ระบุชื่อ'].includes(n)) return n
+  if (n === '-') return '-'
+  return `คุณ${n}`
+}
+
 export async function POST(req: Request) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +33,7 @@ export async function POST(req: Request) {
 
     const dormId = (bill as any).rooms?.dorm_id
     const roomNumber = (bill as any).rooms?.room_number || '-'
-    const tenantName = (bill as any).tenants?.name || 'ผู้เช่า'
+    const tenantName = formatTenantNameWithPrefix((bill as any).tenants?.name || 'ผู้เช่า')
 
     const { data: cfg } = await supabaseAdmin
       .from('line_oa_configs')
