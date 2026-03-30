@@ -506,7 +506,9 @@ export default function BillingClient() {
                                 `(ยอดในบิลจะถูกอัปเดตเป็นตัวเลขใหม่)`,
                             ].join('\n')
                         )
-                        if (!ok) return
+                        if (!ok) {
+                            return { ok: false, lineFailed: false, message: 'ผู้ใช้ยกเลิกการอัปเดตยอดบิล' }
+                        }
                     }
 
                     const reopenPatch: Record<string, string | number | null> = {
