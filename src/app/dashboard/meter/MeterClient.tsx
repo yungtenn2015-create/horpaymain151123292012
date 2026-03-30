@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { format } from 'date-fns'
@@ -23,6 +23,7 @@ interface Room {
 }
 
 type ViewMode = 'all' | 'floor' | 'single';
+type MeterRecordFilter = 'all' | 'recorded' | 'pending'
 
 export default function MeterClient() {
     const router = useRouter()
@@ -57,12 +58,15 @@ export default function MeterClient() {
     const [rooms, setRooms] = useState<Room[]>([])
     const [prevReadings, setPrevReadings] = useState<Record<string, { water: string, electric: string, isInitial: boolean }>>({})
     const [roomsWithBills, setRoomsWithBills] = useState<Record<string, boolean>>({})
+    /** มีแถว utilities สำหรับเดือนที่เลือก + ผู้เช่าคนปัจจุบัน (บันทึกจดมิเตอร์แล้ว) */
+    const [roomsMeterSavedMap, setRoomsMeterSavedMap] = useState<Record<string, boolean>>({})
     const [meterInputs, setMeterInputs] = useState<Record<string, { currWater: string, currElectric: string }>>({})
 
     type UtilityFilter = 'all' | 'electric' | 'water'
     const [utilityFilter, setUtilityFilter] = useState<UtilityFilter>('all')
 
     const [viewMode, setViewMode] = useState<ViewMode>('all')
+    const [meterRecordFilter, setMeterRecordFilter] = useState<MeterRecordFilter>('all')
     const [selectedFloor, setSelectedFloor] = useState<string>('')
     const [selectedRoomId, setSelectedRoomId] = useState<string>('')
     const [inlineSuccess, setInlineSuccess] = useState<boolean>(false)
@@ -142,6 +146,7 @@ export default function MeterClient() {
                     setPrevReadings({})
                     setMeterInputs({})
                     setRoomsWithBills({})
+                    setRoomsMeterSavedMap({})
                     setSelectedRoomId('')
                     setSelectedFloor('')
                 } else {
@@ -188,6 +193,7 @@ export default function MeterClient() {
 
                         const latestPrev: Record<string, { water: string, electric: string, isInitial: boolean }> = {}
                         const existingInputs: Record<string, { currWater: string, currElectric: string }> = {}
+                        const meterSavedMap: Record<string, boolean> = {}
 
                         roomsData.forEach((r: any) => {
                             const activeTenant = (r.tenants as any[])?.find(t => t.status === 'active')
@@ -195,6 +201,7 @@ export default function MeterClient() {
 
                             // Find current and previous records specifically for THIS tenant
                             const currRec = roomUtils.find((u: any) => u.meter_date.startsWith(selectedMonth) && u.tenant_id === activeTenant?.id)
+                            meterSavedMap[r.id] = Boolean(currRec)
 
                             const [yearNum, monthNum] = selectedMonth.split('-').map(Number)
                             const prevDate = new Date(yearNum, monthNum - 2, 1)
@@ -237,6 +244,7 @@ export default function MeterClient() {
 
                         setPrevReadings(latestPrev)
                         setMeterInputs(existingInputs)
+                        setRoomsMeterSavedMap(meterSavedMap)
                     }
                 }
             }
@@ -247,13 +255,48 @@ export default function MeterClient() {
         }
     }
 
-    const uniqueFloors = Array.from(new Set(rooms.map((r: Room) => r.floor))).sort()
-    const displayedRooms = rooms.filter((r: Room) => {
-        if (viewMode === 'all') return true
-        if (viewMode === 'floor') return r.floor === selectedFloor
-        if (viewMode === 'single') return r.id === selectedRoomId
-        return true
-    })
+    const roomsMatchingRecordFilter = useMemo(() => {
+        return rooms.filter((r) => {
+            if (meterRecordFilter === 'recorded') return !!roomsMeterSavedMap[r.id]
+            if (meterRecordFilter === 'pending') return !roomsMeterSavedMap[r.id]
+            return true
+        })
+    }, [rooms, roomsMeterSavedMap, meterRecordFilter])
+
+    const uniqueFloors = useMemo(
+        () => Array.from(new Set(roomsMatchingRecordFilter.map((r: Room) => r.floor))).sort(),
+        [roomsMatchingRecordFilter]
+    )
+
+    const displayedRooms = useMemo(() => {
+        return roomsMatchingRecordFilter.filter((r: Room) => {
+            if (viewMode === 'all') return true
+            if (viewMode === 'floor') return r.floor === selectedFloor
+            if (viewMode === 'single') return r.id === selectedRoomId
+            return true
+        })
+    }, [roomsMatchingRecordFilter, viewMode, selectedFloor, selectedRoomId])
+
+    useEffect(() => {
+        if (viewMode !== 'single') return
+        if (roomsMatchingRecordFilter.length === 0) {
+            setSelectedRoomId('')
+            return
+        }
+        if (!roomsMatchingRecordFilter.some((r) => r.id === selectedRoomId)) {
+            const first = roomsMatchingRecordFilter[0]
+            setSelectedRoomId(first.id)
+            setSelectedFloor(String(first.floor))
+        }
+    }, [viewMode, meterRecordFilter, roomsMatchingRecordFilter, selectedRoomId])
+
+    useEffect(() => {
+        if (viewMode !== 'floor') return
+        if (uniqueFloors.length === 0) return
+        if (!uniqueFloors.includes(selectedFloor)) {
+            setSelectedFloor(String(uniqueFloors[0]))
+        }
+    }, [viewMode, uniqueFloors, selectedFloor])
 
     const handleInput = (roomId: string, type: 'water' | 'electric', value: string) => {
         if (roomsWithBills[roomId]) return
@@ -504,15 +547,40 @@ export default function MeterClient() {
                             </div>
                         </div>
 
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700/80 px-1">สถานะการจดมิเตอร์ (รอบเดือนนี้)</span>
+                            <div className="flex bg-white/80 p-1.5 rounded-[1.5rem] border border-emerald-100 shadow-sm">
+                                {([
+                                    { id: 'all' as const, label: 'ทั้งหมด' },
+                                    { id: 'pending' as const, label: 'ยังไม่จด' },
+                                    { id: 'recorded' as const, label: 'จดแล้ว' },
+                                ]).map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => setMeterRecordFilter(item.id)}
+                                        className={`flex-1 py-2.5 text-[11px] sm:text-[12px] font-black rounded-xl transition-all
+                                            ${meterRecordFilter === item.id
+                                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
+                                                : 'text-emerald-700 hover:bg-emerald-50'}`}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div className="flex bg-emerald-50/50 p-1.5 rounded-[1.5rem] border border-emerald-100">
                             <button
-                                onClick={() => setViewMode('single')}
+                                type="button"
+                                onClick={() => setViewMode('all')}
                                 className={`flex-1 py-3 text-[12px] font-black rounded-xl transition-all flex items-center justify-center gap-1.5
-                                    ${viewMode === 'single' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'text-emerald-600 hover:bg-emerald-100'}`}
+                                    ${viewMode === 'all' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'text-emerald-600 hover:bg-emerald-100'}`}
                             >
-                                ทีละห้อง
+                                ทุกห้อง
                             </button>
                             <button
+                                type="button"
                                 onClick={() => setViewMode('floor')}
                                 className={`flex-1 py-3 text-[12px] font-black rounded-xl transition-all flex items-center justify-center gap-1.5
                                     ${viewMode === 'floor' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'text-emerald-600 hover:bg-emerald-100'}`}
@@ -520,19 +588,20 @@ export default function MeterClient() {
                                 ทีละชั้น
                             </button>
                             <button
-                                onClick={() => setViewMode('all')}
+                                type="button"
+                                onClick={() => setViewMode('single')}
                                 className={`flex-1 py-3 text-[12px] font-black rounded-xl transition-all flex items-center justify-center gap-1.5
-                                    ${viewMode === 'all' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'text-emerald-600 hover:bg-emerald-100'}`}
+                                    ${viewMode === 'single' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'text-emerald-600 hover:bg-emerald-100'}`}
                             >
-                                ทุกห้อง
+                                ทีละห้อง
                             </button>
                         </div>
 
                         <div className="flex gap-2 bg-emerald-50/50 p-1.5 rounded-[1.5rem] border border-emerald-100">
                             {[
                                 { id: 'all', label: 'จดทั้งหมด' },
-                                { id: 'electric', label: 'เฉพาะไฟ' },
-                                { id: 'water', label: 'เฉพาะน้ำ' }
+                                { id: 'electric', label: '⚡ เฉพาะไฟ' },
+                                { id: 'water', label: '💧 เฉพาะน้ำ' }
                             ].map((item) => (
                                 <button
                                     key={item.id}
@@ -574,7 +643,7 @@ export default function MeterClient() {
                                     <>
                                         <div className="fixed inset-0 z-10" onClick={() => setIsRoomDropdownOpen(false)} />
                                         <div className="absolute z-20 mt-2 w-full bg-white border border-gray-100 rounded-[1.2rem] shadow-[0_10px_40px_rgb(0,0,0,0.08)] max-h-64 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-2">
-                                            {rooms.map(r => (
+                                            {roomsMatchingRecordFilter.map(r => (
                                                 <button
                                                     key={r.id}
                                                     onClick={() => {
@@ -616,8 +685,14 @@ export default function MeterClient() {
 
                         <div className="space-y-4">
                             {displayedRooms.length === 0 ? (
-                                <div className="text-center py-10 text-gray-400 text-sm font-bold bg-white border border-dashed border-gray-200 rounded-3xl">
-                                    ไม่พบรายชื่อห้อง
+                                <div className="text-center py-10 text-gray-400 text-sm font-bold bg-white border border-dashed border-gray-200 rounded-3xl px-4 leading-relaxed">
+                                    {rooms.length === 0
+                                        ? 'ไม่มีห้องที่มีผู้เช่าในขณะนี้'
+                                        : meterRecordFilter === 'recorded'
+                                            ? 'ไม่มีห้องที่บันทึกมิเตอร์รอบเดือนนี้ในระบบแล้ว'
+                                            : meterRecordFilter === 'pending'
+                                                ? 'ไม่มีห้องที่ยังไม่จดมิเตอร์รอบเดือนนี้ (คัดจากห้องที่กรองแล้ว)'
+                                                : 'ไม่พบรายชื่อห้อง'}
                                 </div>
                             ) : (
                                 displayedRooms.map(room => {
@@ -644,10 +719,19 @@ export default function MeterClient() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                {roomsWithBills[room.id] && (
-                                                    <span className="text-[10px] font-black text-white bg-blue-500 px-3 py-1 rounded-full shadow-sm shadow-blue-100 flex items-center gap-1">
-                                                        <CheckCircleIcon className="w-3 h-3" /> ออกบิลแล้ว
-                                                    </span>
+                                                {(roomsWithBills[room.id] || (roomsMeterSavedMap[room.id] && !roomsWithBills[room.id])) && (
+                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                        {roomsWithBills[room.id] && (
+                                                            <span className="text-[10px] font-black text-white bg-blue-500 px-3 py-1 rounded-full shadow-sm shadow-blue-100 flex items-center gap-1">
+                                                                <CheckCircleIcon className="w-3 h-3" /> ออกบิลแล้ว
+                                                            </span>
+                                                        )}
+                                                        {roomsMeterSavedMap[room.id] && !roomsWithBills[room.id] && (
+                                                            <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
+                                                                จดมิเตอร์แล้ว
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
 
