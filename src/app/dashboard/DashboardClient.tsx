@@ -31,6 +31,8 @@ import {
     ChartBarIcon,
     KeyIcon,
     LockClosedIcon,
+    EyeIcon,
+    EyeSlashIcon,
     TrashIcon,
     PencilSquareIcon,
     MagnifyingGlassIcon,
@@ -347,6 +349,8 @@ export default function DashboardClient() {
     const [isSubmittingPassword, setIsSubmittingPassword] = useState(false)
     const [passwordError, setPasswordError] = useState('')
     const [passwordSuccess, setPasswordSuccess] = useState('')
+    const [showNewPassword, setShowNewPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [passwordData, setPasswordData] = useState({
         oldPassword: '',
         newPassword: '',
@@ -438,12 +442,12 @@ export default function DashboardClient() {
             if (updateError) {
                 setPasswordError(updateError.message)
             } else {
-                setPasswordSuccess('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว!')
+                setPasswordSuccess('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว! กำลังพาไปเข้าสู่ระบบใหม่...')
                 setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' })
-                setTimeout(() => {
-                    setIsChangePasswordOpen(false)
-                    setPasswordSuccess('')
-                }, 2000)
+                setTimeout(async () => {
+                    await supabase.auth.signOut()
+                    router.push('/login')
+                }, 1200)
             }
         } catch (err: any) {
             setPasswordError(err.message || 'เกิดข้อผิดพลาดบางอย่าง')
@@ -1734,14 +1738,22 @@ export default function DashboardClient() {
                                             </div>
                                             <input
                                                 required
-                                                    minLength={8}
-                                                    maxLength={15}
-                                                type="password"
+                                                minLength={8}
+                                                maxLength={15}
+                                                type={showNewPassword ? 'text' : 'password'}
                                                 value={passwordData.newPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
-                                                    placeholder="รหัสใหม่ (8-15 ตัวอักษร พร้อมตัวอักษรและตัวเลข)"
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-12 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
+                                                placeholder="รหัสใหม่ (8-15 ตัวอักษร พร้อมตัวอักษรและตัวเลข)"
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                aria-label={showNewPassword ? 'ซ่อนรหัสผ่านใหม่' : 'แสดงรหัสผ่านใหม่'}
+                                            >
+                                                {showNewPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                                            </button>
                                         </div>
                                     </div>
 
@@ -1753,12 +1765,20 @@ export default function DashboardClient() {
                                             </div>
                                             <input
                                                 required
-                                                type="password"
+                                                type={showConfirmPassword ? 'text' : 'password'}
                                                 value={passwordData.confirmPassword}
                                                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
+                                                className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-12 font-bold text-gray-800 focus:bg-white focus:border-primary transition-all outline-none"
                                                 placeholder="ยืนยันรหัสใหม่อีกครั้ง"
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                                aria-label={showConfirmPassword ? 'ซ่อนยืนยันรหัสผ่านใหม่' : 'แสดงยืนยันรหัสผ่านใหม่'}
+                                            >
+                                                {showConfirmPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

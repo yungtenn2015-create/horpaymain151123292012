@@ -11,6 +11,8 @@ type DashboardMenuPageChromeProps = {
     children: React.ReactNode
     /** ฝังในแดชบอร์ด — ไม่ครอบ min-h-screen / max-w-lg ชั้นนอกซ้ำ */
     embedded?: boolean
+    /** ในโหมด embedded: ให้ header เลื่อนไปพร้อมเนื้อหา (ไม่ล็อกหัวไว้) */
+    embeddedScrollWithHeader?: boolean
     /** ปุ่มกลับ — ค่าเริ่มต้น `router.push('/dashboard')` */
     onBack?: () => void
 }
@@ -25,6 +27,7 @@ export function DashboardMenuPageChrome({
     headerRight,
     children,
     embedded = false,
+    embeddedScrollWithHeader = false,
     onBack,
 }: DashboardMenuPageChromeProps) {
     const router = useRouter()
@@ -74,6 +77,14 @@ export function DashboardMenuPageChrome({
     )
 
     if (embedded) {
+        if (embeddedScrollWithHeader) {
+            return (
+                <div className="flex h-full min-h-0 w-full flex-1 flex-col bg-[#fcfdfd] overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    {header}
+                    {children}
+                </div>
+            )
+        }
         return (
             <div className="flex h-full min-h-0 w-full flex-1 flex-col bg-[#fcfdfd]">
                 {header}

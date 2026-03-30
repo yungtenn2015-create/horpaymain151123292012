@@ -791,7 +791,21 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
         return
       }
 
+      const billStatus = String((bill as { status?: string }).status || '').toLowerCase()
+
       if (action === 'approve') {
+        if (billStatus === 'paid') {
+          await replyText(replyToken, config.access_token, 'บิลนี้ได้รับการอนุมัติแล้ว ไม่สามารถอนุมัติซ้ำได้')
+          return
+        }
+        if (billStatus !== 'waiting_verify') {
+          await replyText(
+            replyToken,
+            config.access_token,
+            'บิลนี้ไม่ได้อยู่ในสถานะรอตรวจสอบ กรุณาตรวจสอบในแดชบอร์ด'
+          )
+          return
+        }
         // Mark latest payment as approved (if exists) and bill as paid
         const { data: payment } = await supabaseAdmin
           .from('payments')
@@ -922,6 +936,22 @@ async function handleEvent(event: any, config: any, supabaseAdmin: any) {
       }
 
       if (action === 'reject') {
+        if (billStatus === 'paid') {
+          await replyText(
+            replyToken,
+            config.access_token,
+            'บิลนี้ได้รับการอนุมัติแล้ว ไม่สามารถปฏิเสธย้อนกลับจากข้อความนี้ได้ หากต้องการแก้ไขให้ใช้แดชบอร์ด'
+          )
+          return
+        }
+        if (billStatus !== 'waiting_verify') {
+          await replyText(
+            replyToken,
+            config.access_token,
+            'บิลนี้ไม่ได้อยู่ในสถานะรอตรวจสอบ (อาจถูกปฏิเสธหรือดำเนินการแล้ว)'
+          )
+          return
+        }
         const { data: payment } = await supabaseAdmin
           .from('payments')
           .select('id')

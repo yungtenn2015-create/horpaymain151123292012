@@ -427,8 +427,13 @@ export default function BillingClient() {
         }
     }
 
-    const handleIssueBill = async (item: any) => {
-        if (issuing) return
+    const handleIssueBill = async (
+        item: any,
+        options?: { isBulk?: boolean; suppressAlert?: boolean }
+    ): Promise<{ ok: boolean; lineFailed: boolean; message?: string }> => {
+        const isBulk = Boolean(options?.isBulk)
+        const suppressAlert = Boolean(options?.suppressAlert)
+        if (issuing && !isBulk) return { ok: false, lineFailed: false, message: 'กำลังมีรายการที่กำลังดำเนินการอยู่' }
 
         // Add Safety Check for 0 Units (Thai warning)
         const isWaterZero = item.waterBillingType !== 'flat_rate' && item.waterUnit === 0
@@ -436,10 +441,10 @@ export default function BillingClient() {
 
         if (isWaterZero || isElecZero) {
             const msg = `ห้อง ${item.roomNumber} มีการใช้${isWaterZero && isElecZero ? 'น้ำและไฟ' : isWaterZero ? 'น้ำ' : 'ไฟ'}เป็น 0 หน่วย\n\nยืนยันจะออกบิลใช่หรือไม่?`;
-            if (!window.confirm(msg)) return;
+            if (!window.confirm(msg)) return { ok: false, lineFailed: false, message: 'ผู้ใช้ยกเลิกการทำรายการ' };
         }
 
-        setIssuing(item.roomId)
+        if (!isBulk) setIssuing(item.roomId)
         const supabase = createClient()
 
         try {
@@ -597,15 +602,32 @@ export default function BillingClient() {
 
             // 2. Call LINE Notification API if tenant has LINE linked AND toggle is ON
             const shouldSendLine = item.lineUserId && sendToLineMap[item.roomId]
+            let lineFailed = false
             if (shouldSendLine) {
-                await fetch('/api/line/send-bill', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ billId: newBill.id })
-                })
+                try {
+                    const sendRes = await fetch('/api/line/send-bill', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ billId: newBill.id })
+                    })
+                    const payload = await sendRes.json().catch(() => ({}))
+                    if (!sendRes.ok || payload?.success !== true) {
+                        lineFailed = true
+                    }
+                } catch {
+                    lineFailed = true
+                }
             }
 
             await fetchData()
+            if (lineFailed) {
+                const msg = `ห้อง ${item.roomNumber}: ออกบิลสำเร็จแล้ว แต่ส่ง LINE ไม่สำเร็จ`
+                if (!suppressAlert) {
+                    alert(`${msg}\n\nสามารถกดปุ่มส่ง LINE ซ้ำในรายการห้องได้`)
+                }
+                return { ok: true, lineFailed: true, message: msg }
+            }
+            return { ok: true, lineFailed: false }
         } catch (err: any) {
             const raw = String(err?.message || '')
             const low = raw.toLowerCase()
@@ -626,9 +648,10 @@ export default function BillingClient() {
                     'จากนั้นลองกดออกบิลอีกครั้ง',
                 ].join('\n')
             }
-            alert(friendly)
+            if (!suppressAlert) alert(friendly)
+            return { ok: false, lineFailed: false, message: friendly }
         } finally {
-            setIssuing(null)
+            if (!isBulk) setIssuing(null)
         }
     }
 
@@ -775,10 +798,32 @@ export default function BillingClient() {
         setConfirmIssueAll(null)
 
         setIssuing('all')
+        const lineFailedRooms: string[] = []
+        const hardFailedRooms: string[] = []
         for (const item of roomsToIssue) {
-            await handleIssueBill(item)
+            const result = await handleIssueBill(item, { isBulk: true, suppressAlert: true })
+            if (result.ok && result.lineFailed) {
+                lineFailedRooms.push(String(item.roomNumber))
+            } else if (!result.ok) {
+                hardFailedRooms.push(String(item.roomNumber))
+            }
         }
         setIssuing(null)
+
+        if (hardFailedRooms.length === 0 && lineFailedRooms.length === 0) {
+            alert(`ออกบิลทั้งหมดสำเร็จ ${roomsToIssue.length} ห้อง และส่ง LINE เรียบร้อย`)
+            return
+        }
+
+        const lines: string[] = []
+        if (hardFailedRooms.length > 0) {
+            lines.push(`ออกบิลไม่สำเร็จ: ห้อง ${hardFailedRooms.join(', ')}`)
+        }
+        if (lineFailedRooms.length > 0) {
+            lines.push(`ออกบิลสำเร็จแต่ส่ง LINE ไม่สำเร็จ: ห้อง ${lineFailedRooms.join(', ')}`)
+            lines.push('คุณสามารถกดปุ่มส่ง LINE ซ้ำรายห้องได้')
+        }
+        alert(lines.join('\n\n'))
     }
 
     if (loading) {

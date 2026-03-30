@@ -125,7 +125,14 @@ export async function POST(req: Request) {
       error_message: response.ok ? null : JSON.stringify(result)
     });
 
-    return NextResponse.json({ success: response.ok, result });
+    if (!response.ok) {
+      return NextResponse.json(
+        { success: false, error: 'LINE push failed', result },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ success: true, result });
   } catch (error: any) {
     console.error('Send bill error details:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

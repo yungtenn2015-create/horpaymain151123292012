@@ -505,7 +505,7 @@ export default function AddTenantClient() {
             }
         >
                 <div className="relative flex-1 min-h-0 flex flex-col">
-                <div className="relative z-0 flex-1 overflow-y-auto px-6 pb-dashboard-nav pt-6">
+                <div className="relative z-0 flex-1 overflow-y-auto px-6 pb-[calc(7rem+5.75rem+env(safe-area-inset-bottom,0px))] pt-6">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
@@ -827,8 +827,8 @@ export default function AddTenantClient() {
                     </form>
                 </div>
 
-                {/* ── Bottom Fixed Button ── */}
-                <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-6 z-50 rounded-b-[2.5rem]">
+                {/* ── Bottom Fixed Button (avoid bottom nav overlay) ── */}
+                <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 w-full max-w-lg bg-white border-t border-gray-100 p-6 z-[120] rounded-b-[2.5rem]">
                     <button
                         onClick={handleSubmit}
                         disabled={submitting || rooms.length === 0 || !hasPulledContract}

@@ -219,8 +219,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     return (
         <DashboardMenuPageChrome
             embedded
-            title="ตั้งค่า LINE Notification"
-            subtitle="เชื่อมต่อ LINE OA เพื่อส่งแจ้งเตือนไปยังเจ้าของหอและผู้เช่า"
+            embeddedScrollWithHeader
+            title={isDormSection ? 'แก้ไขข้อมูลหอพัก' : 'ตั้งค่า LINE Notification'}
+            subtitle={isDormSection ? 'ปรับปรุงข้อมูลของหอพัก' : 'เชื่อมต่อ LINE OA เพื่อส่งแจ้งเตือนไปยังเจ้าของหอและผู้เช่า'}
             onBack={onCloseSettings}
         >
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 px-6 pb-dashboard-nav pt-4">
