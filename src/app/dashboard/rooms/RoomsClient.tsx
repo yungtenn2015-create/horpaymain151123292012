@@ -464,7 +464,7 @@ export default function RoomsClient() {
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto pb-40">
+                <div className="relative z-0 flex-1 overflow-y-auto pb-dashboard-nav">
                     <div className="p-6 space-y-8">
 
                         {errorMsg && !showAddModal && (

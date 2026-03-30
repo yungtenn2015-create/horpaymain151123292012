@@ -412,7 +412,7 @@ export default function MeterClient() {
                 </button>
             }
         >
-                <div className="flex-1 overflow-y-auto pb-32">
+                <div className="relative z-0 flex-1 overflow-y-auto pb-dashboard-nav">
                     <div className="p-6 space-y-6">
 
                         <div className="bg-white border border-emerald-100 p-4 rounded-[2rem] flex items-center justify-between shadow-sm relative z-30">
@@ -789,7 +789,7 @@ export default function MeterClient() {
                 </div>
 
                 {inlineSuccess && (
-                    <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-5 duration-300">
+                    <div className="fixed bottom-[calc(5.75rem+1rem)] left-1/2 z-[110] -translate-x-1/2 animate-in fade-in slide-in-from-bottom-5 duration-300">
                         <div className="bg-emerald-600/95 backdrop-blur-md text-white px-8 py-4 rounded-[2rem] shadow-2xl flex items-center gap-3 font-black ring-8 ring-emerald-500/10">
                             <span className="material-symbols-outlined text-emerald-200">check_circle</span>
                             <span className="text-sm">บันทึกข้อมูลเรียบร้อยแล้ว!</span>

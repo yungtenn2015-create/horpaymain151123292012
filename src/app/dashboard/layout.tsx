@@ -23,9 +23,6 @@ export default function DashboardLayout({
     const router = useRouter()
     const searchParams = useSearchParams()
 
-    // Determine current active tab
-    // 1. If we are on /dashboard with a ?tab parameter
-    // 2. If we are on a specific sub-page that matches a tab
     const currentTab = searchParams.get('tab') || (pathname === '/dashboard' ? 'overview' : '')
 
     const navItems = [
@@ -40,40 +37,43 @@ export default function DashboardLayout({
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
-    // Identify if the current path/tab matches one of our nav items
     const activeId = navItems.find(item => {
         if (item.id === 'overview' && pathname === '/dashboard' && (!searchParams.get('tab') || searchParams.get('tab') === 'overview')) return true
         if (currentTab === item.id) return true
         return false
     })?.id || (pathname.startsWith('/dashboard') ? 'overview' : '')
-    // Fallback to 'overview' for all sub-pages under /dashboard/
 
     return (
-        <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-[#fcfdfd]">
-            <main className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-24">
+        <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-[#fcfdfd]">
+            <main className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto pb-dashboard-nav">
                 {children}
             </main>
 
-            {/* Bottom Navigation */}
-            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[92px] bg-white border-t border-gray-100 flex items-center justify-around px-6 z-[100] rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.06)]">
-                {navItems.map((item) => {
-                    const isActive = activeId === item.id
-                    const Icon = isActive ? item.solidIcon : item.icon
-                    return (
-                        <button
-                            key={item.id}
-                            onClick={() => handleNavClick(item.path)}
-                            className={`flex flex-col items-center gap-2 transition-all duration-300 ${isActive ? 'text-green-600' : 'text-slate-500'}`}
-                        >
-                            <div className={`p-2.5 rounded-2xl transition-all ${isActive ? 'bg-green-50 shadow-sm' : 'bg-transparent'}`}>
-                                <Icon className="w-7 h-7" />
-                            </div>
-                            <span className={`text-[12px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-90'}`}>
-                                {item.name}
-                            </span>
-                        </button>
-                    )
-                })}
+            <nav
+                className="fixed inset-x-0 bottom-0 z-[100] box-border rounded-t-[2.5rem] border-t border-gray-100 bg-white pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] shadow-[0_-3px_16px_-4px_rgba(15,23,42,0.07)]"
+                aria-label="เมนูหลัก"
+            >
+                <div className="mx-auto flex h-[92px] w-full max-w-lg items-center justify-around px-6">
+                    {navItems.map((item) => {
+                        const isActive = activeId === item.id
+                        const Icon = isActive ? item.solidIcon : item.icon
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleNavClick(item.path)}
+                                className={`flex flex-col items-center gap-2 transition-all duration-300 outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${isActive ? 'text-green-600' : 'text-slate-500'}`}
+                            >
+                                <div className={`rounded-2xl p-2.5 transition-all ${isActive ? 'bg-green-50 shadow-sm' : 'bg-transparent'}`}>
+                                    <Icon className="h-7 w-7" />
+                                </div>
+                                <span className={`text-[12px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-90'}`}>
+                                    {item.name}
+                                </span>
+                            </button>
+                        )
+                    })}
+                </div>
             </nav>
         </div>
     )

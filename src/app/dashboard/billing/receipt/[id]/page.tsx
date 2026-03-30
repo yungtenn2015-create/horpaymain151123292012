@@ -337,7 +337,7 @@ export default function ReceiptPage() {
             <ReceiptView ref={receiptRef} data={data} slipUrl={slipUrl} />
 
             {/* ── ACTION BUTTONS (HIDDEN ON PRINT) ── */}
-            <div className="max-w-xl mx-auto px-6 mt-10 space-y-4 pb-20 print:hidden">
+            <div className="relative z-0 mx-auto mt-10 max-w-xl space-y-4 px-6 pb-dashboard-nav print:hidden">
                 {message && (
                     <div className="bg-emerald-500 text-white p-4 rounded-2xl text-center font-black animate-bounce">
                         {message}

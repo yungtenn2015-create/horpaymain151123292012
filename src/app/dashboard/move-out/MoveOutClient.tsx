@@ -908,7 +908,7 @@ export default function MoveOutClient() {
                 </div>
 
                 {/* ── List ── */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 pb-20">
+                <div className="relative z-0 flex-1 space-y-4 overflow-y-auto px-6 py-6 pb-dashboard-nav">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-xs font-bold">
                             {errorMsg}

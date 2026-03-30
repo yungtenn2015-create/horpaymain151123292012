@@ -958,7 +958,7 @@ export default function BillingClient() {
                     </div>
                 </div>
 
-                <main className="flex-1 space-y-8 bg-white px-4 py-6 pb-20">
+                <main className="relative z-0 space-y-8 bg-white px-4 py-6 pb-dashboard-nav">
                     {/* ── ROOM LIST BY FLOOR ── */}
                     {(() => {
                         const floorsArr = Array.from(new Set(filteredData.map(item => item.floor))).sort((a: any, b: any) => a - b)
@@ -1257,23 +1257,23 @@ export default function BillingClient() {
                             </section>
                         ))
                     })()}
-                </main>
 
-                {/* ── STICKY FOOTER ACTION ── */}
-                <div className="sticky bottom-0 z-30 border-t border-gray-200/80 bg-white px-6 py-6 shadow-[0_-10px_36px_-4px_rgba(15,23,42,0.12)] backdrop-blur-md sm:rounded-b-[2.5rem]">
-                    <button
-                        onClick={handleIssueAll}
-                        disabled={readyToIssueCount === 0 || !!issuing}
-                        className="w-full h-16 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-[1.8rem] font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {issuing === 'all' ? (
-                            <ArrowPathIcon className="w-6 h-6 animate-spin" />
-                        ) : (
-                            <CheckCircleIcon className="w-6 h-6" />
-                        )}
-                        ออกบิลทั้งหมด ({readyToIssueCount} ห้อง)
-                    </button>
-                </div>
+                    {/* ออกบิลทั้งหมด: วางท้ายสุด ไม่ใช้ sticky เพื่อไม่ให้ลอย/กระตุกเวลากดเลือกชั้น */}
+                    <div className="pt-2">
+                        <button
+                            onClick={handleIssueAll}
+                            disabled={readyToIssueCount === 0 || !!issuing}
+                            className="w-full h-16 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-[1.8rem] font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-emerald-200 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {issuing === 'all' ? (
+                                <ArrowPathIcon className="w-6 h-6 animate-spin" />
+                            ) : (
+                                <CheckCircleIcon className="w-6 h-6" />
+                            )}
+                            ออกบิลทั้งหมด ({readyToIssueCount} ห้อง)
+                        </button>
+                    </div>
+                </main>
                 {/* ── CUSTOM CONFIRM DELETE MODAL ── */}
                 {confirmDelete && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">

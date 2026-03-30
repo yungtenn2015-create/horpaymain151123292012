@@ -219,11 +219,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     return (
         <DashboardMenuPageChrome
             embedded
-            title="ตั้งค่าระบบ"
-            subtitle="จัดการข้อมูลหอพักและตั้งค่าการแจ้งเตือน"
+            title="ตั้งค่า LINE Notification"
+            subtitle="เชื่อมต่อ LINE OA เพื่อส่งแจ้งเตือนไปยังเจ้าของหอและผู้เช่า"
             onBack={onCloseSettings}
         >
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 px-6 pt-4 pb-44">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 px-6 pb-[calc(5.75rem+5.5rem+env(safe-area-inset-bottom,0px))] pt-4">
             <div className="mb-8">
                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black ${isDormSection ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
                     {isDormSection ? <BuildingOfficeIcon className="w-4 h-4" /> : <ChatBubbleLeftRightIcon className="w-4 h-4" />}
@@ -772,8 +772,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
             )}
 
-            {/* เหนือแถบนำทางล่าง (h-[92px]) — fixed จึงเลื่อนเนื้อหาได้เต็มที่ */}
-            <div className="pointer-events-none fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[90] w-full max-w-lg -translate-x-1/2 px-6">
+            <div className="pointer-events-none fixed bottom-[calc(5.75rem+0.5rem)] left-1/2 z-[90] w-full max-w-lg -translate-x-1/2 px-6">
                 <button
                     onClick={handleSaveSettings}
                     disabled={savingSettings}

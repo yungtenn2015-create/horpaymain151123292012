@@ -100,9 +100,9 @@ export default function TenantsTab({
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col -mt-6 relative z-20 px-5 overflow-hidden pb-8">
+                <div className="relative z-20 -mt-6 flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-8">
                     {/* Search Bar */}
-                    <div className="mb-4 space-y-4">
+                    <div className="shrink-0 space-y-4">
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <MagnifyingGlassIcon className="h-5 w-5 text-emerald-600/70 group-focus-within:text-primary transition-colors" />
@@ -157,7 +157,7 @@ export default function TenantsTab({
                     </div>
 
                     {/* List Area */}
-                    <div className="flex-1 overflow-y-auto pb-32 space-y-4 pt-2 custom-scrollbar">
+                    <div className="relative z-0 min-h-0 flex-1 touch-pan-y space-y-4 overflow-y-auto overscroll-y-contain pb-dashboard-nav pt-3 custom-scrollbar">
                         {contractError && (
                             <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                                 <ExclamationTriangleIcon className="w-5 h-5 shrink-0" />

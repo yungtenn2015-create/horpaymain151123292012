@@ -86,7 +86,7 @@ export default function HelpClient() {
             title="คู่มือการใช้งาน"
             subtitle="สรุปหัวข้อหลัก — รายละเอียดและภาพประกอบอยู่ในคู่มือฉบับเต็ม"
         >
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-28">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-dashboard-nav">
                 <div className="px-5 pt-5 pb-4">
                     {guideUrl ? (
                         <a

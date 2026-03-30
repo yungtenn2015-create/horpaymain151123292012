@@ -214,7 +214,7 @@ export default function SettingsClient() {
             title="ตั้งค่าหอพัก"
             subtitle="ข้อมูลหอพัก บัญชีรับเงิน และการเชื่อมต่อ LINE"
         >
-            <main className="max-w-2xl mx-auto px-6 py-8 space-y-8 pb-28">
+            <main className="mx-auto max-w-2xl space-y-8 px-6 py-8 pb-[calc(8rem+5.75rem+env(safe-area-inset-bottom,0px))]">
                 {/* ── SECTION 1: DORM INFO ── */}
                 <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3 mb-8">
@@ -497,7 +497,7 @@ export default function SettingsClient() {
             </main>
 
             {/* Bottom Bar for Save */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 px-6 py-4 z-40">
+            <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[95] border-t border-gray-100 bg-white/80 px-6 py-4 backdrop-blur-xl">
                 <div className="max-w-2xl mx-auto">
                     <button 
                         onClick={handleSave}

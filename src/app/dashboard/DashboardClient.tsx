@@ -1269,7 +1269,7 @@ export default function DashboardClient() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSaveContract} className="flex-1 overflow-y-auto p-5 sm:p-6 pb-28 space-y-5 custom-scrollbar bg-white">
+                    <form onSubmit={handleSaveContract} className="flex-1 space-y-5 overflow-y-auto bg-white px-5 pb-dashboard-nav pt-5 custom-scrollbar sm:px-6 sm:pb-dashboard-nav sm:pt-6">
                         {contractError && (
                             <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-[13px] font-bold flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
@@ -1526,7 +1526,7 @@ export default function DashboardClient() {
 
     return (
         <div className={`flex h-full min-h-0 flex-1 flex-col ${shellBgClass} sm:min-h-screen sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800`}>
-            <div className={`flex h-full min-h-0 w-full sm:max-w-lg flex-1 flex-col overflow-x-hidden overflow-y-hidden ${shellBgClass} relative pb-24 sm:min-h-[850px] sm:flex-none sm:rounded-[2.5rem] sm:shadow-2xl border-gray-100 sm:border`}>
+            <div className={`relative z-0 flex h-full min-h-0 w-full sm:max-w-lg flex-1 flex-col overflow-x-hidden overflow-y-hidden ${shellBgClass} sm:min-h-[850px] sm:flex-none sm:rounded-[2.5rem] sm:shadow-2xl border-gray-100 sm:border`}>
 
                 {renderCustomCalendar()}
                 {renderContractFormModal()}

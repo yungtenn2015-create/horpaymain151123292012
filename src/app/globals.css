@@ -21,12 +21,22 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+  /* แอป Horpay ใช้ shell สว่าง — กันแถบล่างจอโผล่เป็นสีเข้มเมื่อโทรศัพท์อยู่โหมดมืด */
+  body {
+    background: #fcfdfd;
+    color: #171717;
+  }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #fcfdfd;
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* เว้นใต้แถบนำทางล่าง fixed h-[92px] (5.75rem) + safe area + ช่องว่าง */
+.pb-dashboard-nav {
+  padding-bottom: calc(5.75rem + max(1.25rem, env(safe-area-inset-bottom, 0px)) + 0.5rem);
 }
 
 @utility custom-scrollbar {

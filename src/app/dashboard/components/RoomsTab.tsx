@@ -237,9 +237,11 @@ export default function RoomsTab({
         );
     };
     return (
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col bg-gray-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* โซนเลื่อนเดียว: หัวเขียว + ตัวกรอง + รายการ — กัน scroll ซ้อนกับ layout แล้วแถบกรองดูเหมือนค้าง */}
+            <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain pb-dashboard-nav custom-scrollbar -mr-1.5">
             {/* Premium Header (Green Theme) */}
-            <div className="relative min-h-[210px]">
+            <div className="relative shrink-0 min-h-[210px]">
                 {/* Background with clipping */}
                 <div className="absolute inset-0 bg-primary rounded-b-[2.5rem] sm:rounded-t-[2.5rem] shadow-lg overflow-hidden z-0">
                     <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
@@ -263,27 +265,29 @@ export default function RoomsTab({
                 </div>
             </div>
 
-            <div className="px-5 -mt-20 relative z-20 space-y-6 pb-8">
-                {/* Filters UI */}
-                <div className="space-y-6 rounded-[2.5rem] border-2 border-gray-100 bg-gradient-to-b from-gray-50 to-white p-6 shadow-sm">
+            <div className="relative z-10 -mt-20 flex flex-col gap-3 px-5 pb-2">
+                <div className="space-y-3">
+                <div className="space-y-3.5 rounded-2xl border border-gray-100 bg-gradient-to-b from-gray-50 to-white p-3.5 shadow-sm sm:space-y-4 sm:p-4">
                     {/* Floor Filter */}
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2 px-1">
-                            <div className="h-4 w-1.5 rounded-full bg-primary" />
-                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">เลือกชั้น</p>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1.5 px-0.5">
+                            <div className="h-3 w-1 rounded-full bg-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-700">เลือกชั้น</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                             <button
+                                type="button"
                                 onClick={() => setSelectedFloor('all')}
-                                className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
+                                className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-[11px] font-black outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-md shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
                             >
                                 ทุกชั้น
                             </button>
                             {Array.from(new Set(rooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
                                 <button
+                                    type="button"
                                     key={floor}
                                     onClick={() => setSelectedFloor(floor)}
-                                    className={`whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[12px] font-black transition-all ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-900/20' : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
+                                    className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-[11px] font-black outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-md shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
                                 >
                                     ชั้น {floor}
                                 </button>
@@ -292,24 +296,25 @@ export default function RoomsTab({
                     </div>
 
                     {/* Status Filter */}
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2 px-1">
-                            <div className="h-4 w-1.5 rounded-full bg-primary" />
-                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.15em]">สถานะห้อง</p>
+                    <div className="flex flex-col gap-2 border-t border-gray-100/80 pt-3.5 sm:pt-4">
+                        <div className="flex items-center gap-1.5 px-0.5">
+                            <div className="h-3 w-1 rounded-full bg-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-700">สถานะห้อง</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                             {[
-                                { id: 'all', label: 'ทั้งหมด', color: 'bg-primary border-primary shadow-emerald-900/20' },
-                                { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-900/15' },
-                                { id: 'occupied', label: 'มีคนพัก', color: 'bg-blue-600 border-blue-600 shadow-blue-900/15' },
-                                { id: 'waiting', label: 'รอชำระ', color: 'bg-sky-500 border-sky-500 shadow-sky-900/15' },
-                                { id: 'overdue', label: 'ค้างชำระ', color: 'bg-orange-500 border-orange-500 shadow-orange-900/15' },
-                                { id: 'moving_out', label: 'แจ้งออก', color: 'bg-amber-500 border-amber-500 shadow-amber-900/15' }
+                                { id: 'all', label: 'ทั้งหมด', color: 'bg-primary border-primary shadow-emerald-900/15' },
+                                { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-900/10' },
+                                { id: 'occupied', label: 'มีคนพัก', color: 'bg-blue-600 border-blue-600 shadow-blue-900/10' },
+                                { id: 'waiting', label: 'รอชำระ', color: 'bg-sky-500 border-sky-500 shadow-sky-900/10' },
+                                { id: 'overdue', label: 'ค้างชำระ', color: 'bg-orange-500 border-orange-500 shadow-orange-900/10' },
+                                { id: 'moving_out', label: 'แจ้งออก', color: 'bg-amber-500 border-amber-500 shadow-amber-900/10' }
                             ].map(status => (
                                 <button
+                                    type="button"
                                     key={status.id}
                                     onClick={() => setSelectedStatus(status.id)}
-                                    className={`whitespace-nowrap rounded-2xl border-2 px-5 py-3 text-[12px] font-black transition-all ${selectedStatus === status.id ? `${status.color} text-white shadow-lg` : 'border-gray-200 bg-white/80 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white hover:text-slate-900'}`}
+                                    className={`whitespace-nowrap rounded-xl border px-3 py-2 text-[11px] font-black outline-none transition-all focus-visible:ring-2 focus-visible:ring-offset-0 ${selectedStatus === status.id ? `${status.color} text-white shadow-md ring-transparent` : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white focus-visible:ring-primary/30'}`}
                                 >
                                     {status.label}
                                 </button>
@@ -317,8 +322,9 @@ export default function RoomsTab({
                         </div>
                     </div>
                 </div>
+                </div>
 
-                <div className="flex-1 overflow-y-auto pb-32 custom-scrollbar min-h-[400px]">
+                <div className="relative z-0">
                     {rooms.length === 0 ? (
                         <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
                             <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
@@ -351,7 +357,7 @@ export default function RoomsTab({
                         }
 
                         return (
-                            <div className="space-y-12">
+                            <div className="space-y-12 pt-3">
                                 {Array.from(new Set(filteredRooms.map(r => r.floor))).sort((a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true })).map(floor => (
                                     <div key={floor} className="space-y-5">
                                         <div className="flex items-center justify-between px-2">
@@ -468,6 +474,7 @@ export default function RoomsTab({
                         );
                     })()}
                 </div>
+            </div>
             </div>
             {renderRoomActionModal()}
         </div>

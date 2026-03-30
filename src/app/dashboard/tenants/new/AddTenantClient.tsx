@@ -505,7 +505,7 @@ export default function AddTenantClient() {
             }
         >
                 <div className="relative flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
+                <div className="relative z-0 flex-1 overflow-y-auto px-6 pb-dashboard-nav pt-6">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />

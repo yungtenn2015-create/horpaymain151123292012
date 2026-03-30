@@ -205,7 +205,7 @@ export default function TenantsClient() {
                 </div>
 
                 {/* ── Tenant List ── */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3 pb-24">
+                <div className="relative z-0 flex-1 space-y-3 overflow-y-auto px-6 py-6 pb-dashboard-nav">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-100 p-4 rounded-2xl text-red-600 text-xs font-bold mb-4 flex items-center gap-2">
                             <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />

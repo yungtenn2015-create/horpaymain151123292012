@@ -326,7 +326,7 @@ export default function HistoryClient() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto px-6 py-8 space-y-4 pb-20 no-scrollbar">
+                <main className="relative z-0 flex-1 space-y-4 overflow-y-auto px-6 py-8 pb-dashboard-nav no-scrollbar">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 space-y-4">
                             <div className="w-10 h-10 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" />
