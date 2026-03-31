@@ -733,8 +733,12 @@ export default function DashboardClient() {
 
     const refreshDashboard = useCallback((isInitial = false) => {
         const requestId = ++refreshRequestIdRef.current
+        const isStaleRequest = () => requestId !== refreshRequestIdRef.current
 
         const runRefresh = async () => {
+        // Guard against stale refreshes (e.g. double effect in dev/strict mode)
+        // so old responses cannot briefly overwrite newer dashboard numbers.
+        if (isStaleRequest()) return;
         if (isInitial) setLoading(true);
         else setFetchingOverview(true);
 
@@ -753,6 +757,7 @@ export default function DashboardClient() {
         const fallbackOwnerName = user.user_metadata?.name || user.email?.split('@')[0] || 'Owner';
 
         try {
+            if (isStaleRequest()) return
             setDbError('')
             console.log("Refreshing Dashboard Data...");
             let loadedOwnerName = '';
@@ -775,6 +780,7 @@ export default function DashboardClient() {
                     .limit(1),
             ]);
 
+            if (isStaleRequest()) return
             if (!userError && userData) {
                 setUserPlan({
                     plan_type: userData.plan_type,
@@ -850,6 +856,7 @@ export default function DashboardClient() {
                 monthBills = mb;
                 historyBills = hb;
             }
+            if (isStaleRequest()) return
 
             // Process Current Month Stats - Unified Room-Centric Logic
             let collected = 0;
