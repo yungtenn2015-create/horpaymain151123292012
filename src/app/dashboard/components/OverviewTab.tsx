@@ -16,6 +16,9 @@ import {
     BookOpenIcon,
     HomeIcon,
     UsersIcon,
+    UserPlusIcon,
+    UserCircleIcon,
+    BoltIcon,
     ArrowPathIcon,
     CheckCircleIcon,
     DocumentTextIcon
@@ -334,7 +337,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                             </div>
                             {isPro && (
                                 <div className="bg-amber-400/20 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-amber-400/30 flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700">
-                                    <span className="material-symbols-outlined text-[14px] text-amber-400 font-bold">workspace_premium</span>
+                                    <CheckCircleIcon className="h-4 w-4 text-amber-300 stroke-[2.5]" />
                                     <span className="text-[10px] font-black text-amber-100 uppercase tracking-widest">
                                         PRO ACCOUNT
                                     </span>
@@ -355,7 +358,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                         : 'bg-white/20 hover:bg-white/30 text-white border-white/20'
                                         }`}
                                 >
-                                    <span className="material-symbols-outlined text-[26px]">notifications</span>
+                                    <BellIcon className="h-6 w-6 stroke-[2.4]" />
                                     {getPendingNotificationsCount() > 0 && !isNotificationsOpen && (
                                         <div className="absolute top-1 right-1 w-[12px] h-[12px] bg-red-500 rounded-full border-2 border-white shadow-sm" />
                                     )}
@@ -380,7 +383,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                     }}
                                     className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 border-2 border-white/20 overflow-hidden"
                                 >
-                                    <span className="material-symbols-outlined text-[26px]">person</span>
+                                    <UserCircleIcon className="h-7 w-7 stroke-[2.2]" />
                                 </div>
 
                                 {/* Dropdown Menu */}
@@ -491,15 +494,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 {/* Summary Grid */}
                 <div className="grid grid-cols-2 gap-4">
                     {[
-                        { icon: 'grid_view', label: 'ห้องทั้งหมด', value: stats.total, color: 'bg-emerald-50 text-emerald-500' },
-                        { icon: 'home', label: 'ห้องว่าง', value: stats.vacant, color: 'bg-green-50 text-green-500' },
-                        { icon: 'group', label: 'มีคนพัก', value: stats.occupied, color: 'bg-blue-50 text-blue-500' },
-                        { icon: 'payments', label: 'ค้างชำระ', value: overviewData.billStatusCounts?.overdue || 0, color: 'bg-orange-50 text-orange-500' },
+                        { icon: Squares2X2Icon, label: 'ห้องทั้งหมด', value: stats.total, color: 'bg-emerald-50 text-emerald-500' },
+                        { icon: HomeIcon, label: 'ห้องว่าง', value: stats.vacant, color: 'bg-green-50 text-green-500' },
+                        { icon: UsersIcon, label: 'มีคนพัก', value: stats.occupied, color: 'bg-blue-50 text-blue-500' },
+                        { icon: ExclamationTriangleIcon, label: 'ค้างชำระ', value: overviewData.billStatusCounts?.overdue || 0, color: 'bg-orange-50 text-orange-500' },
 
                     ].map((item) => (
                         <div key={item.label} className="bg-white p-5 rounded-3xl shadow-sm flex items-center gap-4 transform hover:-translate-y-1 transition-all duration-300">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.color}`}>
-                                <span className="material-symbols-outlined text-[28px]">{item.icon}</span>
+                                <item.icon className="h-7 w-7 stroke-[2.2]" />
                             </div>
                             <div>
                                 <p className="text-[12px] text-slate-800 font-black uppercase tracking-wider">{item.label}</p>
@@ -514,12 +517,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                     <h2 className="text-center text-slate-800 font-bold mb-6 text-sm uppercase tracking-widest">เมนูใช้งาน</h2>
                     <div className="grid grid-cols-3 gap-y-8">
                         {[
-                            { icon: 'electric_meter', label: 'จดมิเตอร์', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', path: '/dashboard/meter' },
-                            { icon: 'receipt_long', label: 'ออกบิล', color: 'bg-teal-50 text-teal-600 border-teal-100', path: '/dashboard/billing' },
-                            { icon: 'history', label: 'ประวัติบิล', color: 'bg-purple-50 text-purple-600 border-purple-100', path: '/dashboard/history' },
-                            { icon: 'badge', label: 'ข้อมูลผู้เช่า', color: 'bg-blue-50 text-blue-600 border-blue-100', path: '/dashboard/tenants' },
-                            { icon: 'person_add', label: 'เพิ่มผู้เช่า', color: 'bg-orange-50 text-orange-600 border-orange-100', path: '/dashboard/tenants/new' },
-                            { icon: 'logout', label: 'แจ้งออก', color: 'bg-rose-50 text-rose-600 border-rose-100', path: '/dashboard/move-out' },
+                            { icon: BoltIcon, label: 'จดมิเตอร์', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', path: '/dashboard/meter' },
+                            { icon: DocumentTextIcon, label: 'ออกบิล', color: 'bg-teal-50 text-teal-600 border-teal-100', path: '/dashboard/billing' },
+                            { icon: ClockIcon, label: 'ประวัติบิล', color: 'bg-purple-50 text-purple-600 border-purple-100', path: '/dashboard/history' },
+                            { icon: UsersIcon, label: 'ข้อมูลผู้เช่า', color: 'bg-blue-50 text-blue-600 border-blue-100', path: '/dashboard/tenants' },
+                            { icon: UserPlusIcon, label: 'เพิ่มผู้เช่า', color: 'bg-orange-50 text-orange-600 border-orange-100', path: '/dashboard/tenants/new' },
+                            { icon: ArrowRightOnRectangleIcon, label: 'แจ้งออก', color: 'bg-rose-50 text-rose-600 border-rose-100', path: '/dashboard/move-out' },
                         ].map((item) => (
                             <button
                                 key={item.label}
@@ -527,7 +530,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 className="flex flex-col items-center gap-3 group active:scale-95 transition-all"
                             >
                                 <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center border-2 transition-all ${item.color} group-hover:shadow-md`}>
-                                    <span className="material-symbols-outlined text-3xl">{item.icon}</span>
+                                    <item.icon className="h-8 w-8 stroke-[2.2]" />
                                 </div>
                                 <span className="text-[13px] font-black text-slate-800 transition-colors group-hover:text-primary">{item.label}</span>
                             </button>
@@ -563,7 +566,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className="relative w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 overflow-hidden">
-                                            <span className="material-symbols-outlined">home</span>
+                                            <HomeIcon className="h-5 w-5 stroke-[2.2]" />
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-slate-800 uppercase leading-none mb-1.5">ห้อง {room.room_number}</p>
@@ -590,7 +593,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                                 <span className="text-[10px] font-black uppercase text-sky-600">รอชำระ</span>
                                             </div>
                                         )}
-                                        <span className="material-symbols-outlined text-slate-500 group-hover:text-primary transition-colors text-sm">chevron_right</span>
+                                        <ChevronRightIcon className="h-4 w-4 text-slate-500 group-hover:text-primary transition-colors" />
                                     </div>
                                 </div>
                             ))
