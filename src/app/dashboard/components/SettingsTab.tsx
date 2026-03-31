@@ -183,6 +183,29 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         setOwnerClaim(prev => ({ ...prev, loading: true, error: '', success: '' }))
         const supabase = createClient()
         try {
+            if (!lineConfig.channel_id || !lineConfig.channel_secret || !lineConfig.access_token) {
+                throw new Error('กรุณากรอก Bot User ID, Channel Secret และ Channel Access Token แล้วกดบันทึกก่อน')
+            }
+
+            // Ensure LINE config row exists before requesting owner claim code.
+            // Some accounts may fail to persist config from the main save flow,
+            // which caused owner-claim API to think LINE is not configured.
+            const { error: upsertErr } = await supabase
+                .from('line_oa_configs')
+                .upsert(
+                    {
+                        dorm_id: dormId,
+                        channel_id: lineConfig.channel_id.trim(),
+                        channel_secret: lineConfig.channel_secret.trim(),
+                        access_token: lineConfig.access_token.trim(),
+                        updated_at: new Date().toISOString()
+                    },
+                    { onConflict: 'dorm_id' }
+                )
+            if (upsertErr) {
+                throw new Error(upsertErr.message || 'บันทึก LINE config ไม่สำเร็จ')
+            }
+
             const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
             if (sessionErr || !sessionData?.session?.access_token) {
                 throw new Error('กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง')

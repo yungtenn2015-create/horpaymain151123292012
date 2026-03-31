@@ -95,7 +95,7 @@ export default function HelpClient() {
                             rel="noopener noreferrer"
                             className="flex items-center justify-center gap-2 w-full rounded-2xl bg-primary px-5 py-4 text-white font-black text-sm shadow-lg shadow-emerald-900/15 hover:brightness-105 active:scale-[0.99] transition-all"
                         >
-                            <span>เปิดเพื่อไปคู่มือการใช้งาน</span>
+                            <span>เปิดเพื่อไปยังคู่มือการใช้งาน</span>
                             <ArrowTopRightOnSquareIcon className="w-5 h-5 shrink-0 stroke-[2.5]" />
                         </a>
                     ) : (

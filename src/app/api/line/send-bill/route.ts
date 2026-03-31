@@ -163,6 +163,9 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
     '-';
 
   const meterScheduleLine = formatMeterScheduleLine(bankSettings?.billing_day);
+  const bankName = String(bankSettings?.bank_name || '-');
+  const bankAccountNo = String(bankSettings?.bank_account_no || '-');
+  const bankAccountName = String(bankSettings?.bank_account_name || dormName);
 
   const extraServiceRows = (Array.isArray(billItems) ? billItems : [])
     .map((s) => ({
@@ -447,7 +450,7 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
               },
               {
                 type: "text",
-                text: `${bankSettings?.bank_name || '-'}`,
+                text: bankName,
                 color: "#111827",
                 weight: "bold",
                 size: "sm",
@@ -455,7 +458,7 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
               },
               {
                 type: "text",
-                text: `${bankSettings?.bank_account_no || '-'}`,
+                text: bankAccountNo,
                 color: "#10B981",
                 weight: "bold",
                 size: "lg",
@@ -463,9 +466,28 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
               },
               {
                 type: "text",
-                text: `${bankSettings?.bank_account_name || dormName}`,
+                text: bankAccountName,
                 color: "#6B7280",
                 size: "sm"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                margin: "md",
+                spacing: "sm",
+                contents: [
+                  {
+                    type: "button",
+                    style: "primary",
+                    height: "sm",
+                    color: "#10B981",
+                    action: {
+                      type: "clipboard",
+                      label: "คัดลอกเลขบัญชี",
+                      clipboardText: bankAccountNo
+                    }
+                  }
+                ]
               }
             ]
           },
