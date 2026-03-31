@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
 import {
@@ -57,16 +57,32 @@ interface Tenant {
 
 export default function TenantsClient() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [loading, setLoading] = useState(true)
     const [tenants, setTenants] = useState<Tenant[]>([])
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [copyToast, setCopyToast] = useState(false)
+    const autoOpenedRef = useRef<string | null>(null)
 
     useEffect(() => {
         fetchData()
     }, [])
+
+    // Deep-link: /dashboard/tenants?roomId=<uuid>
+    // Auto-open tenant modal for that room (after tenants loaded).
+    useEffect(() => {
+        const roomId = String(searchParams.get('roomId') || '').trim()
+        if (!roomId) return
+        if (autoOpenedRef.current === roomId) return
+        if (!tenants.length) return
+        const match = tenants.find((t) => String(t.room_id || '').trim() === roomId)
+        if (!match) return
+        autoOpenedRef.current = roomId
+        setSearchQuery(match.rooms?.room_number || '')
+        setSelectedTenant(match)
+    }, [searchParams, tenants])
 
     const fetchData = async () => {
         setLoading(true)

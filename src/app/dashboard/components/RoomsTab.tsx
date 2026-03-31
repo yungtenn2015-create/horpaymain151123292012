@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
     BuildingOfficeIcon,
     KeyIcon,
@@ -74,6 +75,39 @@ export default function RoomsTab({
     router
 }: RoomsTabProps) {
     const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+    const searchParams = useSearchParams()
+    const openRoomInfo = String(searchParams.get('open_room_info') || '').trim()
+    const autoOpenedRoomInfoRef = useRef<string | null>(null)
+
+    // Deep-link: /dashboard?tab=rooms&open_room_info=402
+    // Auto-open the room action modal (ข้อมูลผู้เช่า/ย้ายออก) for that room.
+    useEffect(() => {
+        if (!openRoomInfo) return
+        if (autoOpenedRoomInfoRef.current === openRoomInfo) return
+        if (!rooms?.length) return
+        const match = rooms.find((r) => String(r.room_number || '').trim() === openRoomInfo)
+        if (!match) return
+        autoOpenedRoomInfoRef.current = openRoomInfo
+        setSelectedRoom(match)
+    }, [openRoomInfo, rooms])
+
+    const filteredRoomsForCount = rooms.filter(room => {
+        const matchesFloor = selectedFloor === 'all' || room.floor === selectedFloor;
+        let matchesStatus = true;
+        if (selectedStatus !== 'all') {
+            const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
+            const isUnpaid = unpaidRoomIds.has(room.id);
+            const isOccupied = room.status === 'occupied';
+            const isAvailable = room.status === 'available';
+
+            if (selectedStatus === 'available') matchesStatus = isAvailable && !isWaitingVerify && !isUnpaid && !overdueRoomIds.has(room.id);
+            if (selectedStatus === 'occupied') matchesStatus = isOccupied;
+            if (selectedStatus === 'waiting') matchesStatus = isUnpaid || isWaitingVerify;
+            if (selectedStatus === 'overdue') matchesStatus = overdueRoomIds.has(room.id);
+            if (selectedStatus === 'moving_out') matchesStatus = movingOutRoomIds.has(room.id);
+        }
+        return matchesFloor && matchesStatus;
+    });
 
     const renderRoomActionModal = () => {
         if (!selectedRoom) return null;
@@ -185,7 +219,8 @@ export default function RoomsTab({
                                     <div className="grid grid-cols-2 gap-2.5">
                                         <button 
                                             onClick={() => {
-                                                router.push(`/dashboard?tab=tenants&search=${selectedRoom.room_number}`);
+                                                // Open tenant info page (TenantsClient) and auto-open this room's tenant modal
+                                                router.push(`/dashboard/tenants?roomId=${encodeURIComponent(String(selectedRoom.id || ''))}`);
                                                 setSelectedRoom(null);
                                             }}
                                             className="h-12 bg-white border border-slate-200 rounded-2xl flex items-center gap-2.5 px-3.5 hover:border-blue-200 hover:bg-blue-50/30 transition-all active:scale-95 group"
@@ -193,7 +228,7 @@ export default function RoomsTab({
                                             <div className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                                                 <DocumentTextIcon className="w-4 h-4" />
                                             </div>
-                                            <span className="text-[11px] font-black text-slate-800">ดูสัญญา</span>
+                                            <span className="text-[11px] font-black text-slate-800">ดูข้อมูลผู้เช่า</span>
                                         </button>
 
                                         <button 
@@ -213,7 +248,7 @@ export default function RoomsTab({
                             ) : (
                                 <button 
                                     onClick={() => {
-                                        router.push(`/dashboard/tenants/new?roomId=${selectedRoom.id}`);
+                                        router.push(`/dashboard?tab=tenants`);
                                         setSelectedRoom(null);
                                     }}
                                     className="w-full h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-between px-5 shadow-lg shadow-emerald-900/10 hover:brightness-110 active:scale-[0.98] transition-all group"
@@ -224,7 +259,7 @@ export default function RoomsTab({
                                         </div>
                                         <div className="text-left">
                                             <p className="text-[9px] font-bold text-white/70 uppercase tracking-widest leading-none mb-1">Quick Action</p>
-                                            <p className="text-[13px] font-black">เพิ่มผู้เช่าใหม่</p>
+                                            <p className="text-[13px] font-black">เพิ่มผู้เช่าใหม่/ไปหน้าบันทึกสัญญา</p>
                                         </div>
                                     </div>
                                     <ChevronRightIcon className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
@@ -258,7 +293,7 @@ export default function RoomsTab({
                                 สถานะห้องพัก
                             </h1>
                             <p className="text-sm sm:text-base text-white/95 font-bold tracking-tight mt-2">
-                                ห้องพักทั้งหมด {rooms.length} ห้อง
+                                {filteredRoomsForCount.length} ห้อง จาก {rooms.length} ห้อง
                             </p>
                         </div>
                     </div>
@@ -330,23 +365,7 @@ export default function RoomsTab({
                             <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
                         </div>
                     ) : (() => {
-                        const filteredRooms = rooms.filter(room => {
-                            const matchesFloor = selectedFloor === 'all' || room.floor === selectedFloor;
-                            let matchesStatus = true;
-                            if (selectedStatus !== 'all') {
-                                const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
-                                const isUnpaid = unpaidRoomIds.has(room.id);
-                                const isOccupied = room.status === 'occupied';
-                                const isAvailable = room.status === 'available';
-
-                                if (selectedStatus === 'available') matchesStatus = isAvailable && !isWaitingVerify && !isUnpaid && !overdueRoomIds.has(room.id);
-                                if (selectedStatus === 'occupied') matchesStatus = isOccupied;
-                                if (selectedStatus === 'waiting') matchesStatus = isUnpaid || isWaitingVerify;
-                                if (selectedStatus === 'overdue') matchesStatus = overdueRoomIds.has(room.id);
-                                if (selectedStatus === 'moving_out') matchesStatus = movingOutRoomIds.has(room.id);
-                            }
-                            return matchesFloor && matchesStatus;
-                        });
+                        const filteredRooms = filteredRoomsForCount;
 
                         if (filteredRooms.length === 0) {
                             return (

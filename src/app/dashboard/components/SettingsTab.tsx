@@ -43,6 +43,7 @@ interface SettingsTabProps {
         contact_number: string
         owner_name: string
     }
+    ownerEmail: string
     setDormData: (data: any) => void
     settingsData: {
         bank_name: string
@@ -72,6 +73,9 @@ interface SettingsTabProps {
         owner_line_user_id: string
     }
     setLineConfig: (config: any) => void
+    /** ซ่อน Secret/Token บนหน้าจอ (ไม่กระทบค่าใน DB) */
+    suppressLineSecrets: boolean
+    setSuppressLineSecrets: (v: boolean) => void
     copyToClipboard: (text: string) => void
     copied: boolean
     handleTestConnection: () => void
@@ -101,6 +105,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     setActiveSettingsTab,
     dormId,
     dormData,
+    ownerEmail,
     setDormData,
     settingsData,
     setSettingsData,
@@ -115,6 +120,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     setShowLineConfig,
     lineConfig,
     setLineConfig,
+    suppressLineSecrets,
+    setSuppressLineSecrets,
     copyToClipboard,
     copied,
     handleTestConnection,
@@ -140,6 +147,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     }>({ code: '', expiresAt: null, usedAt: null, loading: false, error: '', success: '' })
 
     const [switchingOa, setSwitchingOa] = useState(false)
+    const [switchOaModalOpen, setSwitchOaModalOpen] = useState(false)
+    const [switchOaPassword, setSwitchOaPassword] = useState('')
+    const [switchOaPasswordError, setSwitchOaPasswordError] = useState('')
+    const [dangerAction, setDangerAction] = useState<'switch_oa' | 'disconnect_oa'>('switch_oa')
+    const [showAdvancedLineActions, setShowAdvancedLineActions] = useState(false)
 
     const [billingDayDraft, setBillingDayDraft] = useState(() => String(settingsData.billing_day))
     const [paymentDueDraft, setPaymentDueDraft] = useState(() => String(settingsData.payment_due_day))
@@ -290,7 +302,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         }
     }
 
-    const handleSwitchLineOa = async () => {
+    const openSwitchLineOaModal = () => {
         if (!dormId || !showLineConfig) return
         if (!lineConfig.channel_id?.trim() || !lineConfig.channel_secret?.trim() || !lineConfig.access_token?.trim()) {
             setOwnerClaim(prev => ({
@@ -299,25 +311,89 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             }))
             return
         }
-        if (
-            !confirm(
-                'คุณกำลังเปลี่ยน LINE OA แบบเต็มรูปแบบ:\n\n' +
-                    '• ล้างการผูก LINE ของผู้เช่าทุกห้องในหอนี้ (ต้องลงทะเบียนใหม่กับ OA นี้)\n' +
-                    '• รีเซ็ตการผูกเจ้าของหอ\n' +
-                    '• บันทึกค่า Channel ที่กรอกไว้ และสร้างรหัส owner ใหม่\n\n' +
-                    'ดำเนินการต่อหรือไม่?'
-            )
-        ) {
+        setSwitchOaPassword('')
+        setSwitchOaPasswordError('')
+        setDangerAction('switch_oa')
+        setSwitchOaModalOpen(true)
+    }
+
+    const openDisconnectLineOaModal = () => {
+        if (!dormId || !showLineConfig) return
+        setSwitchOaPassword('')
+        setSwitchOaPasswordError('')
+        setDangerAction('disconnect_oa')
+        setSwitchOaModalOpen(true)
+    }
+
+    const closeSwitchLineOaModal = () => {
+        if (switchingOa) return
+        setSwitchOaModalOpen(false)
+        setSwitchOaPassword('')
+        setSwitchOaPasswordError('')
+    }
+
+    const handleSwitchLineOaConfirm = async () => {
+        if (!switchOaPassword.trim()) {
+            setSwitchOaPasswordError('กรุณากรอกรหัสผ่านที่ใช้เข้าสู่ระบบ')
             return
         }
-
+        setSwitchOaPasswordError('')
         setSwitchingOa(true)
         setOwnerClaim(prev => ({ ...prev, error: '', success: '' }))
         try {
             const supabase = createClient()
+            const {
+                data: { user },
+            } = await supabase.auth.getUser()
+            const email = user?.email?.trim()
+            if (!email) {
+                throw new Error(
+                    'บัญชีนี้ไม่มีอีเมลสำหรับยืนยันรหัสผ่าน (เช่น เข้าด้วยวิธีอื่น) — กรุณาติดต่อผู้ดูแลระบบ'
+                )
+            }
+
+            const { error: pwErr } = await supabase.auth.signInWithPassword({
+                email,
+                password: switchOaPassword,
+            })
+            if (pwErr) {
+                setSwitchOaPasswordError('รหัสผ่านไม่ถูกต้อง')
+                return
+            }
+
+            setSwitchOaModalOpen(false)
+            setSwitchOaPassword('')
+            setSwitchOaPasswordError('')
+
             const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
             if (sessionErr || !sessionData?.session?.access_token) {
                 throw new Error('กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง')
+            }
+
+            if (dangerAction === 'disconnect_oa') {
+                const res = await fetch('/api/line/disconnect-oa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dorm_id: dormId,
+                        access_token: sessionData.session.access_token,
+                    }),
+                })
+                const json = await res.json().catch(() => ({}))
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || 'ไม่สามารถยกเลิกการเชื่อมต่อ LINE OA ได้')
+                }
+
+                setOwnerClaim(prev => ({
+                    ...prev,
+                    code: '',
+                    expiresAt: null,
+                    usedAt: null,
+                    success: 'ยกเลิกการเชื่อมต่อ LINE OA แล้ว (ปล่อย Bot User ID) — หากต้องการใช้ใหม่ให้กรอกค่าแล้วบันทึกอีกครั้ง',
+                }))
+                onLineOaChanged?.({ clearLineSecrets: true })
+                setTimeout(() => setOwnerClaim(prev => ({ ...prev, success: '' })), 5500)
+                return
             }
 
             const res = await fetch('/api/line/switch-oa', {
@@ -333,7 +409,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             })
             const json = await res.json().catch(() => ({}))
             if (!res.ok || !json?.success) {
-                throw new Error(json?.error || 'ไม่สามารถเปลี่ยน LINE OA ได้')
+                throw new Error(json?.error || 'ไม่สามารถย้ายไป LINE OA ใหม่ได้')
             }
 
             setOwnerClaim(prev => ({
@@ -342,8 +418,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 expiresAt: String(json.expires_at || ''),
                 usedAt: null,
                 success: json.cleared_tenant_links
-                    ? 'รีเซ็ตการผูกแล้ว — บันทึก LINE OA ใหม่สำเร็จ ล้างการผูกผู้เช่าทุกห้องแล้ว ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)'
-                    : 'รีเซ็ตการผูกแล้ว — บันทึก LINE OA ใหม่สำเร็จ ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)',
+                    ? 'ย้ายไป LINE OA ใหม่แล้ว — ล้างการผูกผู้เช่าทุกห้องแล้ว ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)'
+                    : 'ย้ายไป LINE OA ใหม่แล้ว — ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)',
             }))
             onLineOaChanged?.({ clearLineSecrets: true })
             setTimeout(() => setOwnerClaim(prev => ({ ...prev, success: '' })), 5500)
@@ -413,6 +489,27 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             className="w-full h-14 bg-gray-50 border-2 border-gray-50 rounded-2xl pl-12 pr-4 font-bold text-gray-800 focus:bg-white focus:border-green-500 transition-all outline-none shadow-sm"
                                             placeholder="ชื่อ-นามสกุลเจ้าของหอ..."
                                         />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">อีเมลเจ้าของหอ (ใช้ล็อกอิน)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={ownerEmail || '-'}
+                                            readOnly
+                                            className="w-full h-14 bg-gray-100 border-2 border-gray-100 rounded-2xl px-4 pr-24 font-semibold text-sm text-gray-700 outline-none shadow-sm"
+                                        />
+                                        {!!ownerEmail && (
+                                            <button
+                                                type="button"
+                                                onClick={() => copyToClipboard(ownerEmail)}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 px-3 bg-white hover:bg-gray-50 text-gray-700 rounded-xl border border-gray-200 font-black text-[10px] transition-all active:scale-95 flex items-center gap-1.5"
+                                            >
+                                                <ClipboardIcon className="w-4 h-4" />
+                                                {copied ? 'คัดลอกแล้ว' : 'คัดลอก'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -860,8 +957,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                     <label className="text-[13px] font-black text-gray-500 ml-1">Channel Secret อยู่หน้า Basic settings</label>
                                     <input
                                         type="password"
-                                        value={lineConfig.channel_secret}
-                                        onChange={(e) => setLineConfig({ ...lineConfig, channel_secret: e.target.value })}
+                                        value={suppressLineSecrets ? '' : lineConfig.channel_secret}
+                                        onChange={(e) => {
+                                            if (suppressLineSecrets) setSuppressLineSecrets(false)
+                                            setLineConfig({ ...lineConfig, channel_secret: e.target.value })
+                                        }}
                                         className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
                                         placeholder="••••••••••••••••"
                                     />
@@ -871,8 +971,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         <label className="text-[13px] font-black text-gray-500 ml-1">Channel Access Token อยู่หน้า Messaging API</label>
                                         <input
                                             type="password"
-                                            value={lineConfig.access_token}
-                                            onChange={(e) => setLineConfig({ ...lineConfig, access_token: e.target.value })}
+                                            value={suppressLineSecrets ? '' : lineConfig.access_token}
+                                            onChange={(e) => {
+                                                if (suppressLineSecrets) setSuppressLineSecrets(false)
+                                                setLineConfig({ ...lineConfig, access_token: e.target.value })
+                                            }}
                                             className="w-full h-14 bg-white border-2 border-gray-50 rounded-2xl px-5 font-bold text-gray-800 focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none shadow-sm"
                                             placeholder="••••••••••••••••"
                                         />
@@ -902,7 +1005,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         <div className="flex items-start gap-2">
                                             <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-orange-600 mt-0.5" />
                                             <div>
-                                                <p className="text-[13px] font-black text-orange-950">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
+                                                <p className="text-[13px] font-black text-orange-950">ย้ายไป LINE OA ใหม่ (ล้างการผูกผู้เช่าทั้งหมด)</p>
                                                 <p className="text-[11px] font-bold text-orange-900/85 leading-relaxed mt-1">
                                                     ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + สร้างรหัส owner ใหม่
                                                 </p>
@@ -910,15 +1013,48 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={handleSwitchLineOa}
+                                            onClick={openSwitchLineOaModal}
                                             disabled={switchingOa || !lineConfig.channel_id?.trim()}
                                             className="w-full h-12 rounded-2xl border-2 border-orange-600 bg-orange-600 text-white font-black text-sm hover:bg-orange-700 hover:border-orange-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-orange-600 disabled:hover:border-orange-600"
                                         >
                                             {switchingOa ? (
                                                 <ArrowPathIcon className="w-5 h-5 animate-spin" />
                                             ) : null}
-                                            {switchingOa ? 'กำลังเปลี่ยน OA...' : 'เปลี่ยน LINE OA (รีเซ็ตการผูกทั้งหมด)'}
+                                            {switchingOa ? 'กำลังดำเนินการ...' : 'ย้ายไป LINE OA ใหม่'}
                                         </button>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAdvancedLineActions(v => !v)}
+                                            className="w-full flex items-center justify-between text-left"
+                                        >
+                                            <span className="text-[12px] font-black text-gray-700">ขั้นสูง</span>
+                                            <span className="text-[11px] font-black text-gray-400">
+                                                {showAdvancedLineActions ? 'ซ่อน' : 'แสดง'}
+                                            </span>
+                                        </button>
+                                        {showAdvancedLineActions && (
+                                            <div className="space-y-3 pt-1">
+                                                <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3">
+                                                    <p className="text-[12px] font-black text-red-900">
+                                                        ยกเลิกการเชื่อมต่อ LINE OA (ปล่อย Bot User ID)
+                                                    </p>
+                                                    <p className="text-[11px] font-bold text-red-900/80 mt-1 leading-relaxed">
+                                                        ใช้กรณีต้องการย้าย OA ไปผูกหอ/บัญชีอื่น หรือไม่ใช้ LINE แล้ว ระบบจะลบการเชื่อมต่อของหอนี้และล้างการผูกผู้เช่า
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={openDisconnectLineOaModal}
+                                                    disabled={switchingOa}
+                                                    className="w-full h-11 rounded-2xl border-2 border-red-200 bg-white text-red-700 font-black text-[12px] hover:bg-red-50 transition-all active:scale-[0.99] disabled:opacity-50"
+                                                >
+                                                    ยกเลิกการเชื่อมต่อ LINE OA
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -948,6 +1084,100 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                     )}
                 </button>
             </div>
+
+            {switchOaModalOpen && (
+                <div
+                    className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="switch-oa-dialog-title"
+                >
+                    <div
+                        className="absolute inset-0"
+                        onClick={closeSwitchLineOaModal}
+                        aria-hidden
+                    />
+                    <div className="relative w-full max-w-md rounded-3xl bg-white border-2 border-orange-100 shadow-2xl shadow-orange-100/40 p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
+                                <LockClosedIcon className="w-6 h-6 text-orange-700" />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 id="switch-oa-dialog-title" className="text-lg font-black text-gray-900 leading-tight">
+                                    {dangerAction === 'disconnect_oa' ? 'ยืนยันเพื่อยกเลิกการเชื่อมต่อ' : 'ยืนยันเพื่อย้ายไป OA ใหม่'}
+                                </h2>
+                                <p className="text-[12px] font-bold text-gray-500 mt-1 leading-relaxed">
+                                    กรุณากรอกรหัสผ่านที่ใช้เข้าสู่ระบบ Horpay เพื่อยืนยันการดำเนินการนี้
+                                </p>
+                            </div>
+                        </div>
+                        {dangerAction === 'disconnect_oa' ? (
+                            <ul className="text-[11px] font-bold text-red-900/90 bg-red-50/90 rounded-2xl border border-red-100 px-4 py-3 space-y-1.5 list-disc pl-8">
+                                <li>ลบการเชื่อมต่อ LINE OA ของหอนี้ (ปล่อย Bot User ID)</li>
+                                <li>ล้างการผูก LINE ของผู้เช่าทุกห้องในหอนี้</li>
+                            </ul>
+                        ) : (
+                            <ul className="text-[11px] font-bold text-orange-900/90 bg-orange-50/90 rounded-2xl border border-orange-100 px-4 py-3 space-y-1.5 list-disc pl-8">
+                                <li>บันทึก LINE OA ใหม่ให้หอนี้</li>
+                                <li>ล้างการผูก LINE ของผู้เช่าทุกห้องในหอนี้</li>
+                                <li>รีเซ็ตการผูกเจ้าของหอ และสร้างรหัส owner ใหม่</li>
+                            </ul>
+                        )}
+                        <div className="space-y-2">
+                            <label htmlFor="switch-oa-password" className="text-[12px] font-black text-gray-600 ml-1">
+                                รหัสผ่าน
+                            </label>
+                            <input
+                                id="switch-oa-password"
+                                type="password"
+                                autoComplete="current-password"
+                                value={switchOaPassword}
+                                onChange={(e) => {
+                                    setSwitchOaPassword(e.target.value)
+                                    if (switchOaPasswordError) setSwitchOaPasswordError('')
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !switchingOa) void handleSwitchLineOaConfirm()
+                                }}
+                                className="w-full h-14 rounded-2xl border-2 border-gray-200 px-4 font-bold text-gray-900 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 transition-all"
+                                placeholder="รหัสผ่านที่ใช้ล็อกอิน"
+                            />
+                            {switchOaPasswordError && (
+                                <p className="text-[11px] font-black text-red-600 px-1">{switchOaPasswordError}</p>
+                            )}
+                        </div>
+                        <div className="flex gap-3 pt-1">
+                            <button
+                                type="button"
+                                onClick={closeSwitchLineOaModal}
+                                disabled={switchingOa}
+                                className="flex-1 h-12 rounded-2xl border-2 border-gray-200 bg-gray-50 font-black text-sm text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-50"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void handleSwitchLineOaConfirm()}
+                                disabled={switchingOa}
+                                className={`flex-1 h-12 rounded-2xl border-2 font-black text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                                    dangerAction === 'disconnect_oa'
+                                        ? 'border-red-700 bg-red-600 hover:bg-red-700 text-white'
+                                        : 'border-orange-700 bg-orange-600 hover:bg-orange-700 text-white'
+                                }`}
+                            >
+                                {switchingOa ? (
+                                    <>
+                                        <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                                        กำลังดำเนินการ...
+                                    </>
+                                ) : (
+                                    dangerAction === 'disconnect_oa' ? 'ยืนยันยกเลิก' : 'ยืนยันย้าย OA'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
         </DashboardMenuPageChrome>
     )

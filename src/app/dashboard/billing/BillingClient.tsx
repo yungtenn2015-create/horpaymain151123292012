@@ -465,11 +465,13 @@ export default function BillingClient() {
                 return format(new Date(year, targetMonth, finalDay), 'yyyy-MM-dd')
             })()
 
+            // NOTE: DB unique constraints are typically scoped to room+month (not tenant).
+            // If tenant changed mid-month, a previous tenant's bill can still block inserts.
             const { data: existingRows, error: existingErr } = await supabase
                 .from('bills')
-                .select('id, status, created_at, room_amount, utility_amount, other_amount, total_amount')
-                .eq('tenant_id', item.tenantId)
+                .select('id, tenant_id, status, created_at, room_amount, utility_amount, other_amount, total_amount')
                 .eq('room_id', item.roomId)
+                .eq('bill_type', 'monthly')
                 .eq('billing_month', monthStart)
                 .order('created_at', { ascending: false })
 
@@ -478,6 +480,7 @@ export default function BillingClient() {
             let newBill: { id: string }
             const rows = (existingRows || []) as Array<{
                 id: string
+                tenant_id?: string | null
                 status: string
                 created_at: string
                 room_amount: number
@@ -489,7 +492,12 @@ export default function BillingClient() {
             const existingCancelled = rows.find((r) => r.status === 'cancelled')
 
             if (existingActive) {
-                throw new Error('ไม่สามารถออกบิลซ้ำได้: มีบิลในห้องนี้/เดือนนี้อยู่แล้ว (ยังไม่ถูกยกเลิก) หากต้องการออกใหม่ กรุณายกเลิกบิลเดิมก่อน')
+                const isSameTenant = String(existingActive.tenant_id || '') === String(item.tenantId || '')
+                throw new Error(
+                    isSameTenant
+                        ? 'ไม่สามารถออกบิลซ้ำได้: มีบิลในห้องนี้/เดือนนี้อยู่แล้ว (ยังไม่ถูกยกเลิก) หากต้องการออกใหม่ กรุณายกเลิกบิลเดิมก่อน'
+                        : 'ไม่สามารถออกบิลซ้ำได้: ห้องนี้มีบิลเดือนนี้อยู่แล้ว (อาจเป็นบิลของผู้เช่าคนก่อน) กรุณาไปที่ “ประวัติบิล/ออกบิล” เพื่อยกเลิกบิลเดิมก่อน แล้วค่อยออกบิลใหม่'
+                )
             } else if (existingCancelled) {
                     const nextRoom = Number(item.rent || 0)
                     const nextUtility = Number(item.water || 0) + Number(item.electricity || 0)
@@ -518,6 +526,8 @@ export default function BillingClient() {
                     }
 
                     const reopenPatch: Record<string, string | number | null> = {
+                        // If the cancelled bill belonged to a previous tenant, move it to the current tenant
+                        tenant_id: item.tenantId,
                         utility_id: item.utilityId,
                         due_date: dueDateStr,
                         status: 'unpaid',

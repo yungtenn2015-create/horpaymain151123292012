@@ -556,8 +556,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <div
                                     key={room.id}
                                     onClick={() => {
-                                        if (movingOutRoomIds.has(room.id)) {
+                                        // If there's a pending move-out bill, jump straight to that room's move-out flow.
+                                        if (pendingMoveOutBillRoomIds.has(room.id)) {
                                             router.push(`/dashboard/move-out?roomId=${room.id}`)
+                                            return
+                                        }
+                                        // If it's only a notice (planned_move_out_date), go to the move-out list page (like screenshot #2).
+                                        if (movingOutRoomIds.has(room.id)) {
+                                            router.push(`/dashboard/move-out?search=${encodeURIComponent(String(room.room_number || ''))}`)
                                             return
                                         }
                                         router.push('/dashboard/billing')
@@ -576,9 +582,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        {movingOutRoomIds.has(room.id) ? (
+                                        {pendingMoveOutBillRoomIds.has(room.id) ? (
                                             <div className="h-8 px-3 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
                                                 <span className="text-[10px] font-black uppercase text-rose-600">รอยืนยันย้ายออก</span>
+                                            </div>
+                                        ) : movingOutRoomIds.has(room.id) ? (
+                                            <div className="h-8 px-3 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                                                <span className="text-[10px] font-black uppercase text-amber-600">แจ้งย้ายออก</span>
                                             </div>
                                         ) : waitingVerifyRoomIds.has(room.id) ? (
                                             <div className="h-8 px-3 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center">

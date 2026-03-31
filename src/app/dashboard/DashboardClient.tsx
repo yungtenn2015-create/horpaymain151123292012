@@ -128,6 +128,7 @@ export default function DashboardClient() {
     const [rooms, setRooms] = useState<Room[]>([])
     const [userInitial, setUserInitial] = useState('O')
     const [userName, setUserName] = useState('')
+    const [ownerEmail, setOwnerEmail] = useState('')
     const [dbError, setDbError] = useState('') // added error state
     const refreshRequestIdRef = useRef(0)
     /** คิวโหลดทีละงาน — กันหลาย getUser/refresh token พร้อมกัน (ข้อผิดพลาด lock ... stole it ของ Supabase) */
@@ -319,6 +320,9 @@ export default function DashboardClient() {
         access_token: '',
         owner_line_user_id: ''
     })
+    // When true, hide secrets on-screen (keep real values in DB).
+    // This prevents secrets from re-appearing when navigating away/back.
+    const [suppressLineSecrets, setSuppressLineSecrets] = useState(false)
 
     // Overview Stats States
     const [overviewData, setOverviewData] = useState({
@@ -642,6 +646,31 @@ export default function DashboardClient() {
         setIsContractFormOpen(true)
     }
 
+    const autoOpenedRoomRef = useRef<string | null>(null)
+
+    // Deep-link: /dashboard?tab=tenants&search=402&open_room=402
+    // Opens the tenant/contract detail for that room automatically.
+    useEffect(() => {
+        if (activeTab !== 'tenants') return
+        const openRoom = String(searchParams.get('open_room') || '').trim()
+        const search = String(searchParams.get('search') || '').trim()
+        if (search && contractSearchQuery !== search) {
+            setContractSearchQuery(search)
+        }
+        if (!openRoom) return
+        if (autoOpenedRoomRef.current === openRoom) return
+        if (!contracts || contracts.length === 0) return
+
+        const match = contracts.find((c) => {
+            const rn = (c as any)?.tenants?.[0]?.rooms?.room_number
+            return String(rn || '').trim() === openRoom
+        })
+        if (!match) return
+        autoOpenedRoomRef.current = openRoom
+        setContractTab('active')
+        openEditContract(match)
+    }, [activeTab, searchParams, contracts, contractSearchQuery, openEditContract, setContractTab, setContractSearchQuery])
+
 
     // LINE Settings Helpers
     const [showLineConfig, setShowLineConfig] = useState(false)
@@ -758,6 +787,7 @@ export default function DashboardClient() {
             return;
         }
 
+        setOwnerEmail(String(user.email || '').trim())
         const fallbackOwnerName = user.user_metadata?.name || user.email?.split('@')[0] || 'Owner';
 
         try {
@@ -830,9 +860,16 @@ export default function DashboardClient() {
                 if (!lineOaErr && lineOa) {
                     setLineConfig({
                         channel_id: lineOa.channel_id || '',
-                        channel_secret: lineOa.channel_secret || '',
-                        access_token: lineOa.access_token || '',
+                        channel_secret: suppressLineSecrets ? '' : (lineOa.channel_secret || ''),
+                        access_token: suppressLineSecrets ? '' : (lineOa.access_token || ''),
                         owner_line_user_id: lineOa.owner_line_user_id || ''
+                    })
+                } else if (!lineOaErr && !lineOa) {
+                    setLineConfig({
+                        channel_id: '',
+                        channel_secret: '',
+                        access_token: '',
+                        owner_line_user_id: ''
                     })
                 }
             }
@@ -1129,10 +1166,17 @@ export default function DashboardClient() {
                 if (lineOa) {
                     setLineConfig({
                         channel_id: lineOa.channel_id || '',
-                        channel_secret: lineOa.channel_secret || '',
-                        access_token: lineOa.access_token || '',
+                        channel_secret: suppressLineSecrets ? '' : (lineOa.channel_secret || ''),
+                        access_token: suppressLineSecrets ? '' : (lineOa.access_token || ''),
                         owner_line_user_id: lineOa.owner_line_user_id || ''
                     });
+                } else {
+                    setLineConfig({
+                        channel_id: '',
+                        channel_secret: '',
+                        access_token: '',
+                        owner_line_user_id: ''
+                    })
                 }
 
                 setDormData({
@@ -1652,6 +1696,7 @@ export default function DashboardClient() {
                         setActiveSettingsTab={setActiveSettingsTab}
                         dormId={dorm?.id || ''}
                         dormData={dormData}
+                        ownerEmail={ownerEmail}
                         setDormData={setDormData}
                         settingsData={settingsData}
                         setSettingsData={setSettingsData}
@@ -1666,6 +1711,8 @@ export default function DashboardClient() {
                         setShowLineConfig={setShowLineConfig}
                         lineConfig={lineConfig}
                         setLineConfig={setLineConfig}
+                        suppressLineSecrets={suppressLineSecrets}
+                        setSuppressLineSecrets={setSuppressLineSecrets}
                         copyToClipboard={copyToClipboard}
                         copied={copied}
                         handleTestConnection={handleTestConnection}
@@ -1681,6 +1728,7 @@ export default function DashboardClient() {
                                 if (!opts?.clearLineSecrets) return
                                 // ให้ state จาก DB commit ก่อน แล้วค่อยล้างช่องลับบนฟอร์ม (กัน batch สลับลำดับ)
                                 setTimeout(() => {
+                                    setSuppressLineSecrets(true)
                                     setLineConfig((prev) => ({
                                         ...prev,
                                         channel_secret: '',

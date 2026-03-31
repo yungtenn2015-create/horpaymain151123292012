@@ -74,6 +74,7 @@ export default function MoveOutClient() {
     const [loading, setLoading] = useState(true)
     const [tenants, setTenants] = useState<Tenant[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const [didApplyInitialSearch, setDidApplyInitialSearch] = useState(false)
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [showMoveOutModal, setShowMoveOutModal] = useState(false)
@@ -123,6 +124,18 @@ export default function MoveOutClient() {
     useEffect(() => {
         fetchData()
     }, [])
+
+    // Allow deep-link filtering, e.g. /dashboard/move-out?search=401
+    useEffect(() => {
+        if (didApplyInitialSearch) return
+        const initial = String(searchParams.get('search') || '').trim()
+        if (!initial) {
+            setDidApplyInitialSearch(true)
+            return
+        }
+        setSearchQuery(initial)
+        setDidApplyInitialSearch(true)
+    }, [searchParams, didApplyInitialSearch])
 
     useEffect(() => {
         const loadIssuedSnapshot = async () => {
