@@ -18,7 +18,8 @@ import {
     BoltIcon,
     Squares2X2Icon,
     KeyIcon,
-    UserIcon
+    UserIcon,
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 
 import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
@@ -81,6 +82,8 @@ interface SettingsTabProps {
     handleSaveSettings: () => void
     savingSettings: boolean
     settingsMessage: string
+    /** หลังเปลี่ยน LINE OA สำเร็จ — โหลดข้อมูลห้อง/ผู้เช่าใหม่ */
+    onLineOaChanged?: () => void
 }
 
 /** หลังพิมพ์เสร็จ / blur — ค่าว่างหรือไม่ถูกต้องใช้ fallback (ค่าที่บันทึกไว้) */
@@ -121,7 +124,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     testResult,
     handleSaveSettings,
     savingSettings,
-    settingsMessage
+    settingsMessage,
+    onLineOaChanged
 }) => {
     const isDormSection = activeSettingsTab === 'dorm'
     const isLineSection = activeSettingsTab === 'line'
@@ -134,6 +138,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         error: string
         success: string
     }>({ code: '', expiresAt: null, usedAt: null, loading: false, error: '', success: '' })
+
+    const [switchingOa, setSwitchingOa] = useState(false)
 
     const [billingDayDraft, setBillingDayDraft] = useState(() => String(settingsData.billing_day))
     const [paymentDueDraft, setPaymentDueDraft] = useState(() => String(settingsData.payment_due_day))
@@ -187,23 +193,66 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 throw new Error('กรุณากรอก Bot User ID, Channel Secret และ Channel Access Token แล้วกดบันทึกก่อน')
             }
 
-            // Ensure LINE config row exists before requesting owner claim code.
-            // Some accounts may fail to persist config from the main save flow,
-            // which caused owner-claim API to think LINE is not configured.
-            const { error: upsertErr } = await supabase
+            const channelId = lineConfig.channel_id.trim()
+            const channelSecret = lineConfig.channel_secret.trim()
+            const accessToken = lineConfig.access_token.trim()
+            const nowIso = new Date().toISOString()
+
+            // channel_id is UNIQUE globally — same LINE bot cannot be linked to two dorms.
+            const { data: otherDormWithChannel } = await supabase
                 .from('line_oa_configs')
-                .upsert(
-                    {
-                        dorm_id: dormId,
-                        channel_id: lineConfig.channel_id.trim(),
-                        channel_secret: lineConfig.channel_secret.trim(),
-                        access_token: lineConfig.access_token.trim(),
-                        updated_at: new Date().toISOString()
-                    },
-                    { onConflict: 'dorm_id' }
+                .select('dorm_id')
+                .eq('channel_id', channelId)
+                .neq('dorm_id', dormId)
+                .maybeSingle()
+            if (otherDormWithChannel) {
+                throw new Error(
+                    'Channel ID (Bot User ID) นี้ถูกใช้กับหอพักอื่นในระบบแล้ว แต่ละ LINE OA ผูกได้ทีละหอพักเท่านั้น หรือลบ/แก้ค่าที่หอเดิมก่อน'
                 )
-            if (upsertErr) {
-                throw new Error(upsertErr.message || 'บันทึก LINE config ไม่สำเร็จ')
+            }
+
+            // Avoid upsert: insert+duplicate channel_id hits unique constraint before dorm_id conflict.
+            const { data: existingCfg } = await supabase
+                .from('line_oa_configs')
+                .select('id')
+                .eq('dorm_id', dormId)
+                .maybeSingle()
+
+            const basePayload = {
+                channel_id: channelId,
+                channel_secret: channelSecret,
+                access_token: accessToken,
+                updated_at: nowIso
+            }
+
+            if (existingCfg) {
+                const { error: updErr } = await supabase
+                    .from('line_oa_configs')
+                    .update(basePayload)
+                    .eq('dorm_id', dormId)
+                if (updErr) {
+                    const msg = String(updErr.message || '')
+                    if (msg.includes('line_oa_configs_channel_id') || msg.includes('duplicate key')) {
+                        throw new Error(
+                            'Channel ID นี้ซ้ำกับหอพักอื่นในระบบแล้ว (แต่ละ OA ใช้ได้ทีละหอพักเท่านั้น)'
+                        )
+                    }
+                    throw new Error(updErr.message || 'บันทึก LINE config ไม่สำเร็จ')
+                }
+            } else {
+                const { error: insErr } = await supabase.from('line_oa_configs').insert({
+                    dorm_id: dormId,
+                    ...basePayload
+                })
+                if (insErr) {
+                    const msg = String(insErr.message || '')
+                    if (msg.includes('line_oa_configs_channel_id') || msg.includes('duplicate key')) {
+                        throw new Error(
+                            'Channel ID นี้ซ้ำกับหอพักอื่นในระบบแล้ว (แต่ละ OA ใช้ได้ทีละหอพักเท่านั้น)'
+                        )
+                    }
+                    throw new Error(insErr.message || 'บันทึก LINE config ไม่สำเร็จ')
+                }
             }
 
             const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
@@ -236,6 +285,75 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             setOwnerClaim(prev => ({ ...prev, error: e?.message || 'ไม่สามารถสร้างรหัสได้' }))
         } finally {
             setOwnerClaim(prev => ({ ...prev, loading: false }))
+        }
+    }
+
+    const handleSwitchLineOa = async () => {
+        if (!dormId || !showLineConfig) return
+        if (!lineConfig.channel_id?.trim() || !lineConfig.channel_secret?.trim() || !lineConfig.access_token?.trim()) {
+            setOwnerClaim(prev => ({
+                ...prev,
+                error: 'กรุณากรอก Channel Secret + Access Token แล้วกดทดสอบการเชื่อมต่อให้ได้ Bot User ID ก่อน',
+            }))
+            return
+        }
+        if (
+            !confirm(
+                'คุณกำลังเปลี่ยน LINE OA แบบเต็มรูปแบบ:\n\n' +
+                    '• ล้างการผูก LINE ของผู้เช่าทุกห้องในหอนี้ (ต้องลงทะเบียนใหม่กับ OA นี้)\n' +
+                    '• รีเซ็ตการผูกเจ้าของหอ\n' +
+                    '• บันทึกค่า Channel ที่กรอกไว้ และสร้างรหัส owner ใหม่\n\n' +
+                    'ดำเนินการต่อหรือไม่?'
+            )
+        ) {
+            return
+        }
+
+        setSwitchingOa(true)
+        setOwnerClaim(prev => ({ ...prev, error: '', success: '' }))
+        try {
+            const supabase = createClient()
+            const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+            if (sessionErr || !sessionData?.session?.access_token) {
+                throw new Error('กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง')
+            }
+
+            const res = await fetch('/api/line/switch-oa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dorm_id: dormId,
+                    access_token: sessionData.session.access_token,
+                    channel_id: lineConfig.channel_id.trim(),
+                    channel_secret: lineConfig.channel_secret.trim(),
+                    line_access_token: lineConfig.access_token.trim(),
+                }),
+            })
+            const json = await res.json().catch(() => ({}))
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || 'ไม่สามารถเปลี่ยน LINE OA ได้')
+            }
+
+            setLineConfig((prev: { channel_id: string; channel_secret: string; access_token: string; owner_line_user_id: string }) => ({
+                ...prev,
+                owner_line_user_id: '',
+            }))
+            setOwnerClaim(prev => ({
+                ...prev,
+                code: String(json.code || ''),
+                expiresAt: String(json.expires_at || ''),
+                usedAt: null,
+                success: json.cleared_tenant_links
+                    ? 'เปลี่ยน LINE OA แล้ว — ล้างการผูกผู้เช่า + สร้างรหัส owner ใหม่ — ตรวจสอบ Webhook URL ที่ LINE Developers ให้ตรงกับระบบ'
+                    : 'เปลี่ยน LINE OA แล้ว — สร้างรหัส owner ใหม่ — ตรวจสอบ Webhook URL ที่ LINE Developers',
+            }))
+            onLineOaChanged?.()
+            setTimeout(() => setOwnerClaim(prev => ({ ...prev, success: '' })), 4500)
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'ไม่สามารถเปลี่ยน LINE OA ได้'
+            setOwnerClaim(prev => ({ ...prev, error: msg }))
+        } finally {
+            setSwitchingOa(false)
         }
     }
 
@@ -781,6 +899,29 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             <span className="text-xs font-black">{testResult.message}</span>
                                         </div>
                                     )}
+
+                                    <div className="rounded-2xl border-2 border-amber-100 bg-amber-50/80 p-4 space-y-3">
+                                        <div className="flex items-start gap-2">
+                                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+                                            <div>
+                                                <p className="text-[13px] font-black text-amber-900">เปลี่ยน LINE OA (แบบปลอดภัย)</p>
+                                                <p className="text-[11px] font-bold text-amber-800/90 leading-relaxed mt-1">
+                                                    ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + บันทึกค่า Channel ปัจจุบัน + สร้างรหัส owner ใหม่
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleSwitchLineOa}
+                                            disabled={switchingOa || !lineConfig.channel_id?.trim()}
+                                            className="w-full h-12 rounded-2xl border-2 border-amber-200 bg-white text-amber-900 font-black text-sm hover:bg-amber-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {switchingOa ? (
+                                                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                                            ) : null}
+                                            {switchingOa ? 'กำลังเปลี่ยน OA...' : 'เปลี่ยน LINE OA (รีเซ็ตการผูกทั้งหมด)'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -1649,6 +1649,9 @@ export default function DashboardClient() {
                         handleSaveSettings={handleSaveSettings}
                         savingSettings={savingSettings}
                         settingsMessage={settingsMessage}
+                        onLineOaChanged={() => {
+                            void refreshDashboard(false)
+                        }}
                     />
                     </div>
                 )}
