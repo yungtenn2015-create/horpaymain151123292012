@@ -734,9 +734,10 @@ export default function DashboardClient() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const refreshDashboard = useCallback((isInitial = false) => {
+    const refreshDashboard = useCallback((isInitial = false, opts?: { reloadLineConfig?: boolean }) => {
         const requestId = ++refreshRequestIdRef.current
         const isStaleRequest = () => requestId !== refreshRequestIdRef.current
+        const reloadLineConfig = Boolean(opts?.reloadLineConfig)
 
         const runRefresh = async () => {
         // Guard against stale refreshes (e.g. double effect in dev/strict mode)
@@ -818,6 +819,23 @@ export default function DashboardClient() {
             if (!roomsData) return;
             const activeRooms = roomsData;
             setRooms(activeRooms);
+
+            if (reloadLineConfig && !isInitial) {
+                if (isStaleRequest()) return
+                const { data: lineOa, error: lineOaErr } = await supabase
+                    .from('line_oa_configs')
+                    .select('*')
+                    .eq('dorm_id', currentDorm.id)
+                    .maybeSingle()
+                if (!lineOaErr && lineOa) {
+                    setLineConfig({
+                        channel_id: lineOa.channel_id || '',
+                        channel_secret: lineOa.channel_secret || '',
+                        access_token: lineOa.access_token || '',
+                        owner_line_user_id: lineOa.owner_line_user_id || ''
+                    })
+                }
+            }
 
             // Get IDs of active tenants
             const activeTenantIds = activeRooms
@@ -1659,14 +1677,16 @@ export default function DashboardClient() {
                         savingSettings={savingSettings}
                         settingsMessage={settingsMessage}
                         onLineOaChanged={(opts) => {
-                            void refreshDashboard(false).then(() => {
-                                if (opts?.clearLineSecrets) {
+                            void refreshDashboard(false, { reloadLineConfig: true }).finally(() => {
+                                if (!opts?.clearLineSecrets) return
+                                // ให้ state จาก DB commit ก่อน แล้วค่อยล้างช่องลับบนฟอร์ม (กัน batch สลับลำดับ)
+                                setTimeout(() => {
                                     setLineConfig((prev) => ({
                                         ...prev,
                                         channel_secret: '',
                                         access_token: '',
                                     }))
-                                }
+                                }, 0)
                             })
                         }}
                     />

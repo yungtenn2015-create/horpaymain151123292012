@@ -898,12 +898,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         </div>
                                     )}
 
-                                    <div className="rounded-2xl border-2 border-red-100 bg-red-50/60 p-4 space-y-3">
+                                    <div className="rounded-2xl border-2 border-orange-200 bg-orange-50/80 p-4 space-y-3">
                                         <div className="flex items-start gap-2">
-                                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+                                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-orange-600 mt-0.5" />
                                             <div>
-                                                <p className="text-[13px] font-black text-red-900">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
-                                                <p className="text-[11px] font-bold text-red-800/90 leading-relaxed mt-1">
+                                                <p className="text-[13px] font-black text-orange-950">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
+                                                <p className="text-[11px] font-bold text-orange-900/85 leading-relaxed mt-1">
                                                     ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + สร้างรหัส owner ใหม่
                                                 </p>
                                             </div>
@@ -912,7 +912,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             type="button"
                                             onClick={handleSwitchLineOa}
                                             disabled={switchingOa || !lineConfig.channel_id?.trim()}
-                                            className="w-full h-12 rounded-2xl border-2 border-red-700 bg-red-600 text-white font-black text-sm hover:bg-red-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-red-600"
+                                            className="w-full h-12 rounded-2xl border-2 border-orange-600 bg-orange-600 text-white font-black text-sm hover:bg-orange-700 hover:border-orange-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-orange-600 disabled:hover:border-orange-600"
                                         >
                                             {switchingOa ? (
                                                 <ArrowPathIcon className="w-5 h-5 animate-spin" />
