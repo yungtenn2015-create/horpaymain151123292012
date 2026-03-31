@@ -82,8 +82,8 @@ interface SettingsTabProps {
     handleSaveSettings: () => void
     savingSettings: boolean
     settingsMessage: string
-    /** หลังเปลี่ยน LINE OA สำเร็จ — โหลดข้อมูลห้อง/ผู้เช่าใหม่ */
-    onLineOaChanged?: () => void
+    /** หลังเปลี่ยน LINE OA สำเร็จ — โหลดข้อมูลห้อง/ผู้เช่าใหม่; clearLineSecrets = ล้างช่อง Secret/Token บนหน้าจอหลังโหลดเสร็จ */
+    onLineOaChanged?: (opts?: { clearLineSecrets?: boolean }) => void
 }
 
 /** หลังพิมพ์เสร็จ / blur — ค่าว่างหรือไม่ถูกต้องใช้ fallback (ค่าที่บันทึกไว้) */
@@ -336,21 +336,17 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                 throw new Error(json?.error || 'ไม่สามารถเปลี่ยน LINE OA ได้')
             }
 
-            setLineConfig((prev: { channel_id: string; channel_secret: string; access_token: string; owner_line_user_id: string }) => ({
-                ...prev,
-                owner_line_user_id: '',
-            }))
             setOwnerClaim(prev => ({
                 ...prev,
                 code: String(json.code || ''),
                 expiresAt: String(json.expires_at || ''),
                 usedAt: null,
                 success: json.cleared_tenant_links
-                    ? 'เปลี่ยน LINE OA แล้ว — ล้างการผูกผู้เช่า + สร้างรหัส owner ใหม่ — ตรวจสอบ Webhook URL ที่ LINE Developers ให้ตรงกับระบบ'
-                    : 'เปลี่ยน LINE OA แล้ว — สร้างรหัส owner ใหม่ — ตรวจสอบ Webhook URL ที่ LINE Developers',
+                    ? 'รีเซ็ตการผูกแล้ว — บันทึก LINE OA ใหม่สำเร็จ ล้างการผูกผู้เช่าทุกห้องแล้ว ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)'
+                    : 'รีเซ็ตการผูกแล้ว — บันทึก LINE OA ใหม่สำเร็จ ใช้รหัส owner ด้านล่างได้เลย (แนะนำตรวจ Webhook ที่ LINE Developers)',
             }))
-            onLineOaChanged?.()
-            setTimeout(() => setOwnerClaim(prev => ({ ...prev, success: '' })), 4500)
+            onLineOaChanged?.({ clearLineSecrets: true })
+            setTimeout(() => setOwnerClaim(prev => ({ ...prev, success: '' })), 5500)
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'ไม่สามารถเปลี่ยน LINE OA ได้'
             setOwnerClaim(prev => ({ ...prev, error: msg }))
@@ -781,7 +777,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-[13px] font-black text-gray-500 ml-1">สถานะเจ้าของ LINE</label>
+                                    <label className="text-[13px] font-black text-gray-500 ml-1">สถานะการผูก LINE ของเจ้าของหอพัก</label>
                                     <div className="flex items-center justify-between gap-3 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
                                         <div>
                                             <p className={`text-sm font-black ${lineConfig.owner_line_user_id ? 'text-emerald-600' : 'text-gray-400'}`}>
@@ -798,7 +794,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             disabled={isResettingOwnerLine}
                                             className="h-10 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-100 font-black text-[11px] transition-all active:scale-95 disabled:opacity-50"
                                         >
-                                            {isResettingOwnerLine ? 'กำลังรีเซ็ต...' : 'รีเซ็ตเจ้าของ LINE'}
+                                            {isResettingOwnerLine ? 'กำลังรีเซ็ต...' : 'รีเซ็ต'}
                                         </button>
                                     </div>
                                 </div>

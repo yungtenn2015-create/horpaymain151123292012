@@ -717,7 +717,10 @@ export default function DashboardClient() {
             if (error) throw error
 
             setLineConfig(prev => ({ ...prev, owner_line_user_id: '' }))
-            setTestResult({ success: true, message: 'รีเซ็ตเจ้าของ LINE เรียบร้อยแล้ว กรุณาให้เจ้าของแอด OA ใหม่เพื่อผูกบัญชี' })
+            setTestResult({
+                success: true,
+                message: 'รีเซ็ตการผูกเจ้าของแล้ว — กรุณาให้เจ้าของแอด OA แล้วใส่รหัส owner เพื่อผูกบัญชีใหม่',
+            })
         } catch (err: any) {
             setTestResult({ success: false, message: err.message || 'ไม่สามารถรีเซ็ตเจ้าของ LINE ได้' })
         } finally {
@@ -1219,24 +1222,30 @@ export default function DashboardClient() {
                 await supabase.from('dorm_services').insert(servicesToInsert)
             }
 
-            // 3. Update LINE Config
+            // 3. Update LINE Config — ช่อง Secret/Token ว่าง = คงค่าเดิมใน DB (หลังล้างจากฟอร์มเพื่อไม่โชว์บนหน้าจอ)
             const { data: existingLines } = await supabase
                 .from('line_oa_configs')
-                .select('id')
+                .select('id, channel_secret, access_token')
                 .eq('dorm_id', dorm.id)
 
-            if (existingLines && existingLines.length > 0) {
+            const draftSecret = lineConfig.channel_secret.trim()
+            const draftToken = lineConfig.access_token.trim()
+            const existing = existingLines?.[0]
+
+            if (existing) {
+                const channel_secret = draftSecret || existing.channel_secret || ''
+                const access_token = draftToken || existing.access_token || ''
                 await supabase.from('line_oa_configs').update({
                     channel_id: lineConfig.channel_id,
-                    channel_secret: lineConfig.channel_secret,
-                    access_token: lineConfig.access_token
+                    channel_secret,
+                    access_token,
                 }).eq('dorm_id', dorm.id)
-            } else {
+            } else if (lineConfig.channel_id.trim() && draftSecret && draftToken) {
                 await supabase.from('line_oa_configs').insert({
                     dorm_id: dorm.id,
-                    channel_id: lineConfig.channel_id,
-                    channel_secret: lineConfig.channel_secret,
-                    access_token: lineConfig.access_token
+                    channel_id: lineConfig.channel_id.trim(),
+                    channel_secret: draftSecret,
+                    access_token: draftToken,
                 })
             }
 
@@ -1649,8 +1658,16 @@ export default function DashboardClient() {
                         handleSaveSettings={handleSaveSettings}
                         savingSettings={savingSettings}
                         settingsMessage={settingsMessage}
-                        onLineOaChanged={() => {
-                            void refreshDashboard(false)
+                        onLineOaChanged={(opts) => {
+                            void refreshDashboard(false).then(() => {
+                                if (opts?.clearLineSecrets) {
+                                    setLineConfig((prev) => ({
+                                        ...prev,
+                                        channel_secret: '',
+                                        access_token: '',
+                                    }))
+                                }
+                            })
                         }}
                     />
                     </div>
