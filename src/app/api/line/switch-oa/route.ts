@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
+import { releaseArchivedDormChannelDuplicates } from '@/lib/line-oa-release-archived-channel'
 
 function generate6DigitCode() {
   const n = crypto.randomInt(0, 1_000_000)
@@ -62,22 +63,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    const { data: otherDorm } = await supabaseAdmin
-      .from('line_oa_configs')
-      .select('dorm_id')
-      .eq('channel_id', channelId)
-      .neq('dorm_id', dormId)
-      .maybeSingle()
-
-    if (otherDorm) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Channel ID นี้ถูกใช้กับหอพักอื่นในระบบแล้ว แต่ละ LINE OA ผูกได้ทีละหอพักเท่านั้น',
-        },
-        { status: 409 }
-      )
+    const releaseResult = await releaseArchivedDormChannelDuplicates(
+      supabaseAdmin,
+      userId,
+      dormId,
+      channelId
+    )
+    if (!releaseResult.ok) {
+      const status =
+        releaseResult.code === 'ACTIVE_DORM_CONFLICT' || releaseResult.code === 'OTHER_OWNER_CONFLICT'
+          ? 409
+          : 500
+      return NextResponse.json({ success: false, error: releaseResult.message }, { status })
     }
 
     const { data: rooms, error: roomsErr } = await supabaseAdmin

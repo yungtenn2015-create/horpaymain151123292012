@@ -198,17 +198,24 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             const accessToken = lineConfig.access_token.trim()
             const nowIso = new Date().toISOString()
 
-            // channel_id is UNIQUE globally — same LINE bot cannot be linked to two dorms.
-            const { data: otherDormWithChannel } = await supabase
-                .from('line_oa_configs')
-                .select('dorm_id')
-                .eq('channel_id', channelId)
-                .neq('dorm_id', dormId)
-                .maybeSingle()
-            if (otherDormWithChannel) {
-                throw new Error(
-                    'Channel ID (Bot User ID) นี้ถูกใช้กับหอพักอื่นในระบบแล้ว แต่ละ LINE OA ผูกได้ทีละหอพักเท่านั้น หรือลบ/แก้ค่าที่หอเดิมก่อน'
-                )
+            const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+            if (sessionErr || !sessionData?.session?.access_token) {
+                throw new Error('กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง')
+            }
+
+            // ปล่อย channel_id จากหอที่ soft-delete ของคุณ (ถ้ามี) เพื่อไม่ให้ unique ชน
+            const relRes = await fetch('/api/line/release-archived-channel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dorm_id: dormId,
+                    channel_id: channelId,
+                    access_token: sessionData.session.access_token
+                })
+            })
+            const relJson = await relRes.json().catch(() => ({}))
+            if (!relRes.ok || !relJson?.success) {
+                throw new Error(relJson?.error || 'ไม่สามารถตรวจสอบ Channel ID ได้')
             }
 
             // Avoid upsert: insert+duplicate channel_id hits unique constraint before dorm_id conflict.
@@ -253,11 +260,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                     }
                     throw new Error(insErr.message || 'บันทึก LINE config ไม่สำเร็จ')
                 }
-            }
-
-            const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-            if (sessionErr || !sessionData?.session?.access_token) {
-                throw new Error('กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง')
             }
 
             const res = await fetch('/api/line/owner-claim-code', {
@@ -904,9 +906,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         <div className="flex items-start gap-2">
                                             <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
                                             <div>
-                                                <p className="text-[13px] font-black text-amber-900">เปลี่ยน LINE OA (แบบปลอดภัย)</p>
+                                                <p className="text-[13px] font-black text-amber-900">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
                                                 <p className="text-[11px] font-bold text-amber-800/90 leading-relaxed mt-1">
-                                                    ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + บันทึกค่า Channel ปัจจุบัน + สร้างรหัส owner ใหม่
+                                                    ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + สร้างรหัส owner ใหม่
                                                 </p>
                                             </div>
                                         </div>
