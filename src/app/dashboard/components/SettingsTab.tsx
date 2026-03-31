@@ -792,7 +792,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         <button
                                             onClick={handleResetOwnerLine}
                                             disabled={isResettingOwnerLine}
-                                            className="h-10 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-100 font-black text-[11px] transition-all active:scale-95 disabled:opacity-50"
+                                            className="h-10 px-4 bg-yellow-50 hover:bg-yellow-100 text-yellow-900 rounded-xl border border-yellow-300 font-black text-[11px] transition-all active:scale-95 disabled:opacity-50"
                                         >
                                             {isResettingOwnerLine ? 'กำลังรีเซ็ต...' : 'รีเซ็ต'}
                                         </button>
@@ -898,12 +898,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                         </div>
                                     )}
 
-                                    <div className="rounded-2xl border-2 border-amber-100 bg-amber-50/80 p-4 space-y-3">
+                                    <div className="rounded-2xl border-2 border-red-100 bg-red-50/60 p-4 space-y-3">
                                         <div className="flex items-start gap-2">
-                                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+                                            <ExclamationTriangleIcon className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
                                             <div>
-                                                <p className="text-[13px] font-black text-amber-900">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
-                                                <p className="text-[11px] font-bold text-amber-800/90 leading-relaxed mt-1">
+                                                <p className="text-[13px] font-black text-red-900">ปุ่มรีเซต กรณีต้องการเปลี่ยน LINE OA ใหม่</p>
+                                                <p className="text-[11px] font-bold text-red-800/90 leading-relaxed mt-1">
                                                     ใช้เมื่อย้ายไป OA ใหม่: ล้างการผูกผู้เช่า + รีเซ็ตเจ้าของ + สร้างรหัส owner ใหม่
                                                 </p>
                                             </div>
@@ -912,7 +912,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
                                             type="button"
                                             onClick={handleSwitchLineOa}
                                             disabled={switchingOa || !lineConfig.channel_id?.trim()}
-                                            className="w-full h-12 rounded-2xl border-2 border-amber-200 bg-white text-amber-900 font-black text-sm hover:bg-amber-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                                            className="w-full h-12 rounded-2xl border-2 border-red-700 bg-red-600 text-white font-black text-sm hover:bg-red-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-red-600"
                                         >
                                             {switchingOa ? (
                                                 <ArrowPathIcon className="w-5 h-5 animate-spin" />
