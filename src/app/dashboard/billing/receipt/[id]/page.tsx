@@ -160,7 +160,10 @@ export default function ReceiptPage() {
                 ]
 
                 // Water / Electric details from utility snapshot (legacy bills)
-                const isFlatWater = settings?.water_billing_type === 'flat' ||
+                const wbt = String(settings?.water_billing_type || '')
+                const isFlatWater =
+                    wbt === 'flat_rate' ||
+                    wbt === 'flat' ||
                     (Number(utility?.water_price || 0) > 0 && Number(utility?.water_unit || 0) === 0)
                 const waterAmt = Number(utility?.water_price || 0)
                 const electricAmt = Number(utility?.electric_price || 0)
@@ -169,7 +172,7 @@ export default function ReceiptPage() {
                     items.push({
                         name: 'ค่าน้ำประปา',
                         amount: waterAmt,
-                        detail: isFlatWater ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} → ${utility?.curr_water_meter || 0} หน่วย`
+                        detail: isFlatWater ? '(เหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} → ${utility?.curr_water_meter || 0} หน่วย`
                     })
                 }
                 if (electricAmt > 0 || Number(utility?.electric_unit || 0) > 0) {

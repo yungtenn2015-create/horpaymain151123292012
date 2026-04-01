@@ -90,14 +90,17 @@ function LIFFBillContent() {
                     { name: 'ค่าเช่าห้องพัก', amount: Number(bill.room_amount || 0) }
                 ]
 
-                const isFlatWater = settings?.water_billing_type === 'flat' ||
+                const wbt = String(settings?.water_billing_type || '')
+                const isFlatWater =
+                    wbt === 'flat_rate' ||
+                    wbt === 'flat' ||
                     (Number(bill.water_amount) > 0 && Number(utility?.water_unit || 0) === 0)
 
                 if (bill.water_amount > 0) {
                     items.push({
-                        name: 'ค่าน้ำประปา11',
+                        name: 'ค่าน้ำประปา',
                         amount: Number(bill.water_amount),
-                        detail: isFlatWater ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} - ${utility?.curr_water_meter || 0} (${utility?.water_unit || 0} หน่วย)`
+                        detail: isFlatWater ? '(เหมาจ่าย)' : `มิเตอร์: ${utility?.prev_water_meter || 0} - ${utility?.curr_water_meter || 0} (${utility?.water_unit || 0} หน่วย)`
                     })
                 }
 

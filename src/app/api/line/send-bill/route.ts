@@ -145,6 +145,11 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
   const utils = bill.utilities;
   const waterAmount = Number(utils?.water_price) || 0;
   const electricAmount = Number(utils?.electric_price) || 0;
+  const wbt = String(bankSettings?.water_billing_type || '');
+  const isFlatWater =
+    wbt === 'flat_rate' ||
+    wbt === 'flat' ||
+    (waterAmount > 0 && Number(utils?.water_unit || 0) === 0);
   const otherAmount = Number(bill.other_amount) || 0;
   const totalAmount = Number(bill.total_amount) || 0;
 
@@ -341,7 +346,9 @@ function createBillFlexMessage(bill: any, dorm: any, bankSettings: any, billItem
                   },
                   ...(utils ? [{
                     type: "text",
-                    text: `มิเตอร์: ${utils.prev_water_meter} → ${utils.curr_water_meter} หน่วย`,
+                    text: isFlatWater
+                      ? '(เหมาจ่าย)'
+                      : `มิเตอร์: ${utils.prev_water_meter} → ${utils.curr_water_meter} หน่วย`,
                     color: "#9CA3AF",
                     size: "xs",
                     margin: "xs"

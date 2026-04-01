@@ -888,19 +888,38 @@ export default function DashboardClient() {
             const sixMonthsAgoDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
             const historyDateStr = `${sixMonthsAgoDate.getFullYear()}-${String(sixMonthsAgoDate.getMonth() + 1).padStart(2, '0')}-01`;
 
-            console.log("Fetching bills for month >= ", dateStr);
+            /** งวดบิลเป็น YYYY-MM-01 — ดึงส่วนวันที่จากต้นสตริงก่อน T (กัน ISO+timezone เพี้ยนเดือน) */
+            const billingMonthKey = (raw: unknown): string => {
+                if (raw == null || raw === '') return '';
+                if (typeof raw === 'string') {
+                    const m = raw.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+                    if (m) return m[1];
+                }
+                if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+                    return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-01`;
+                }
+                const s = String(raw);
+                const m2 = s.match(/^(\d{4}-\d{2}-\d{2})/);
+                if (m2) return m2[1];
+                const d = new Date(s);
+                if (Number.isNaN(d.getTime())) return '';
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+            };
+
+            console.log('Fetching bills for current month', dateStr, '+ history from', historyDateStr);
 
             const roomIdsForBills = activeRooms.map(r => r.id);
             let monthBills: any[] | null = null;
             let historyBills: any[] | null = null;
+            let pendingMoveOutRows: { room_id: string; tenant_id: string | null }[] | null = null;
             if (roomIdsForBills.length > 0) {
-                const [{ data: mb, error: billsErr }, { data: hb }] = await Promise.all([
+                const [{ data: mb, error: billsErr }, { data: hb }, { data: movOut }] = await Promise.all([
                     supabase
                         .from('bills')
                         .select('*, utilities(*)')
                         .in('room_id', roomIdsForBills)
                         .neq('status', 'cancelled')
-                        .gte('billing_month', dateStr),
+                        .eq('billing_month', dateStr),
                     supabase
                         .from('bills')
                         .select(
@@ -909,10 +928,17 @@ export default function DashboardClient() {
                         .in('room_id', roomIdsForBills)
                         .neq('status', 'cancelled')
                         .gte('billing_month', historyDateStr),
+                    supabase
+                        .from('bills')
+                        .select('room_id, tenant_id')
+                        .in('room_id', roomIdsForBills)
+                        .eq('bill_type', 'move_out')
+                        .in('status', ['unpaid', 'overdue', 'waiting_verify']),
                 ]);
                 if (billsErr) throw billsErr;
                 monthBills = mb;
                 historyBills = hb;
+                pendingMoveOutRows = movOut ?? null;
             }
             if (isStaleRequest()) return
 
@@ -940,39 +966,52 @@ export default function DashboardClient() {
                 const room = activeRooms.find(r => r.id === b.room_id);
                 if (!room) return;
 
+                if (billingMonthKey(b.billing_month) !== dateStr) return;
+
+                const activeTenant = (room.tenants as any[])?.find(t => t.status === 'active');
+                const isCurrentTenantBill = Boolean(activeTenant && b.tenant_id === activeTenant.id);
+
                 const totalAmt = Number(b.total_amount) || 0;
                 const s = String(b.status || '').toLowerCase().trim();
+                /** บิลย้ายออกมักเป็นยอดติดลบ (คืนเงิน/ปิดบัญชี) — ห้ามรวมในการ์ด "รายรับเดือนนี้" กับหน่วยน้ำไฟรวม */
+                const isMoveOutBill = String(b.bill_type || 'monthly') === 'move_out';
 
-                // 1. Accumulate REVENUE for the entire dorm (including moved-out tenants)
-                if (s === 'paid') {
-                    collected += totalAmt;
-                } else if (s !== 'cancelled') {
-                    pending += totalAmt;
+                /**
+                 * รายรับ/น้ำไฟบนภาพรวม = เฉพาะบิลของผู้เช่าคนปัจจุบันของห้องนั้น
+                 * (กันบิลค้างของผู้เช่าเก่า/tenant_id ไม่ตรง ทำให้ยอดรวมติดลบแต่นับห้องเป็น 0)
+                 */
+                const includeInMoneyTotals = isCurrentTenantBill && !isMoveOutBill;
+
+                // 1. Accumulate REVENUE (บิลรายเดือน + ผู้เช่าปัจจุบันเท่านั้น)
+                if (includeInMoneyTotals) {
+                    if (s === 'paid') {
+                        collected += totalAmt;
+                    } else if (s !== 'cancelled') {
+                        pending += totalAmt;
+                    }
                 }
 
-                // 2. Accumulate UTILITIES for the entire dorm
-                if (b.utilities) {
-                    water += (b.utilities.curr_water_meter - b.utilities.prev_water_meter) || 0;
-                    electric += (b.utilities.curr_electric_meter - b.utilities.prev_electric_meter) || 0;
-                    waterAmt += Number(b.utilities.water_price) || 0;
-                    electricAmt += Number(b.utilities.electric_price) || 0;
+                // 2. Accumulate UTILITIES (เงื่อนไขเดียวกับรายรับ)
+                const utilRow = Array.isArray(b.utilities) ? b.utilities[0] : b.utilities;
+                if (includeInMoneyTotals && utilRow) {
+                    water += (Number(utilRow.curr_water_meter) - Number(utilRow.prev_water_meter)) || 0;
+                    electric += (Number(utilRow.curr_electric_meter) - Number(utilRow.prev_electric_meter)) || 0;
+                    waterAmt += Number(utilRow.water_price) || 0;
+                    electricAmt += Number(utilRow.electric_price) || 0;
                 }
 
                 // 3. Update ROOM STATUS & COUNTS (ONLY for current active tenants)
                 // This fix ensures the "Pending" list and "Counts" match actual occupancy.
-                const activeTenant = (room.tenants as any[])?.find(t => t.status === 'active');
-                const isCurrentTenantBill = activeTenant && b.tenant_id === activeTenant.id;
 
-                // Split pending ฿ for overview (do not use pending − overdueAmount: negative/credit line items break it)
-                if (s !== 'paid' && s !== 'cancelled') {
+                // Split pending ฿ for overview (เฉพาะบิลผู้เช่าปัจจุบัน — เดิมถ้าไม่ใช่บิลคนปัจจุบัน inOverdueMoneySlice เป็น false ทุกครั้ง ทำให้ไปบวก pendingNotOverdueAmount ผิด)
+                if (includeInMoneyTotals && s !== 'paid' && s !== 'cancelled') {
                     let dueForSplit = b.due_date ? new Date(b.due_date) : null;
-                    if (b.billing_month === '2026-03-01' && b.due_date === '2026-03-05') {
+                    if (billingMonthKey(b.billing_month) === '2026-03-01' && b.due_date === '2026-03-05') {
                         dueForSplit = new Date('2026-04-05');
                     }
                     const overdueForSplit =
                         Boolean(dueForSplit && dueForSplit < now && s !== 'paid' && s !== 'waiting_verify');
-                    const inOverdueMoneySlice =
-                        Boolean(isCurrentTenantBill && (overdueForSplit || s === 'overdue'));
+                    const inOverdueMoneySlice = Boolean(overdueForSplit || s === 'overdue');
                     if (!inOverdueMoneySlice) {
                         pendingNotOverdueAmount += totalAmt;
                     }
@@ -983,7 +1022,7 @@ export default function DashboardClient() {
                 let dueDate = b.due_date ? new Date(b.due_date) : null;
                 // Hot-fix for March 2026: The system accidentally set due_date to 2026-03-05
                 // but it should be 2026-04-05 based on the dorm's policy (next month's 5th).
-                if (b.billing_month === '2026-03-01' && b.due_date === '2026-03-05') {
+                if (billingMonthKey(b.billing_month) === '2026-03-01' && b.due_date === '2026-03-05') {
                     dueDate = new Date('2026-04-05');
                 }
 
@@ -997,7 +1036,9 @@ export default function DashboardClient() {
                         roomBestStatus.set(b.room_id, 'waiting_verify');
                     }
                 } else if (isOverdue || s === 'overdue') {
-                    counts.overdueAmount += totalAmt;
+                    if (!isMoveOutBill) {
+                        counts.overdueAmount += totalAmt;
+                    }
                     if (currentBest !== 'paid' && currentBest !== 'waiting_verify') {
                         roomBestStatus.set(b.room_id, 'overdue');
                     }
@@ -1018,11 +1059,10 @@ export default function DashboardClient() {
                     movingOutIdsSet.add(room.id);
                 }
 
-                const hasPendingMoveOutBill = (monthBills || []).some((b: any) =>
-                    b.room_id === room.id &&
-                    b.tenant_id === activeTenant?.id &&
-                    String(b.bill_type || '') === 'move_out' &&
-                    ['unpaid', 'overdue', 'waiting_verify'].includes(String(b.status || '').toLowerCase())
+                const hasPendingMoveOutBill = (pendingMoveOutRows || []).some(
+                    (row) =>
+                        row.room_id === room.id &&
+                        row.tenant_id === activeTenant?.id
                 );
                 if (hasPendingMoveOutBill) {
                     movingOutIdsSet.add(room.id);
@@ -1073,13 +1113,14 @@ export default function DashboardClient() {
             const utilityHistoryMap = new Map();
 
             historyBills?.forEach(b => {
-                const m = new Date(b.billing_month).toLocaleDateString('th-TH', { month: 'short' });
+                const key = billingMonthKey(b.billing_month);
+                if (!key) return;
 
                 // Revenue
-                historyMap.set(m, (historyMap.get(m) || 0) + Number(b.total_amount || 0));
+                historyMap.set(key, (historyMap.get(key) || 0) + Number(b.total_amount || 0));
 
                 // Utilities
-                const u = utilityHistoryMap.get(m) || { electricity: 0, water: 0, electricityAmount: 0, waterAmount: 0 };
+                const u = utilityHistoryMap.get(key) || { electricity: 0, water: 0, electricityAmount: 0, waterAmount: 0 };
                 const utils = Array.isArray(b.utilities) ? b.utilities[0] : b.utilities;
                 if (utils) {
                     u.electricity += (Number(utils.curr_electric_meter) - Number(utils.prev_electric_meter)) || 0;
@@ -1087,19 +1128,20 @@ export default function DashboardClient() {
                     u.electricityAmount += Number(utils.electric_price) || 0;
                     u.waterAmount += Number(utils.water_price) || 0;
                 }
-                utilityHistoryMap.set(m, u);
+                utilityHistoryMap.set(key, u);
             });
 
             const historicalRevenue = [];
             const historicalUtilities = [];
             for (let i = 5; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const m = d.toLocaleDateString('th-TH', { month: 'short' });
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+                const label = d.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
 
-                historicalRevenue.push({ month: m, amount: historyMap.get(m) || 0 });
+                historicalRevenue.push({ month: label, amount: historyMap.get(key) || 0 });
 
-                const uVals = utilityHistoryMap.get(m) || { electricity: 0, water: 0, electricityAmount: 0, waterAmount: 0 };
-                historicalUtilities.push({ month: m, ...uVals });
+                const uVals = utilityHistoryMap.get(key) || { electricity: 0, water: 0, electricityAmount: 0, waterAmount: 0 };
+                historicalUtilities.push({ month: label, ...uVals });
             }
 
             setOverviewData({

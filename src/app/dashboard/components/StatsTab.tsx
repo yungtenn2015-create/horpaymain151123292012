@@ -235,25 +235,31 @@ const StatsTab: React.FC<StatsTabProps> = ({
                         {/* ── Revenue History (Full Width) ── */}
                         <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
                             <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
-                                <BanknotesSolid className="w-4 h-4 text-orange-500" />
+                                <BanknotesSolid className="w-4 h-4 text-emerald-600" />
                                 รายรับรายเดือน (6 เดือนล่าสุด)
                             </h3>
-                            <div className="h-40 flex items-end justify-between gap-3 px-2">
+                            <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalRevenue.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalRevenue.map(h => h.amount), 1);
-                                    const height = (data.amount / maxVal) * 100;
+                                    const pct = (data.amount / maxVal) * 100;
+                                    const barPct = Math.max(pct, data.amount > 0 ? 8 : 4);
                                     return (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative">
-                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                                ฿{data.amount.toLocaleString()}
+                                        <div key={i} className="group flex min-h-0 min-w-0 flex-1 flex-col items-center gap-1">
+                                            <div className="flex min-h-[2.25rem] w-full flex-col items-center justify-end px-0.5 text-center">
+                                                <span
+                                                    className={`max-w-full truncate text-[9px] font-black tabular-nums leading-tight sm:text-[10px] ${i === 5 ? 'text-emerald-700' : 'text-slate-700'}`}
+                                                    title={`฿${data.amount.toLocaleString('th-TH')}`}
+                                                >
+                                                    ฿{data.amount.toLocaleString('th-TH')}
+                                                </span>
                                             </div>
-                                            <div className="w-full relative flex items-end justify-center h-full">
+                                            <div className="flex h-36 w-full flex-col justify-end">
                                                 <div
-                                                    className={`w-full rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'bg-orange-100 group-hover:bg-orange-200'}`}
-                                                    style={{ height: `${Math.max(height, 5)}%` }}
+                                                    className={`w-full min-h-0 rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-emerald-600 shadow-[0_0_15px_rgba(5,150,105,0.35)]' : 'bg-emerald-100 group-hover:bg-emerald-200'}`}
+                                                    style={{ height: `${barPct}%` }}
                                                 />
                                             </div>
-                                            <span className={`text-[10px] font-black ${i === 5 ? 'text-orange-600' : 'text-slate-600'}`}>
+                                            <span className={`shrink-0 text-[10px] font-black ${i === 5 ? 'text-emerald-700' : 'text-slate-600'}`}>
                                                 {data.month}
                                             </span>
                                         </div>
@@ -268,22 +274,35 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                 <BoltIcon className="w-4 h-4 text-amber-500" />
                                 การใช้ไฟฟ้า (หน่วย/บาท) (6 เดือนล่าสุด)
                             </h3>
-                            <div className="h-40 flex items-end justify-between gap-3 px-2">
+                            <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalUtilities.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalUtilities.map(h => h.electricity), 1);
-                                    const height = (data.electricity / maxVal) * 100;
+                                    const pct = (data.electricity / maxVal) * 100;
+                                    const barPct = Math.max(pct, data.electricity > 0 ? 8 : 4);
+                                    const amt = Number(data.electricityAmount) || 0;
                                     return (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative">
-                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                                {data.electricity.toLocaleString()} หน่วย • ฿{(Number(data.electricityAmount) || 0).toLocaleString()}
+                                        <div key={i} className="group flex min-h-0 min-w-0 flex-1 flex-col items-center gap-1">
+                                            <div className="flex min-h-[2.75rem] w-full flex-col items-center justify-end gap-0.5 px-0.5 text-center">
+                                                <span
+                                                    className={`max-w-full truncate text-[8px] font-black tabular-nums leading-tight sm:text-[9px] ${i === 5 ? 'text-amber-700' : 'text-slate-700'}`}
+                                                    title={`${data.electricity.toLocaleString('th-TH')} หน่วย`}
+                                                >
+                                                    {data.electricity.toLocaleString('th-TH')} หน่วย
+                                                </span>
+                                                <span
+                                                    className={`max-w-full truncate text-[8px] font-black tabular-nums leading-tight sm:text-[9px] ${i === 5 ? 'text-amber-600' : 'text-slate-600'}`}
+                                                    title={`฿${amt.toLocaleString('th-TH')}`}
+                                                >
+                                                    ฿{amt.toLocaleString('th-TH')}
+                                                </span>
                                             </div>
-                                            <div className="w-full relative flex items-end justify-center h-full">
+                                            <div className="flex h-36 w-full flex-col justify-end">
                                                 <div
-                                                    className={`w-full rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-amber-500' : 'bg-amber-100 group-hover:bg-amber-200'}`}
-                                                    style={{ height: `${Math.max(height, 5)}%` }}
+                                                    className={`w-full min-h-0 rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-amber-500' : 'bg-amber-100 group-hover:bg-amber-200'}`}
+                                                    style={{ height: `${barPct}%` }}
                                                 />
                                             </div>
-                                            <span className={`text-[10px] font-black ${i === 5 ? 'text-amber-600' : 'text-slate-600'}`}>
+                                            <span className={`shrink-0 text-[10px] font-black ${i === 5 ? 'text-amber-600' : 'text-slate-600'}`}>
                                                 {data.month}
                                             </span>
                                         </div>
@@ -295,25 +314,38 @@ const StatsTab: React.FC<StatsTabProps> = ({
                         {/* ── Water Usage History (Full Width) ── */}
                         <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
                             <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
-                                <ArrowPathIcon className="w-4 h-4 text-teal-500" />
+                                <ArrowPathIcon className="w-4 h-4 text-blue-500" />
                                 การใช้น้ำ (หน่วย/บาท) (6 เดือนล่าสุด)
                             </h3>
-                            <div className="h-40 flex items-end justify-between gap-3 px-2">
+                            <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalUtilities.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalUtilities.map(h => h.water), 1);
-                                    const height = (data.water / maxVal) * 100;
+                                    const pct = (data.water / maxVal) * 100;
+                                    const barPct = Math.max(pct, data.water > 0 ? 8 : 4);
+                                    const amt = Number(data.waterAmount) || 0;
                                     return (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative">
-                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                                {data.water.toLocaleString()} หน่วย • ฿{(Number(data.waterAmount) || 0).toLocaleString()}
+                                        <div key={i} className="group flex min-h-0 min-w-0 flex-1 flex-col items-center gap-1">
+                                            <div className="flex min-h-[2.75rem] w-full flex-col items-center justify-end gap-0.5 px-0.5 text-center">
+                                                <span
+                                                    className={`max-w-full truncate text-[8px] font-black tabular-nums leading-tight sm:text-[9px] ${i === 5 ? 'text-blue-800' : 'text-slate-700'}`}
+                                                    title={`${data.water.toLocaleString('th-TH')} หน่วย`}
+                                                >
+                                                    {data.water.toLocaleString('th-TH')} หน่วย
+                                                </span>
+                                                <span
+                                                    className={`max-w-full truncate text-[8px] font-black tabular-nums leading-tight sm:text-[9px] ${i === 5 ? 'text-blue-600' : 'text-slate-600'}`}
+                                                    title={`฿${amt.toLocaleString('th-TH')}`}
+                                                >
+                                                    ฿{amt.toLocaleString('th-TH')}
+                                                </span>
                                             </div>
-                                            <div className="w-full relative flex items-end justify-center h-full">
+                                            <div className="flex h-36 w-full flex-col justify-end">
                                                 <div
-                                                    className={`w-full rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-teal-500' : 'bg-teal-100 group-hover:bg-teal-200'}`}
-                                                    style={{ height: `${Math.max(height, 5)}%` }}
+                                                    className={`w-full min-h-0 rounded-t-lg transition-all duration-700 ${i === 5 ? 'bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-blue-100 group-hover:bg-blue-200'}`}
+                                                    style={{ height: `${barPct}%` }}
                                                 />
                                             </div>
-                                            <span className={`text-[10px] font-black ${i === 5 ? 'text-teal-600' : 'text-slate-600'}`}>
+                                            <span className={`shrink-0 text-[10px] font-black ${i === 5 ? 'text-blue-600' : 'text-slate-600'}`}>
                                                 {data.month}
                                             </span>
                                         </div>

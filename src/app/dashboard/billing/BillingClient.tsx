@@ -761,7 +761,7 @@ export default function BillingClient() {
             itemsArr.push({
                 name: 'ค่าน้ำประปา',
                 amount: Number(waterAmt || 0),
-                detail: waterBillingType === 'flat' ? '(แบบเหมาจ่าย)' : `มิเตอร์: ${item.waterPrev || 0} → ${item.waterCurr || 0} หน่วย`
+                detail: waterBillingType === 'flat_rate' ? '(เหมาจ่าย)' : `มิเตอร์: ${item.waterPrev || 0} → ${item.waterCurr || 0} หน่วย`
             })
         }
 

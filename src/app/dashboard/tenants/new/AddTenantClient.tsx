@@ -504,8 +504,7 @@ export default function AddTenantClient() {
                 </button>
             }
         >
-                <div className="relative flex-1 min-h-0 flex flex-col">
-                <div className="relative z-0 flex-1 overflow-y-auto px-6 pb-[calc(7rem+5.75rem+env(safe-area-inset-bottom,0px))] pt-6">
+                <div className="relative px-6 pt-6 pb-[calc(5.75rem+max(1.25rem,env(safe-area-inset-bottom,0px))+0.5rem+3.5rem)]">
                     {errorMsg && (
                         <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl mb-6 text-sm font-bold flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
@@ -824,30 +823,28 @@ export default function AddTenantClient() {
                                 </div>
                             </div>
                         </div>
-                    </form>
-                </div>
 
-                {/* ── Bottom Fixed Button (avoid bottom nav overlay) ── */}
-                <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 w-full max-w-lg bg-white border-t border-gray-100 p-6 z-[120] rounded-b-[2.5rem]">
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting || rooms.length === 0 || !hasPulledContract}
-                        className={`w-full py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-100/50 transition-all flex items-center justify-center gap-3
-                            ${submitting || rooms.length === 0 || !hasPulledContract
-                                ? 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
-                                : 'bg-green-600 text-white hover:bg-green-700 active:scale-95'
-                            }`}
-                    >
-                        {submitting ? (
-                            <>
-                                <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span className="animate-pulse">กำลังบันทึกข้อมูล...</span>
-                            </>
-                        ) : (
-                            <><PlusIcon className="w-6 h-6 stroke-[3]" /> บันทึกข้อมูลผู้เช่า</>
-                        )}
-                    </button>
-                </div>
+                        <div className="pt-8 mt-4 border-t border-gray-100">
+                            <button
+                                type="submit"
+                                disabled={submitting || rooms.length === 0 || !hasPulledContract}
+                                className={`w-full py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-100/50 transition-all flex items-center justify-center gap-3
+                                    ${submitting || rooms.length === 0 || !hasPulledContract
+                                        ? 'bg-gray-100 text-gray-400 shadow-none cursor-not-allowed'
+                                        : 'bg-green-600 text-white hover:bg-green-700 active:scale-95'
+                                    }`}
+                            >
+                                {submitting ? (
+                                    <>
+                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span className="animate-pulse">กำลังบันทึกข้อมูล...</span>
+                                    </>
+                                ) : (
+                                    <><PlusIcon className="w-6 h-6 stroke-[3]" /> บันทึกข้อมูลผู้เช่า</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             {renderContractSelectorModal()}
         </DashboardMenuPageChrome>
