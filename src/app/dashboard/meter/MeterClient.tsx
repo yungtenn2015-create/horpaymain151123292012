@@ -174,17 +174,27 @@ export default function MeterClient() {
                                 .order('meter_date', { ascending: false }),
                             supabase
                                 .from('bills')
-                                .select('room_id, tenant_id')
+                                .select('room_id, tenant_id, bill_type')
                                 .in('room_id', roomIds)
-                                .eq('billing_month', `${selectedMonth}-01`),
+                                .eq('billing_month', `${selectedMonth}-01`)
+                                .neq('status', 'cancelled'),
                         ])
 
                         if (utilsError) throw utilsError
 
                         const billedMap: Record<string, boolean> = {}
+                        /** บิลย้ายออกใช้ billing_month ช่องว่างได้ — ห้ามเอามาล็อกจดมิเตอร์รายเดือน */
+                        const isMonthlyMeterLockBill = (b: { bill_type?: string | null }) =>
+                            b.bill_type == null || b.bill_type === 'monthly'
+
                         roomsData.forEach((r: any) => {
                             const activeTenant = (r.tenants as any[])?.find(t => t.status === 'active')
-                            const hasBill = billsData?.some(b => b.room_id === r.id && b.tenant_id === activeTenant?.id)
+                            const hasBill = billsData?.some(
+                                (b) =>
+                                    b.room_id === r.id &&
+                                    b.tenant_id === activeTenant?.id &&
+                                    isMonthlyMeterLockBill(b)
+                            )
                             if (hasBill) {
                                 billedMap[r.id] = true
                             }

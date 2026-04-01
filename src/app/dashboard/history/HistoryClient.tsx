@@ -208,7 +208,7 @@ export default function HistoryClient() {
             case 'paid':
                 return { bg: 'bg-emerald-50', text: 'text-emerald-600', icon: CheckCircleIcon, label: 'ชำระแล้ว' }
             case 'waiting_verify':
-                return { bg: 'bg-blue-50', text: 'text-blue-600', icon: ClockIcon, label: 'รอชำระ' }
+                return { bg: 'bg-blue-50', text: 'text-blue-600', icon: ClockIcon, label: 'รอตรวจสลิป' }
             case 'cancelled':
                 return { bg: 'bg-gray-100', text: 'text-gray-400', icon: XCircleIcon, label: 'ยกเลิกแล้ว' }
             case 'overdue':

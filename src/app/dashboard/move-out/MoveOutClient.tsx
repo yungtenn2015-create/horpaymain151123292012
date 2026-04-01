@@ -892,8 +892,8 @@ export default function MoveOutClient() {
 
     return (
         <DashboardMenuPageChrome
-            title="แจ้งออก/ย้ายออก"
-            subtitle="จัดการการคืนห้องพัก"
+            title="แจ้งออก/ย้ายออก/ย้ายห้อง"
+            subtitle="จัดการการคืนห้องพักและย้ายห้อง"
         >
                 <div className="bg-[#fcfdfd] sticky top-0 z-30 shadow-sm border-b border-gray-100/80">
                     <div className="px-6 py-4 sm:py-6">

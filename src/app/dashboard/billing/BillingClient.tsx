@@ -74,9 +74,13 @@ export default function BillingClient() {
     const [dueDay, setDueDay] = useState(5)
     const [expandedRoom, setExpandedRoom] = useState<string | null>(null)
     const handledRoomQueryRef = useRef(false)
+    const handledBillFilterRef = useRef(false)
+    const lastSyncedMonthFromUrl = useRef<string | null>(null)
+    const monthQuery = searchParams.get('month')
     const [filterFloor, setFilterFloor] = useState<number | 'all'>('all')
     const [filterLineStatus, setFilterLineStatus] = useState<'all' | 'linked' | 'unlinked'>('all')
-    const [filterWorkingStatus, setFilterWorkingStatus] = useState<'all' | 'pending_meter' | 'ready' | 'issued' | 'overdue'>('all')
+    type WorkingFilter = 'all' | 'pending_meter' | 'ready' | 'issued' | 'overdue' | 'paid' | 'waiting_verify'
+    const [filterWorkingStatus, setFilterWorkingStatus] = useState<WorkingFilter>('all')
     const [dormSettings, setDormSettings] = useState<any>(null)
     const [dormServices, setDormServices] = useState<DormServiceItem[]>([])
     const [showPreview, setShowPreview] = useState(false)
@@ -106,6 +110,43 @@ export default function BillingClient() {
     useEffect(() => {
         fetchData()
     }, [selectedDate])
+
+    /** จากภาพรวม: ?month=YYYY-MM — sync งวดบิลเมื่อ query เปลี่ยน (ไม่ทับการเลื่อนเดือนด้วยปุ่มถ้า month ใน URL ไม่เปลี่ยน) */
+    useEffect(() => {
+        if (!monthQuery || !/^\d{4}-\d{2}$/.test(monthQuery)) {
+            lastSyncedMonthFromUrl.current = null
+            return
+        }
+        if (lastSyncedMonthFromUrl.current === monthQuery) return
+        try {
+            const parsed = parse(`${monthQuery}-01`, 'yyyy-MM-dd', new Date())
+            setSelectedDate(new Date(parsed.getFullYear(), parsed.getMonth(), 1))
+            lastSyncedMonthFromUrl.current = monthQuery
+        } catch {
+            /* noop */
+        }
+    }, [monthQuery])
+
+    /** Deep-link จากการ์ดสถานะบิลในภาพรวม: ?billFilter=paid|waiting_verify|overdue */
+    useEffect(() => {
+        const bf = searchParams.get('billFilter')?.trim().toLowerCase() || ''
+        if (!bf) {
+            handledBillFilterRef.current = false
+            return
+        }
+        if (loading || billingData.length === 0) return
+        if (handledBillFilterRef.current) return
+
+        handledBillFilterRef.current = true
+        if (bf === 'paid') setFilterWorkingStatus('paid')
+        else if (bf === 'waiting_verify') setFilterWorkingStatus('waiting_verify')
+        else if (bf === 'overdue') setFilterWorkingStatus('overdue')
+
+        const qs = new URLSearchParams(searchParams.toString())
+        qs.delete('billFilter')
+        const next = qs.toString() ? `${pathname}?${qs.toString()}` : pathname
+        router.replace(next, { scroll: false })
+    }, [loading, billingData, searchParams, pathname, router])
 
     /** Deep-link: ?room=201 | ?roomId=uuid — optional &status=overdue จากกระดิ่งแจ้งเตือน */
     useEffect(() => {
@@ -875,6 +916,10 @@ export default function BillingClient() {
             data = data.filter(item => item.status === 'pending_meter')
         } else if (filterWorkingStatus === 'ready') {
             data = data.filter(item => item.status === 'ready')
+        } else if (filterWorkingStatus === 'paid') {
+            data = data.filter(item => item.status === 'paid')
+        } else if (filterWorkingStatus === 'waiting_verify') {
+            data = data.filter(item => item.status === 'waiting_verify')
         } else if (filterWorkingStatus === 'issued') {
             data = data.filter(item => ['issued', 'waiting_verify', 'paid'].includes(item.status))
         } else if (filterWorkingStatus === 'overdue') {
@@ -888,6 +933,8 @@ export default function BillingClient() {
     const countAll = billingData.length
     const countPending = billingData.filter(d => d.status === 'pending_meter').length
     const countReady = billingData.filter(d => d.status === 'ready').length
+    const countPaid = billingData.filter(d => d.status === 'paid').length
+    const countWaitingVerify = billingData.filter(d => d.status === 'waiting_verify').length
     const countIssued = billingData.filter(d => ['issued', 'waiting_verify', 'paid'].includes(d.status)).length
     const countOverdue = billingData.filter(d => d.isBillOverdue).length
 
@@ -995,8 +1042,20 @@ export default function BillingClient() {
                                 ค้างชำระ ({countOverdue})
                             </button>
                             <button
+                                onClick={() => setFilterWorkingStatus('paid')}
+                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
+                            >
+                                ชำระแล้ว ({countPaid})
+                            </button>
+                            <button
+                                onClick={() => setFilterWorkingStatus('waiting_verify')}
+                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'waiting_verify' ? 'bg-blue-500 text-white shadow-lg shadow-blue-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
+                            >
+                                รอตรวจสลิป ({countWaitingVerify})
+                            </button>
+                            <button
                                 onClick={() => setFilterWorkingStatus('issued')}
-                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'issued' ? 'bg-blue-500 text-white shadow-lg shadow-blue-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
+                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'issued' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
                             >
                                 ออกบิลแล้ว ({countIssued})
                             </button>
@@ -1081,7 +1140,7 @@ export default function BillingClient() {
                                             statusColor = 'bg-blue-500'
                                             statusBg = 'bg-blue-50'
                                             statusText = 'text-blue-600'
-                                            statusLabel = 'รอรับเงิน / ยืนยัน'
+                                            statusLabel = 'รอตรวจสลิป / ยืนยัน'
                                             StatusIcon = ChatBubbleLeftRightIcon
                                         }
                                         else if (item.isBillOverdue) {

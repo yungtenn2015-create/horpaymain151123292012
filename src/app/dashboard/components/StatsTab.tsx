@@ -46,6 +46,12 @@ interface StatsTabProps {
     userName: string;
 }
 
+/** ภาพรวมใช้งวดเดือนปัจจุบัน — สอดคล้องกับการคำนวณ billStatusCounts ใน DashboardClient */
+function billingMonthQuery(): string {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 const StatsTab: React.FC<StatsTabProps> = ({
     fetchingOverview,
     overviewData,
@@ -55,6 +61,11 @@ const StatsTab: React.FC<StatsTabProps> = ({
     dorm,
     userName
 }) => {
+    const goBilling = (billFilter: 'paid' | 'waiting_verify' | 'overdue') => {
+        const m = billingMonthQuery()
+        router.push(`/dashboard/billing?month=${m}&billFilter=${billFilter}`)
+    }
+
     return (
         <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-gray-50 pb-dashboard-nav font-body text-slate-800 antialiased tabular-nums">
             {/* Hero Section */}
@@ -170,7 +181,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                             </div>
                             <div className="divide-y divide-gray-50">
                                 <div
-                                    onClick={() => router.push('/dashboard/billing')}
+                                    onClick={() => goBilling('paid')}
                                     className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                 >
                                     <div className="flex items-center gap-3">
@@ -185,7 +196,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                     </div>
                                 </div>
                                 <div
-                                    onClick={() => router.push('/dashboard/billing')}
+                                    onClick={() => goBilling('waiting_verify')}
                                     className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                 >
                                     <div className="flex items-center gap-3">
@@ -200,7 +211,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                     </div>
                                 </div>
                                 <div
-                                    onClick={() => router.push('/dashboard/billing')}
+                                    onClick={() => goBilling('overdue')}
                                     className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
                                 >
                                     <div className="flex items-center gap-3">
@@ -215,7 +226,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                     </div>
                                 </div>
                                 <div
-                                    onClick={() => router.push('/dashboard/billing')}
+                                    onClick={() => router.push('/dashboard/move-out')}
                                     className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group border-t border-gray-50"
                                 >
                                     <div className="flex items-center gap-3">
