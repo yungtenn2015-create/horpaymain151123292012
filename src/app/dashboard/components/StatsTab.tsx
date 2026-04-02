@@ -8,10 +8,10 @@ import {
     ChevronRightIcon,
     ExclamationTriangleIcon,
     ArrowRightOnRectangleIcon,
-    BellIcon,
     ClockIcon,
     BoltIcon,
-    ChartBarIcon
+    ChartBarIcon,
+    ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline'
 import { BanknotesIcon as BanknotesSolid } from '@heroicons/react/24/solid'
 
@@ -61,7 +61,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
     dorm,
     userName
 }) => {
-    const goBilling = (billFilter: 'paid' | 'waiting_verify' | 'overdue') => {
+    const goBilling = (billFilter: 'paid' | 'waiting_verify' | 'unpaid' | 'overdue') => {
         const m = billingMonthQuery()
         router.push(`/dashboard/billing?month=${m}&billFilter=${billFilter}`)
     }
@@ -201,13 +201,28 @@ const StatsTab: React.FC<StatsTabProps> = ({
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                            <ArrowPathIcon className="w-4 h-4" />
+                                            <ClipboardDocumentCheckIcon className="w-4 h-4" />
                                         </div>
-                                        <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">รอชำระ</span>
+                                        <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">รอตรวจสลิป</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-black text-blue-600">{overviewData.billStatusCounts.waiting_verify} ห้อง</span>
                                         <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-blue-400 transition-colors" />
+                                    </div>
+                                </div>
+                                <div
+                                    onClick={() => goBilling('unpaid')}
+                                    className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-sky-600">
+                                            <ClockIcon className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-sm font-bold text-gray-900 group-hover:text-sky-700 transition-colors">รอชำระ</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-black text-sky-600">{overviewData.billStatusCounts.unpaid} ห้อง</span>
+                                        <ChevronRightIcon className="w-4 h-4 text-gray-200 group-hover:text-sky-400 transition-colors" />
                                     </div>
                                 </div>
                                 <div

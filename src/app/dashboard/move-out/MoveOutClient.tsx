@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
@@ -60,6 +61,16 @@ interface MoveOutSettlement {
     }>;
 }
 
+/** โมดัลใน <main z-0> วาดใต้แถบนำทาง fixed z-[100] — ย้ายไป body จึงจะทับแถบล่างได้ */
+function BodyPortal({ children }: { children: React.ReactNode }) {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+    if (!mounted) return null
+    return createPortal(children, document.body)
+}
+
 interface IssuedMoveOutSnapshot {
     roomAmount: number;
     utilityAmount: number;
@@ -73,8 +84,13 @@ export default function MoveOutClient() {
     const searchParams = useSearchParams()
     const [loading, setLoading] = useState(true)
     const [tenants, setTenants] = useState<Tenant[]>([])
+    /** บิล move_out ที่ยังไม่ชำระ/ยังรอตรวจสลิป — ต้องไปยืนยันในหน้าย้ายออก */
+    const [pendingSettlementTenantIds, setPendingSettlementTenantIds] = useState<Set<string>>(() => new Set())
     const [searchQuery, setSearchQuery] = useState('')
     const [didApplyInitialSearch, setDidApplyInitialSearch] = useState(false)
+    type NoticeListFilter = 'all' | 'noticed' | 'settlement_pending'
+    const [noticeListFilter, setNoticeListFilter] = useState<NoticeListFilter>('all')
+    const [didApplyInitialNoticeFilter, setDidApplyInitialNoticeFilter] = useState(false)
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [showMoveOutModal, setShowMoveOutModal] = useState(false)
@@ -137,6 +153,18 @@ export default function MoveOutClient() {
         setDidApplyInitialSearch(true)
     }, [searchParams, didApplyInitialSearch])
 
+    /** ?filter=notice | settlement | pending_settlement */
+    useEffect(() => {
+        if (didApplyInitialNoticeFilter) return
+        const f = String(searchParams.get('filter') || '').trim().toLowerCase()
+        if (f === 'notice' || f === 'noticed') {
+            setNoticeListFilter('noticed')
+        } else if (f === 'settlement' || f === 'pending_settlement' || f === 'move_out_bill') {
+            setNoticeListFilter('settlement_pending')
+        }
+        setDidApplyInitialNoticeFilter(true)
+    }, [searchParams, didApplyInitialNoticeFilter])
+
     useEffect(() => {
         const loadIssuedSnapshot = async () => {
             if (!moveOutBillId) {
@@ -190,10 +218,10 @@ export default function MoveOutClient() {
                 return
             }
 
-            // Fetch ONLY active tenants
-            const { data, error } = await supabase
-                .from('tenants')
-                .select(`
+            const [{ data, error }, { data: pendingMoveRows, error: pendingMoveErr }] = await Promise.all([
+                supabase
+                    .from('tenants')
+                    .select(`
                     *,
                     rooms (
                         room_number,
@@ -201,11 +229,25 @@ export default function MoveOutClient() {
                         base_price
                     )
                 `)
-                .eq('status', 'active')
-                .order('rooms(room_number)', { ascending: true })
+                    .eq('status', 'active')
+                    .order('rooms(room_number)', { ascending: true }),
+                supabase
+                    .from('bills')
+                    .select('tenant_id')
+                    .eq('bill_type', 'move_out')
+                    .in('status', ['unpaid', 'overdue', 'waiting_verify']),
+            ])
 
             if (error) throw error
+            if (pendingMoveErr) throw pendingMoveErr
+
             setTenants(data as any[] || [])
+            const nextPending = new Set<string>()
+            for (const row of pendingMoveRows || []) {
+                const tid = (row as { tenant_id?: string }).tenant_id
+                if (tid) nextPending.add(tid)
+            }
+            setPendingSettlementTenantIds(nextPending)
         } catch (err: any) {
             setErrorMsg(err.message || 'ไม่สามารถโหลดข้อมูลได้')
         } finally {
@@ -811,13 +853,28 @@ export default function MoveOutClient() {
         }
     }
 
-    const filteredTenants = tenants.filter(t => {
-        const query = searchQuery.toLowerCase()
-        return (
-            t.name.toLowerCase().includes(query) ||
-            t.rooms.room_number.toLowerCase().includes(query)
-        )
-    })
+    const filteredTenants = useMemo(() => {
+        const q = searchQuery.toLowerCase().trim()
+        return tenants.filter((t) => {
+            if (noticeListFilter === 'noticed' && !t.planned_move_out_date) return false
+            if (noticeListFilter === 'settlement_pending' && !pendingSettlementTenantIds.has(t.id)) return false
+            if (!q) return true
+            return (
+                t.name.toLowerCase().includes(q) ||
+                t.rooms.room_number.toLowerCase().includes(q)
+            )
+        })
+    }, [tenants, searchQuery, noticeListFilter, pendingSettlementTenantIds])
+
+    const noticedTenantCount = useMemo(
+        () => tenants.filter((t) => Boolean(t.planned_move_out_date)).length,
+        [tenants]
+    )
+
+    const settlementPendingCount = useMemo(
+        () => tenants.filter((t) => pendingSettlementTenantIds.has(t.id)).length,
+        [tenants, pendingSettlementTenantIds]
+    )
 
     useEffect(() => {
         const roomId = searchParams.get('roomId')
@@ -917,6 +974,43 @@ export default function MoveOutClient() {
                                 </button>
                             )}
                         </div>
+                        <div className="mt-4 flex flex-col gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-0.5">
+                                กรองรายการ
+                            </span>
+                            <div className="grid grid-cols-3 gap-1 bg-white/90 p-1.5 rounded-[1.25rem] border border-gray-100 shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setNoticeListFilter('all')}
+                                    className={`py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black transition-all leading-tight px-0.5
+                                        ${noticeListFilter === 'all'
+                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100'
+                                            : 'text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                    ทั้งหมด ({tenants.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNoticeListFilter('noticed')}
+                                    className={`py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black transition-all leading-tight px-0.5
+                                        ${noticeListFilter === 'noticed'
+                                            ? 'bg-amber-500 text-white shadow-md shadow-amber-100'
+                                            : 'text-amber-800/80 hover:bg-amber-50'}`}
+                                >
+                                    แจ้งออก ({noticedTenantCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setNoticeListFilter('settlement_pending')}
+                                    className={`py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black transition-all leading-tight px-0.5
+                                        ${noticeListFilter === 'settlement_pending'
+                                            ? 'bg-rose-500 text-white shadow-md shadow-rose-100'
+                                            : 'text-rose-800/90 hover:bg-rose-50'}`}
+                                >
+                                    บิลปิดค้าง ({settlementPendingCount})
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -929,19 +1023,41 @@ export default function MoveOutClient() {
                     )}
 
                     {filteredTenants.length > 0 ? (
-                        filteredTenants.map((tenant) => (
+                        filteredTenants.map((tenant) => {
+                            const hasPendingSettlement = pendingSettlementTenantIds.has(tenant.id)
+                            const cardAccent =
+                                hasPendingSettlement
+                                    ? 'border-rose-200 bg-rose-50/20'
+                                    : tenant.planned_move_out_date
+                                      ? 'border-amber-100 bg-amber-50/10'
+                                      : 'border-gray-50 hover:border-red-100'
+                            const iconAccent =
+                                hasPendingSettlement
+                                    ? 'bg-rose-100 border-rose-200 text-rose-700'
+                                    : tenant.planned_move_out_date
+                                      ? 'bg-amber-100 border-amber-200 text-amber-700'
+                                      : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                            return (
                             <div
                                 key={tenant.id}
-                                className={`bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border flex flex-col gap-4 group transition-all duration-300 ${tenant.planned_move_out_date ? 'border-amber-100 bg-amber-50/10' : 'border-gray-50 hover:border-red-100'}`}
+                                className={`bg-white p-4 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border flex flex-col gap-4 group transition-all duration-300 ${cardAccent}`}
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border shadow-sm transition-colors ${tenant.planned_move_out_date ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
+                                        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center border shadow-sm transition-colors ${iconAccent}`}>
                                             <span className="text-[10px] font-bold uppercase leading-none mb-1">ห้อง</span>
                                             <span className="text-xl font-black leading-none">{tenant.rooms.room_number}</span>
                                         </div>
-                                        <div className="space-y-0.5">
+                                        <div className="space-y-1">
                                             <h3 className="text-base font-black text-gray-800 tracking-tight">{tenant.name}</h3>
+                                            {hasPendingSettlement && (
+                                                <div className="flex items-center gap-1.5 text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-full w-fit border border-rose-100">
+                                                    <ExclamationCircleIcon className="w-3 h-3 shrink-0" />
+                                                    <span className="text-[10px] font-black uppercase tracking-wide">
+                                                        บิลปิดบัญชีค้าง — รอรับเงิน/ยืนยัน
+                                                    </span>
+                                                </div>
+                                            )}
                                             {tenant.planned_move_out_date ? (
                                                 <div className="flex items-center gap-1.5 text-amber-600 bg-amber-100/50 px-2 py-0.5 rounded-full w-fit">
                                                     <ClockIcon className="w-3 h-3" />
@@ -950,7 +1066,9 @@ export default function MoveOutClient() {
                                                     </span>
                                                 </div>
                                             ) : (
+                                                !hasPendingSettlement ? (
                                                 <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">สถานะ: กำลังพัก</span>
+                                                ) : null
                                             )}
                                         </div>
                                     </div>
@@ -989,8 +1107,9 @@ export default function MoveOutClient() {
                                     ย้ายห้อง
                                 </button>
                             </div>
-                        ))
-                    ) : (
+                            )
+                        })
+                    ) : tenants.length === 0 ? (
                         <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
                             <div className="w-20 h-20 bg-gray-50 rounded-[2.5rem] flex items-center justify-center border border-dashed border-gray-200">
                                 <HomeIcon className="w-10 h-10 text-gray-200" />
@@ -1000,13 +1119,36 @@ export default function MoveOutClient() {
                                 <p className="text-gray-300 text-[10px] font-bold uppercase tracking-widest">NO ACTIVE TENANTS FOUND</p>
                             </div>
                         </div>
+                    ) : (
+                        <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 px-4">
+                            <div className={`w-20 h-20 rounded-[2.5rem] flex items-center justify-center border border-dashed ${noticeListFilter === 'settlement_pending' ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'}`}>
+                                {noticeListFilter === 'settlement_pending' ? (
+                                    <ExclamationCircleIcon className="w-10 h-10 text-rose-200" />
+                                ) : (
+                                    <ClockIcon className="w-10 h-10 text-amber-200" />
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-gray-500 font-black text-sm leading-relaxed">
+                                    {noticeListFilter === 'noticed'
+                                        ? 'ยังไม่มีห้องที่แจ้งออกล่วงหน้า หรือไม่ตรงกับคำค้นหา'
+                                        : noticeListFilter === 'settlement_pending'
+                                          ? 'ไม่มีบิลปิดบัญชีที่ค้างอยู่ หรือไม่ตรงกับคำค้นหา'
+                                          : 'ไม่พบผู้เช่าที่ตรงกับคำค้นหา'}
+                                </p>
+                                <p className="text-gray-300 text-[10px] font-bold uppercase tracking-widest mt-1">
+                                    ลองเปลี่ยนตัวกรองหรือคำค้น
+                                </p>
+                            </div>
+                        </div>
                     )}
                 </div>
 
                 {/* ── Modals ── */}
                 {/* 1. Notice Date Modal */}
                 {showNoticeModal && selectedTenant && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <BodyPortal>
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowNoticeModal(false)} />
                         <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
                             <div className="bg-amber-500 p-8 text-white">
@@ -1039,11 +1181,13 @@ export default function MoveOutClient() {
                             </div>
                         </div>
                     </div>
+                    </BodyPortal>
                 )}
 
                 {/* 1.5 Transfer Room Modal */}
                 {showTransferModal && transferTenant && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <BodyPortal>
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowTransferModal(false)} />
                         <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
                             <div className="bg-emerald-500 p-8 text-white">
@@ -1134,14 +1278,28 @@ export default function MoveOutClient() {
                             </div>
                         </div>
                     </div>
+                    </BodyPortal>
                 )}
 
                 {/* 2. Move Out Confirm Modal */}
                 {showMoveOutModal && selectedTenant && (
-                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
+                    <BodyPortal>
+                    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 sm:p-6">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMoveOutModal(false)} />
                         <div className="relative w-full max-w-md max-h-[min(92dvh,calc(100dvh-1rem))] sm:max-h-[85dvh] flex flex-col bg-white rounded-[2.5rem] sm:rounded-[2.5rem] rounded-b-none sm:rounded-b-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                            <div className="shrink-0 bg-[#10B981] p-5 sm:p-6 text-white">
+                            <div className="relative shrink-0 bg-[#10B981] p-5 sm:p-6 pr-14 sm:pr-16 text-white">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowMoveOutModal(false)
+                                        setMoveOutBillId(null)
+                                        setMoveOutBillStatus(null)
+                                    }}
+                                    className="absolute right-3 top-3 sm:right-4 sm:top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95"
+                                    aria-label="ปิด"
+                                >
+                                    <XMarkIcon className="h-6 w-6 stroke-[2.5]" />
+                                </button>
                                 <p className="text-[11px] font-black uppercase tracking-widest text-emerald-100">
                                     Move-Out Settlement
                                 </p>
@@ -1487,15 +1645,16 @@ export default function MoveOutClient() {
                                 >
                                     {isMovingOut ? 'กำลังยกเลิก...' : 'ยกเลิกย้ายออก'}
                                 </button>
-                                <button onClick={() => { setShowMoveOutModal(false); setMoveOutBillId(null); setMoveOutBillStatus(null) }} className="w-full h-14 bg-white border border-gray-100 text-gray-400 font-black rounded-2xl shadow-sm hover:bg-gray-50 transition-all">ยกเลิก</button>
                             </div>
                         </div>
                     </div>
+                    </BodyPortal>
                 )}
 
                 {/* 3. Debt Warning Modal */}
                 {showDebtWarning && selectedTenant && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <BodyPortal>
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDebtWarning(false)} />
                         <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="bg-red-50 p-8 flex flex-col items-center text-center">
@@ -1567,6 +1726,7 @@ export default function MoveOutClient() {
                             </div>
                         </div>
                     </div>
+                    </BodyPortal>
                 )}
 
         </DashboardMenuPageChrome>

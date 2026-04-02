@@ -79,7 +79,7 @@ export default function BillingClient() {
     const monthQuery = searchParams.get('month')
     const [filterFloor, setFilterFloor] = useState<number | 'all'>('all')
     const [filterLineStatus, setFilterLineStatus] = useState<'all' | 'linked' | 'unlinked'>('all')
-    type WorkingFilter = 'all' | 'pending_meter' | 'ready' | 'issued' | 'overdue' | 'paid' | 'waiting_verify'
+    type WorkingFilter = 'all' | 'pending_meter' | 'ready' | 'issued' | 'overdue' | 'paid' | 'waiting_verify' | 'unpaid'
     const [filterWorkingStatus, setFilterWorkingStatus] = useState<WorkingFilter>('all')
     const [dormSettings, setDormSettings] = useState<any>(null)
     const [dormServices, setDormServices] = useState<DormServiceItem[]>([])
@@ -127,7 +127,7 @@ export default function BillingClient() {
         }
     }, [monthQuery])
 
-    /** Deep-link จากการ์ดสถานะบิลในภาพรวม: ?billFilter=paid|waiting_verify|overdue */
+    /** Deep-link จากการ์ดสถานะบิลในภาพรวม: ?billFilter=paid|waiting_verify|unpaid|overdue */
     useEffect(() => {
         const bf = searchParams.get('billFilter')?.trim().toLowerCase() || ''
         if (!bf) {
@@ -140,6 +140,7 @@ export default function BillingClient() {
         handledBillFilterRef.current = true
         if (bf === 'paid') setFilterWorkingStatus('paid')
         else if (bf === 'waiting_verify') setFilterWorkingStatus('waiting_verify')
+        else if (bf === 'unpaid') setFilterWorkingStatus('unpaid')
         else if (bf === 'overdue') setFilterWorkingStatus('overdue')
 
         const qs = new URLSearchParams(searchParams.toString())
@@ -310,7 +311,10 @@ export default function BillingClient() {
 
                     const waterBillingType = settingsData?.water_billing_type || 'per_unit'
                     const isWaterOk = waterBillingType === 'flat_rate' || (utils?.water_unit > 0)
-                    const isElectricOk = (utils?.electric_unit > 0)
+                    const peEl = Number(utils?.prev_electric_meter) || 0
+                    const ceEl = Number(utils?.curr_electric_meter) || 0
+                    const eu = Number(utils?.electric_unit) || 0
+                    const isElectricOk = eu > 0 && ceEl > peEl
                     const isReady = !!utils && isWaterOk && isElectricOk
 
                     let status: 'vacant' | 'paid' | 'waiting_verify' | 'issued' | 'pending_meter' | 'ready'
@@ -920,6 +924,9 @@ export default function BillingClient() {
             data = data.filter(item => item.status === 'paid')
         } else if (filterWorkingStatus === 'waiting_verify') {
             data = data.filter(item => item.status === 'waiting_verify')
+        } else if (filterWorkingStatus === 'unpaid') {
+            /** ออกบิลแล้ว ยังไม่ชำระ ยังไม่ส่งสลิป — สอดคล้อง billStatusCounts.unpaid บนภาพรวม */
+            data = data.filter(item => item.status === 'issued' && !item.isBillOverdue)
         } else if (filterWorkingStatus === 'issued') {
             data = data.filter(item => ['issued', 'waiting_verify', 'paid'].includes(item.status))
         } else if (filterWorkingStatus === 'overdue') {
@@ -935,6 +942,7 @@ export default function BillingClient() {
     const countReady = billingData.filter(d => d.status === 'ready').length
     const countPaid = billingData.filter(d => d.status === 'paid').length
     const countWaitingVerify = billingData.filter(d => d.status === 'waiting_verify').length
+    const countUnpaidIssued = billingData.filter(d => d.status === 'issued' && !d.isBillOverdue).length
     const countIssued = billingData.filter(d => ['issued', 'waiting_verify', 'paid'].includes(d.status)).length
     const countOverdue = billingData.filter(d => d.isBillOverdue).length
 
@@ -1052,6 +1060,12 @@ export default function BillingClient() {
                                 className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'waiting_verify' ? 'bg-blue-500 text-white shadow-lg shadow-blue-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
                             >
                                 รอตรวจสลิป ({countWaitingVerify})
+                            </button>
+                            <button
+                                onClick={() => setFilterWorkingStatus('unpaid')}
+                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all whitespace-nowrap ${filterWorkingStatus === 'unpaid' ? 'bg-sky-500 text-white shadow-lg shadow-sky-100' : 'border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-gray-300 hover:shadow-md'}`}
+                            >
+                                รอชำระ ({countUnpaidIssued})
                             </button>
                             <button
                                 onClick={() => setFilterWorkingStatus('issued')}

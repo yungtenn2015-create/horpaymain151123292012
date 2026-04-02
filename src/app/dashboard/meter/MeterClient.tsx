@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { format } from 'date-fns'
 import {
     BoltIcon,
     CalendarDaysIcon,
@@ -13,6 +12,34 @@ import {
 } from '@heroicons/react/24/outline'
 import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
+
+/** เดือนก่อนหน้าแบบปฏิทิน (ไม่ผูก timezone เครื่องผู้ใช้) */
+function previousCalendarMonth(yyyyMm: string): string {
+    let y = parseInt(yyyyMm.slice(0, 4), 10)
+    let m = parseInt(yyyyMm.slice(5, 7), 10)
+    m -= 1
+    if (m < 1) {
+        m = 12
+        y -= 1
+    }
+    return `${y}-${String(m).padStart(2, '0')}`
+}
+
+/** งวดมิเตอร์ตามปฏิทินไทย — แก้กรณี meter_date เป็น ISO UTC ทำให้ startsWith(yyyy-MM) จับผิดเดือน */
+function meterDateToBangkokMonthKey(meterDate: string | null | undefined): string {
+    if (!meterDate) return ''
+    const d = new Date(meterDate)
+    if (isNaN(d.getTime())) return ''
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+    }).formatToParts(d)
+    const y = parts.find((p) => p.type === 'year')?.value
+    const mo = parts.find((p) => p.type === 'month')?.value
+    if (!y || !mo) return ''
+    return `${y}-${mo}`
+}
 
 interface Room {
     id: string;
@@ -58,7 +85,7 @@ export default function MeterClient() {
     const [rooms, setRooms] = useState<Room[]>([])
     const [prevReadings, setPrevReadings] = useState<Record<string, { water: string, electric: string, isInitial: boolean }>>({})
     const [roomsWithBills, setRoomsWithBills] = useState<Record<string, boolean>>({})
-    /** มีแถว utilities สำหรับเดือนที่เลือก + ผู้เช่าคนปัจจุบัน (บันทึกจดมิเตอร์แล้ว) */
+    /** พร้อมออกบิลตามเกณฑ์เดียวกับหน้าบิล (น้ำตามหน่วยต้อง water_unit>0, ไฟต้อง electric_unit>0) */
     const [roomsMeterSavedMap, setRoomsMeterSavedMap] = useState<Record<string, boolean>>({})
     const [meterInputs, setMeterInputs] = useState<Record<string, { currWater: string, currElectric: string }>>({})
 
@@ -169,7 +196,9 @@ export default function MeterClient() {
                         const [{ data: utilsData, error: utilsError }, { data: billsData }] = await Promise.all([
                             supabase
                                 .from('utilities')
-                                .select('room_id, tenant_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date')
+                                .select(
+                                    'room_id, tenant_id, curr_water_meter, curr_electric_meter, prev_water_meter, prev_electric_meter, meter_date, water_unit, electric_unit'
+                                )
                                 .in('room_id', roomIds)
                                 .order('meter_date', { ascending: false }),
                             supabase
@@ -204,19 +233,26 @@ export default function MeterClient() {
                         const latestPrev: Record<string, { water: string, electric: string, isInitial: boolean }> = {}
                         const existingInputs: Record<string, { currWater: string, currElectric: string }> = {}
                         const meterSavedMap: Record<string, boolean> = {}
+                        /** สอดคล้อง BillingClient: พร้อมออกบิลเมื่อมี utils + น้ำผ่านเกณฑ์ + ไฟใช้จริง (unit > 0) */
+                        const dormWaterType = settingsData?.water_billing_type || 'per_unit'
 
                         roomsData.forEach((r: any) => {
                             const activeTenant = (r.tenants as any[])?.find(t => t.status === 'active')
                             const roomUtils = utilsData?.filter(u => u.room_id === r.id) || []
 
                             // Find current and previous records specifically for THIS tenant
-                            const currRec = roomUtils.find((u: any) => u.meter_date.startsWith(selectedMonth) && u.tenant_id === activeTenant?.id)
-                            meterSavedMap[r.id] = Boolean(currRec)
+                            const currRec = roomUtils.find(
+                                (u: any) =>
+                                    meterDateToBangkokMonthKey(u.meter_date) === selectedMonth &&
+                                    u.tenant_id === activeTenant?.id
+                            )
 
-                            const [yearNum, monthNum] = selectedMonth.split('-').map(Number)
-                            const prevDate = new Date(yearNum, monthNum - 2, 1)
-                            const prevMonthTarget = format(prevDate, 'yyyy-MM')
-                            const pRec = roomUtils.find((u: any) => u.meter_date.startsWith(prevMonthTarget) && u.tenant_id === activeTenant?.id)
+                            const prevMonthTarget = previousCalendarMonth(selectedMonth)
+                            const pRec = roomUtils.find(
+                                (u: any) =>
+                                    meterDateToBangkokMonthKey(u.meter_date) === prevMonthTarget &&
+                                    u.tenant_id === activeTenant?.id
+                            )
                             const hasPrecedingRecord = !!pRec
 
                             let prevWater = '0'
@@ -224,21 +260,43 @@ export default function MeterClient() {
                             const isInitial = !hasPrecedingRecord || roomUtils.length === 0
 
                             if (currRec) {
+                                const wU = Number(currRec.water_unit) || 0
+                                const eU = Number(currRec.electric_unit) || 0
+                                const isWaterOk = dormWaterType === 'flat_rate' || wU > 0
                                 // Prioritize actual reading from previous month if it exists (Sync)
                                 prevWater = hasPrecedingRecord ? pRec.curr_water_meter.toString() : currRec.prev_water_meter.toString()
                                 prevElec = hasPrecedingRecord ? pRec.curr_electric_meter.toString() : currRec.prev_electric_meter.toString()
+                                /** ไฟ: ยึดเลขก่อนหน้าที่ “แสดง” เทียบกับเลขปัจจุบัน — กันยอด unit ในฐานข้อมูลไม่ตรงกับเลขที่เห็น (เลขมั่ว) */
+                                const dispPrevElecNum = parseInt(prevElec || '0', 10) || 0
+                                const ceNow = Number(currRec.curr_electric_meter) || 0
+                                const isElectricOk = eU > 0 && ceNow > dispPrevElecNum
+
+                                const isBillingReady = isWaterOk && isElectricOk
+                                meterSavedMap[r.id] = isBillingReady
+
+                                const showWaterCurr = dormWaterType === 'flat_rate' || isWaterOk
+                                const showElecCurr = isElectricOk
                                 existingInputs[r.id] = {
-                                    currWater: currRec.curr_water_meter.toString() || '',
-                                    currElectric: currRec.curr_electric_meter.toString() || ''
+                                    currWater: showWaterCurr ? (currRec.curr_water_meter?.toString() || '') : '',
+                                    currElectric: showElecCurr ? (currRec.curr_electric_meter?.toString() || '') : '',
                                 }
                             } else if (hasPrecedingRecord) {
                                 prevWater = pRec.curr_water_meter.toString()
                                 prevElec = pRec.curr_electric_meter.toString()
                                 existingInputs[r.id] = { currWater: '', currElectric: '' }
+                                meterSavedMap[r.id] = false
                             } else {
                                 // If no reading for this tenant yet, check if there's any reading at all for this room
                                 // that we can use as a "starting point" (though ideally we use tenant check-in meter)
-                                const priorRecsForTenant = roomUtils.filter((u: any) => u.meter_date < `${selectedMonth}-01` && u.tenant_id === activeTenant?.id)
+                                const priorRecsForTenant = roomUtils
+                                    .filter((u: any) => {
+                                        const key = meterDateToBangkokMonthKey(u.meter_date)
+                                        return key && key < selectedMonth && u.tenant_id === activeTenant?.id
+                                    })
+                                    .sort(
+                                        (a: any, b: any) =>
+                                            new Date(b.meter_date).getTime() - new Date(a.meter_date).getTime()
+                                    )
                                 if (priorRecsForTenant.length > 0) {
                                     prevWater = priorRecsForTenant[0].curr_water_meter.toString()
                                     prevElec = priorRecsForTenant[0].curr_electric_meter.toString()
@@ -247,6 +305,7 @@ export default function MeterClient() {
                                     prevElec = ''
                                 }
                                 existingInputs[r.id] = { currWater: '', currElectric: '' }
+                                meterSavedMap[r.id] = false
                             }
 
                             latestPrev[r.id] = { water: prevWater, electric: prevElec, isInitial }
