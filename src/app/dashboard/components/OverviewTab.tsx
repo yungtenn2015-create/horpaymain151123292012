@@ -416,7 +416,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                                             <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
                                                                 <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
                                                                 <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gray-800">
-                                                                    ทดลองฟรี {getTrialDaysLeft()} วัน
+                                                                    ทดลองใช้ฟรี {getTrialDaysLeft()} วัน
                                                                 </span>
                                                             </div>
                                                         )}
@@ -424,7 +424,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                                             <div className="inline-flex max-w-full items-start gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
                                                                 <ExclamationTriangleIcon className="mt-px h-3.5 w-3.5 shrink-0 text-red-500" />
                                                                 <span className="max-w-[12rem] text-[10px] font-semibold leading-snug text-red-700">
-                                                                    Pro หมดอายุ — โปรดต่อแผน
+                                                                    แพ็กเกจ Pro หมดอายุแล้ว — โปรดต่ออายุการใช้งาน
                                                                 </span>
                                                             </div>
                                                         )}
