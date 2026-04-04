@@ -309,10 +309,16 @@ export default function ReceiptPage() {
 
             setBillStatus(status)
             if (status === 'paid') {
-                // Send LINE notification
+                const {
+                    data: { session },
+                } = await supabase.auth.getSession()
+                const lineHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+                if (session?.access_token) {
+                    lineHeaders.Authorization = `Bearer ${session.access_token}`
+                }
                 await fetch('/api/line/confirm-payment', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: lineHeaders,
                     body: JSON.stringify({ billId: data.id })
                 })
             }

@@ -25,6 +25,18 @@ import ReceiptView from '@/src/components/ReceiptView'
 import { formatMeterScheduleLine } from '@/lib/meter-schedule'
 import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
+async function lineOwnerApiHeaders(): Promise<HeadersInit> {
+    const supabase = createClient()
+    const {
+        data: { session },
+    } = await supabase.auth.getSession()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`
+    }
+    return headers
+}
+
 interface Room {
     id: string;
     room_number: string;
@@ -434,7 +446,7 @@ export default function BillingClient() {
             try {
                 await fetch('/api/line/confirm-payment', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: await lineOwnerApiHeaders(),
                     body: JSON.stringify({ billId: item.billId })
                 })
             } catch (lineErr) {
@@ -670,7 +682,7 @@ export default function BillingClient() {
                 try {
                     const sendRes = await fetch('/api/line/send-bill', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: await lineOwnerApiHeaders(),
                         body: JSON.stringify({ billId: newBill.id })
                     })
                     const payload = await sendRes.json().catch(() => ({}))
@@ -757,7 +769,7 @@ export default function BillingClient() {
         try {
             const res = await fetch('/api/line/send-bill', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await lineOwnerApiHeaders(),
                 body: JSON.stringify({ billId: item.billId })
             })
             if (res.ok) {

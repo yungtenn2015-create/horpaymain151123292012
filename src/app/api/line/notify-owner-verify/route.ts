@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyBillOwnerFromRequest } from '@/lib/verify-bill-owner-request'
 
 function formatTenantNameWithPrefix(tenantName?: string): string {
   const n = (tenantName ?? '').trim()
@@ -22,6 +23,11 @@ export async function POST(req: Request) {
   try {
     const { billId } = await req.json()
     if (!billId) return NextResponse.json({ error: 'billId is required' }, { status: 400 })
+
+    const gate = await verifyBillOwnerFromRequest(req, billId, supabaseAdmin)
+    if (!gate.ok) {
+      return NextResponse.json(gate.body, { status: gate.status })
+    }
 
     const { data: bill, error: billError } = await supabaseAdmin
       .from('bills')

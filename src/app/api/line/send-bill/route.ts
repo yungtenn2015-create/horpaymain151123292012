@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { formatMeterScheduleLine } from '@/lib/meter-schedule';
+import { verifyBillOwnerFromRequest } from '@/lib/verify-bill-owner-request';
 
 function formatTenantNameWithPrefix(tenantName?: string): string {
   const n = (tenantName ?? '').trim()
@@ -26,6 +27,11 @@ export async function POST(req: Request) {
 
     if (!billId) {
       return NextResponse.json({ error: 'billId is required' }, { status: 400 });
+    }
+
+    const gate = await verifyBillOwnerFromRequest(req, billId, supabaseAdmin);
+    if (!gate.ok) {
+      return NextResponse.json(gate.body, { status: gate.status });
     }
 
     // 1. Fetch Bill Data with all relations

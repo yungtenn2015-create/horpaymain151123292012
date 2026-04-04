@@ -57,6 +57,8 @@ CREATE TABLE users (
                         CHECK (subscription_plan IN ('monthly', 'yearly')),
                         -- แผนที่เลือกตอนอัปเกรด: รายเดือน / รายปี
                         -- null = ยังไม่ได้อัปเกรด
+  subscription_ends_at TIMESTAMPTZ NULL,
+                        -- Pro แบบมีกำหนดหมดรอบ (จ่ายล่วงหน้า) — null = Pro ไม่กำหนดวันหมด
   trial_expires_at    TIMESTAMPTZ NOT NULL DEFAULT now() + INTERVAL '30 days',
                         -- free: หมดแล้ว → read-only จนกว่าจะอัปเกรด
                                                                               -- free + ยังไม่หมด = ใช้ได้เต็ม
@@ -332,6 +334,46 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 -- ============================================================
+-- TRIGGER: ห้าม client (authenticated) แก้แผน / trial / role / email เอง
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.protect_users_privileged_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  jwt_role text;
+BEGIN
+  jwt_role := COALESCE(NULLIF(trim(auth.jwt() ->> 'role'), ''), '');
+
+  IF jwt_role = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF jwt_role <> 'authenticated' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.plan_type IS DISTINCT FROM OLD.plan_type
+     OR NEW.subscription_plan IS DISTINCT FROM OLD.subscription_plan
+     OR NEW.subscription_ends_at IS DISTINCT FROM OLD.subscription_ends_at
+     OR NEW.trial_expires_at IS DISTINCT FROM OLD.trial_expires_at
+     OR NEW.role IS DISTINCT FROM OLD.role
+     OR NEW.email IS DISTINCT FROM OLD.email
+  THEN
+    RAISE EXCEPTION 'forbidden_privileged_user_update: แก้แผน สิทธิ์ อีเมล หรือช่วงทดลองได้เฉพาะระบบภายในเท่านั้น';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_protect_users_privileged_columns
+  BEFORE UPDATE ON public.users
+  FOR EACH ROW EXECUTE FUNCTION public.protect_users_privileged_columns();
+
+-- ============================================================
 -- TRIGGER: กัน Race Condition การจ่ายเงินเกินยอดบิล (ดู dev_notes.md ข้อ 5)
 -- ============================================================
 CREATE OR REPLACE FUNCTION check_payment_total()
@@ -479,7 +521,7 @@ CREATE TRIGGER trg_prevent_bill_amount_change
 -- ============================================================
 -- FUNCTION: is_trial_active
 -- ============================================================
--- คืน true ถ้า user ยังอยู่ใน trial หรือเป็น pro
+-- คืน true ถ้ามีสิทธิ์เขียนข้อมูลตามแผน: trial ยังไม่หมด, หรือ Pro ที่ยังไม่หมดรอบ (หรือ Pro แบบไม่กำหนดวันหมด)
 -- ใช้ใน trigger และ RLS เพื่อเช็คสิทธิ์ write
 CREATE OR REPLACE FUNCTION is_trial_active(p_user_id UUID)
 RETURNS boolean
@@ -492,8 +534,17 @@ AS $$
     SELECT 1 FROM users
     WHERE id = p_user_id
       AND (
-        plan_type = 'pro'                          -- pro ไม่จำกัด
-        OR trial_expires_at > now()                -- free ที่ยังไม่หมด trial
+        (
+          plan_type = 'pro'
+          AND (
+            subscription_ends_at IS NULL
+            OR subscription_ends_at > now()
+          )
+        )
+        OR (
+          plan_type = 'free'
+          AND trial_expires_at > now()
+        )
       )
   );
 $$;

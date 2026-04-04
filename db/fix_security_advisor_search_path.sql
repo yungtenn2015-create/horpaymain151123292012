@@ -45,6 +45,7 @@ ALTER FUNCTION public.update_updated_at_column() SET search_path = public, pg_te
 
 -- ฟังก์ชันเหล่านี้ใน migration.sql / rls_policies.sql อาจมี SET อยู่แล้ว — รันซ้ำได้ไม่เสีย
 ALTER FUNCTION public.is_trial_active(uuid) SET search_path = public, pg_temp;
+ALTER FUNCTION public.protect_users_privileged_columns() SET search_path = public, pg_temp;
 ALTER FUNCTION public.encrypt_id_card(text) SET search_path = public, pg_temp;
 ALTER FUNCTION public.decrypt_id_card(bytea) SET search_path = public, pg_temp;
 

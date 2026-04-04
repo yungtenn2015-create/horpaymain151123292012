@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase-client'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
   try {
     const supabase = createClient()
     const { data, error } = await supabase.from('_test_connection_').select('*').limit(1)

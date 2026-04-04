@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const secret = process.env.DEBUG_LOGS_SECRET?.trim();
+  if (!secret) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  const auth = req.headers.get('authorization')?.trim();
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

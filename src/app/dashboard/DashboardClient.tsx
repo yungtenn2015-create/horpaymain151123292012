@@ -153,7 +153,11 @@ export default function DashboardClient() {
         pendingPayments: 0,
         movingOut: 0
     })
-    const [userPlan, setUserPlan] = useState<{ plan_type: string; trial_expires_at: string } | null>(null)
+    const [userPlan, setUserPlan] = useState<{
+        plan_type: string
+        trial_expires_at: string
+        subscription_ends_at: string | null
+    } | null>(null)
 
     // Settings States
     const [activeSettingsTab, setActiveSettingsTab] = useState('dorm')
@@ -802,7 +806,7 @@ export default function DashboardClient() {
             ] = await Promise.all([
                 supabase
                     .from('users')
-                    .select('plan_type, trial_expires_at, name')
+                    .select('plan_type, trial_expires_at, subscription_ends_at, name')
                     .eq('id', user.id)
                     .single(),
                 supabase
@@ -818,7 +822,8 @@ export default function DashboardClient() {
             if (!userError && userData) {
                 setUserPlan({
                     plan_type: userData.plan_type,
-                    trial_expires_at: userData.trial_expires_at
+                    trial_expires_at: userData.trial_expires_at,
+                    subscription_ends_at: userData.subscription_ends_at ?? null,
                 });
                 loadedOwnerName = typeof userData.name === 'string' ? userData.name.trim() : '';
             }
