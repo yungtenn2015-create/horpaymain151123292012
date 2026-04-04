@@ -432,7 +432,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                                             <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
                                                                 <CheckCircleIcon className="h-4 w-4 shrink-0 text-primary stroke-[2.25]" />
                                                                 <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gray-800">
-                                                                    Pro เหลือ {getProDaysLeft()} วัน
+                                                                แพ็กเกจ Pro เหลือ {getProDaysLeft()} วัน
                                                                 </span>
                                                             </div>
                                                         )}
