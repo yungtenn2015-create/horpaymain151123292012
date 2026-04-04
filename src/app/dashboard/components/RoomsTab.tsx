@@ -275,9 +275,9 @@ export default function RoomsTab({
         );
     };
     return (
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* โซนเลื่อนเดียว: หัวเขียว + ตัวกรอง + รายการ — กัน scroll ซ้อนกับ layout แล้วแถบกรองดูเหมือนค้าง */}
-            <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain pb-dashboard-nav custom-scrollbar -mr-1.5">
+            <div className="min-h-0 w-full min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain pb-dashboard-nav [scrollbar-gutter:stable] custom-scrollbar">
             {/* Premium Header (Green Theme) */}
             <div className="relative shrink-0 min-h-[200px]">
                 {/* Background with clipping */}
@@ -303,20 +303,20 @@ export default function RoomsTab({
                 </div>
             </div>
 
-            <div className="relative z-10 -mt-[4.5rem] flex flex-col gap-2 px-5 pb-2 sm:-mt-20">
-                <div className="space-y-2">
-                <div className="space-y-2.5 rounded-2xl border border-gray-100 bg-gradient-to-b from-gray-50 to-white px-3 pb-3 pt-2 shadow-sm sm:space-y-3 sm:px-3.5 sm:pb-3.5 sm:pt-2.5">
+            <div className="relative z-10 -mt-[4.5rem] flex w-full min-w-0 max-w-full flex-col gap-2 px-5 pb-2 sm:-mt-20">
+                <div className="w-full min-w-0 space-y-2">
+                <div className="w-full min-w-0 space-y-2.5 rounded-2xl border border-gray-100 bg-gradient-to-b from-gray-50 to-white px-3 pb-3 pt-2 shadow-sm sm:space-y-3 sm:px-3.5 sm:pb-3.5 sm:pt-2.5">
                     {/* Floor Filter */}
-                    <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 px-0.5">
-                            <div className="h-3 w-1 rounded-full bg-primary" />
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-700">เลือกชั้น</p>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 px-0.5">
+                            <div className="h-3.5 w-1 rounded-full bg-primary" />
+                            <p className="text-[12px] font-black uppercase tracking-wide text-slate-700">เลือกชั้น</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                             <button
                                 type="button"
                                 onClick={() => setSelectedFloor('all')}
-                                className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-black leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-sm shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
+                                className={`inline-flex min-h-[2.65rem] items-center justify-center whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-black leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === 'all' ? 'border-primary bg-primary text-white shadow-sm shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
                             >
                                 ทุกชั้น
                             </button>
@@ -325,7 +325,7 @@ export default function RoomsTab({
                                     type="button"
                                     key={floor}
                                     onClick={() => setSelectedFloor(floor)}
-                                    className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-black leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-sm shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
+                                    className={`inline-flex min-h-[2.65rem] items-center justify-center whitespace-nowrap rounded-xl border px-4 py-2.5 text-[13px] font-black leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/35 ${selectedFloor === floor ? 'border-primary bg-primary text-white shadow-sm shadow-emerald-900/15' : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white'}`}
                                 >
                                     ชั้น {floor}
                                 </button>
@@ -334,13 +334,13 @@ export default function RoomsTab({
                     </div>
 
                     {/* Status Filter */}
-                    <div className="flex flex-col gap-1.5 border-t border-gray-100/80 pt-2.5 sm:pt-3">
-                        <div className="flex items-center gap-1.5 px-0.5">
-                            <div className="h-3 w-1 rounded-full bg-primary" />
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-700">สถานะห้อง</p>
+                    <div className="flex flex-col gap-2 border-t border-gray-100/80 pt-2.5 sm:pt-3">
+                        <div className="flex items-center gap-2 px-0.5">
+                            <div className="h-3.5 w-1 rounded-full bg-primary" />
+                            <p className="text-[12px] font-black uppercase tracking-wide text-slate-700">สถานะห้อง</p>
                         </div>
-                        {/* grid คงที่ 4 คอลัมน์ — กัน flex-wrap คำนวณแถวใหม่เมื่อความกว้างปุ่มเปลี่ยนตอน active ทำให้ปุ่มเด้งแถว */}
-                        <div className="grid grid-cols-4 gap-1.5">
+                        {/* grid คงที่ 3 คอลัมน์ — ปุ่มกว้างขึ้น อ่านง่าย ไม่เด้งแถวเหมือน flex-wrap */}
+                        <div className="grid w-full min-w-0 grid-cols-3 gap-2">
                             {[
                                 { id: 'all', label: 'ทั้งหมด', color: 'bg-primary border-primary shadow-emerald-900/15' },
                                 { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-900/10' },
@@ -354,7 +354,7 @@ export default function RoomsTab({
                                     type="button"
                                     key={status.id}
                                     onClick={() => setSelectedStatus(status.id)}
-                                    className={`flex w-full min-w-0 items-center justify-center rounded-lg border px-1 py-1.5 text-center text-[10px] font-bold leading-snug outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-0 ${selectedStatus === status.id ? `${status.color} text-white shadow-sm ring-transparent` : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white focus-visible:ring-primary/30'}`}
+                                    className={`box-border flex min-h-[2.65rem] w-full min-w-0 max-w-full items-center justify-center rounded-xl border px-2.5 py-2.5 text-center text-[13px] font-black leading-snug outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-offset-0 ${selectedStatus === status.id ? `${status.color} text-white shadow-sm ring-transparent` : 'border-gray-200 bg-white/90 text-slate-600 shadow-sm hover:border-gray-300 hover:bg-white focus-visible:ring-primary/30'}`}
                                 >
                                     {status.label}
                                 </button>
@@ -364,7 +364,7 @@ export default function RoomsTab({
                 </div>
                 </div>
 
-                <div className="relative z-0">
+                <div className="relative z-0 w-full min-w-0">
                     {rooms.length === 0 ? (
                         <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
                             <p className="text-gray-400 font-bold">ยังไม่มีข้อมูลห้องพัก</p>
@@ -394,7 +394,7 @@ export default function RoomsTab({
                                             </span>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid min-w-0 grid-cols-2 gap-4">
                                             {filteredRooms.filter(r => r.floor === floor).sort((a, b) => a.room_number.localeCompare(b.room_number)).map((room) => {
                                                 const isWaitingVerify = waitingVerifyRoomIds.has(room.id);
                                                 const isUnpaid = unpaidRoomIds.has(room.id);
