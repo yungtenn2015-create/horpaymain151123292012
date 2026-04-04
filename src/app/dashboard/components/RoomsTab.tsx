@@ -275,18 +275,15 @@ export default function RoomsTab({
         );
     };
     return (
-        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* โซนเลื่อนเดียว: หัวเขียว + ตัวกรอง + รายการ — กัน scroll ซ้อนกับ layout แล้วแถบกรองดูเหมือนค้าง */}
-            <div className="min-h-0 w-full min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain pb-dashboard-nav [scrollbar-gutter:stable] custom-scrollbar">
-            {/* Premium Header (Green Theme) */}
-            <div className="relative shrink-0 min-h-[200px]">
-                {/* Background with clipping */}
+        <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-gray-50 pb-dashboard-nav font-body text-slate-800 antialiased tabular-nums">
+            {/* โครง + คลาสรูทให้ตรง StatsTab ทุกจุด — กันความกว้าง/เลื่อนทำงานต่างจากแท็บอื่น */}
+            <div className="relative min-h-[210px]">
                 <div className="absolute inset-0 bg-primary rounded-b-[2.5rem] sm:rounded-t-[2.5rem] shadow-lg overflow-hidden z-0">
                     <div className="absolute top-[-20%] right-[-10%] w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse duration-[4000ms]" />
                     <div className="absolute bottom-[-10%] left-[-10%] w-56 h-56 bg-white/5 rounded-full blur-2xl" />
                 </div>
 
-                <div className="relative z-50 pt-8 pb-7 px-6 sm:px-10">
+                <div className="relative z-50 pt-8 pb-10 px-6 sm:px-10">
                     <div className="flex items-center gap-4 sm:gap-6">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-[20px] rounded-[1.8rem] sm:rounded-[2.2rem] flex items-center justify-center text-white border border-white/30 shadow-2xl animate-in zoom-in duration-700">
                             <BuildingOfficeIcon className="w-7 h-7 sm:w-8 sm:h-8 drop-shadow-md" />
@@ -303,7 +300,7 @@ export default function RoomsTab({
                 </div>
             </div>
 
-            <div className="relative z-10 -mt-[4.5rem] flex w-full min-w-0 max-w-full flex-col gap-2 px-5 pb-2 sm:-mt-20">
+            <div className="relative z-20 -mt-20 flex w-full min-w-0 flex-col gap-2 px-5 pb-8">
                 <div className="w-full min-w-0 space-y-2">
                 <div className="w-full min-w-0 space-y-2.5 rounded-2xl border border-gray-100 bg-gradient-to-b from-gray-50 to-white px-3 pb-3 pt-2 shadow-sm sm:space-y-3 sm:px-3.5 sm:pb-3.5 sm:pt-2.5">
                     {/* Floor Filter */}
@@ -499,7 +496,6 @@ export default function RoomsTab({
                         );
                     })()}
                 </div>
-            </div>
             </div>
             {renderRoomActionModal()}
         </div>

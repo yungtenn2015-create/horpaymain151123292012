@@ -1670,8 +1670,8 @@ export default function DashboardClient() {
     const shellBgClass = activeTab === 'settings' ? 'bg-[#fcfdfd]' : 'bg-gray-50'
 
     return (
-        <div className={`flex h-full min-h-0 flex-1 flex-col ${shellBgClass} sm:min-h-screen sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800`}>
-            <div className={`relative z-0 flex h-full min-h-0 w-full sm:max-w-lg flex-1 flex-col overflow-x-hidden overflow-y-hidden ${shellBgClass} sm:min-h-[850px] sm:flex-none sm:rounded-[2.5rem] sm:shadow-2xl border-gray-100 sm:border`}>
+        <div className={`flex h-full min-h-0 min-w-0 w-full max-w-none flex-1 flex-col ${shellBgClass} sm:min-h-screen sm:flex sm:items-center sm:justify-center sm:py-8 font-sans text-gray-800`}>
+            <div className={`relative z-0 flex h-full min-h-0 w-full min-w-0 max-w-none flex-1 flex-col overflow-x-hidden overflow-y-hidden sm:max-w-lg ${shellBgClass} sm:min-h-[850px] sm:flex-none sm:rounded-[2.5rem] sm:shadow-2xl border-gray-100 sm:border`}>
 
                 {renderCustomCalendar()}
                 {renderContractFormModal()}
