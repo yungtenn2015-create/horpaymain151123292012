@@ -411,7 +411,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                                             Add LINE
                                                         </a>
                                                     </div>
-                                                    <div className="mt-2 border-t border-gray-100 pt-2">
+                                                    <div className="mt-2 flex flex-wrap justify-end border-t border-gray-100 pt-2">
                                                         {!isPro && (
                                                             <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-2.5 py-1">
                                                                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
