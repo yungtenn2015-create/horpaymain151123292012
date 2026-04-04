@@ -394,52 +394,52 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                                             ref={menuPanelRef}
                                             className="absolute right-0 top-full mt-4 w-[260px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 z-[110] overflow-hidden animate-in fade-in zoom-in-95 duration-300 origin-top-right"
                                         >
-                                            <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/80 to-white px-4 py-3">
-                                                <div className="rounded-xl border border-gray-100 bg-white p-2.5 shadow-sm shadow-gray-200/30">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <p className="min-w-0 flex-1 text-[11px] font-bold leading-tight tracking-tight text-gray-600">
+                                            <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/80 to-white px-4 py-3.5">
+                                                <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm shadow-gray-200/30">
+                                                    <div className="flex items-center justify-between gap-2.5">
+                                                        <p className="min-w-0 flex-1 text-[13px] font-bold leading-snug tracking-tight text-gray-600">
                                                             แจ้งปัญหาติดต่อ
                                                         </p>
                                                         <a
                                                             href={supportLineUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-[#06C755] bg-white px-2 py-1 text-[9px] font-bold text-[#06C755] transition-colors hover:bg-emerald-50 active:scale-[0.98]"
+                                                            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#06C755] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#06C755] transition-colors hover:bg-emerald-50 active:scale-[0.98]"
                                                             onClick={() => setIsMenuOpen(false)}
                                                         >
-                                                            <ChatBubbleLeftRightIcon className="h-3 w-3 shrink-0 stroke-[2.25]" />
+                                                            <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 shrink-0 stroke-[2.25]" />
                                                             Add LINE
                                                         </a>
                                                     </div>
-                                                    <div className="mt-2 flex flex-wrap justify-end border-t border-gray-100 pt-2">
+                                                    <div className="mt-2 flex flex-wrap justify-end border-t border-gray-100 pt-2.5">
                                                         {!isPro && (
-                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-2.5 py-1">
-                                                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-                                                                <span className="whitespace-nowrap text-[9px] font-semibold leading-none text-gray-800">
+                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
+                                                                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+                                                                <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gray-800">
                                                                     ทดลองฟรี {getTrialDaysLeft()} วัน
                                                                 </span>
                                                             </div>
                                                         )}
                                                         {isPro && proHasEndDate && proExpired && (
-                                                            <div className="inline-flex max-w-full items-start gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-2.5 py-1">
-                                                                <ExclamationTriangleIcon className="mt-px h-3 w-3 shrink-0 text-red-500" />
-                                                                <span className="max-w-[11rem] text-[9px] font-semibold leading-snug text-red-700">
+                                                            <div className="inline-flex max-w-full items-start gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
+                                                                <ExclamationTriangleIcon className="mt-px h-3.5 w-3.5 shrink-0 text-red-500" />
+                                                                <span className="max-w-[12rem] text-[10px] font-semibold leading-snug text-red-700">
                                                                     Pro หมดอายุ — โปรดต่อแผน
                                                                 </span>
                                                             </div>
                                                         )}
                                                         {isPro && proHasEndDate && !proExpired && (
-                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-2.5 py-1">
-                                                                <CheckCircleIcon className="h-3.5 w-3.5 shrink-0 text-primary stroke-[2.25]" />
-                                                                <span className="whitespace-nowrap text-[9px] font-semibold leading-none text-gray-800">
+                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
+                                                                <CheckCircleIcon className="h-4 w-4 shrink-0 text-primary stroke-[2.25]" />
+                                                                <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gray-800">
                                                                     Pro เหลือ {getProDaysLeft()} วัน
                                                                 </span>
                                                             </div>
                                                         )}
                                                         {isPro && !proHasEndDate && (
-                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-2.5 py-1">
-                                                                <CheckCircleIcon className="h-3.5 w-3.5 shrink-0 text-primary stroke-[2.25]" />
-                                                                <span className="whitespace-nowrap text-[9px] font-semibold leading-none text-gray-800">
+                                                            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/50 px-3 py-1.5">
+                                                                <CheckCircleIcon className="h-4 w-4 shrink-0 text-primary stroke-[2.25]" />
+                                                                <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gray-800">
                                                                     บัญชี Pro
                                                                 </span>
                                                             </div>
