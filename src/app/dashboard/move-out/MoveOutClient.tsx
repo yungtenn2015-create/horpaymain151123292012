@@ -15,9 +15,26 @@ import {
     ExclamationCircleIcon,
     PlusIcon,
     TrashIcon,
-    BoltIcon,
-    BeakerIcon
+    BoltIcon
 } from '@heroicons/react/24/outline'
+
+/** หยดน้ำแบบ outline — ให้คู่กับ ⚡/💧 ในสรุปด้านล่าง (Heroicons ไม่มี water drop) */
+function WaterDropIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M12 22a7 7 0 0 0 7-7c0-5-7-13-7-13S5 10 5 15a7 7 0 0 0 7 7z" />
+        </svg>
+    )
+}
 import { DashboardMenuPageChrome } from '@/src/components/dashboard/DashboardMenuPageChrome'
 
 interface Tenant {
@@ -1397,7 +1414,7 @@ export default function MoveOutClient() {
                                                 </div>
                                                 <div>
                                                     <label className="text-[11px] font-black text-gray-700 flex items-center gap-1.5">
-                                                        <BeakerIcon className="w-3.5 h-3.5 text-sky-500" />
+                                                        <WaterDropIcon className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                                                         น้ำก่อนหน้า
                                                     </label>
                                                     <input
@@ -1414,7 +1431,7 @@ export default function MoveOutClient() {
                                                 </div>
                                                 <div>
                                                     <label className="text-[11px] font-black text-gray-700 flex items-center gap-1.5">
-                                                        <BeakerIcon className="w-3.5 h-3.5 text-sky-500" />
+                                                        <WaterDropIcon className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                                                         น้ำปัจจุบัน
                                                     </label>
                                                     <input

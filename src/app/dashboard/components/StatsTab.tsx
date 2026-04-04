@@ -66,6 +66,27 @@ const StatsTab: React.FC<StatsTabProps> = ({
         router.push(`/dashboard/billing?month=${m}&billFilter=${billFilter}`)
     }
 
+    const totalHistoricalRevenue = overviewData.historicalRevenue.reduce(
+        (s, h) => s + (Number(h.amount) || 0),
+        0
+    )
+    const totalHistoricalElectricUnits = overviewData.historicalUtilities.reduce(
+        (s, h) => s + (Number(h.electricity) || 0),
+        0
+    )
+    const totalHistoricalElectricBaht = overviewData.historicalUtilities.reduce(
+        (s, h) => s + (Number(h.electricityAmount) || 0),
+        0
+    )
+    const totalHistoricalWaterUnits = overviewData.historicalUtilities.reduce(
+        (s, h) => s + (Number(h.water) || 0),
+        0
+    )
+    const totalHistoricalWaterBaht = overviewData.historicalUtilities.reduce(
+        (s, h) => s + (Number(h.waterAmount) || 0),
+        0
+    )
+
     return (
         <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-gray-50 pb-dashboard-nav font-body text-slate-800 antialiased tabular-nums">
             {/* Hero Section */}
@@ -260,10 +281,18 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
                         {/* ── Revenue History (Full Width) ── */}
                         <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
+                            <h3 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
                                 <BanknotesSolid className="w-4 h-4 text-emerald-600" />
-                                รายรับรายเดือน (6 เดือนล่าสุด)
+                                รายรับรายเดือน (ย้อนหลัง 6 เดือน)
                             </h3>
+                            <div className="mb-5 flex items-center justify-between gap-2 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                                    รวมย้อนหลัง 6 เดือน
+                                </span>
+                                <span className="text-base font-black tabular-nums text-emerald-900">
+                                    ฿{totalHistoricalRevenue.toLocaleString('th-TH')}
+                                </span>
+                            </div>
                             <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalRevenue.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalRevenue.map(h => h.amount), 1);
@@ -296,10 +325,20 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
                         {/* ── Electricity Usage History (Full Width) ── */}
                         <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
+                            <h3 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
                                 <BoltIcon className="w-4 h-4 text-amber-500" />
-                                การใช้ไฟฟ้า (หน่วย/บาท) (6 เดือนล่าสุด)
+                                การใช้ไฟฟ้า (หน่วย/บาท) (ย้อนหลัง 6 เดือน)
                             </h3>
+                            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                                    รวมย้อนหลัง 6 เดือน
+                                </span>
+                                <div className="flex flex-wrap items-baseline justify-end gap-x-2 text-right text-sm font-black tabular-nums text-amber-900">
+                                    <span>{totalHistoricalElectricUnits.toLocaleString('th-TH')} หน่วย</span>
+                                    <span className="text-amber-700/80">·</span>
+                                    <span>฿{totalHistoricalElectricBaht.toLocaleString('th-TH')}</span>
+                                </div>
+                            </div>
                             <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalUtilities.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalUtilities.map(h => h.electricity), 1);
@@ -339,10 +378,20 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
                         {/* ── Water Usage History (Full Width) ── */}
                         <div className="bg-white rounded-[1.5rem] p-5 border-2 border-gray-50 shadow-sm">
-                            <h3 className="text-sm font-black text-gray-800 mb-6 flex items-center gap-2">
+                            <h3 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
                                 <ArrowPathIcon className="w-4 h-4 text-blue-500" />
-                                การใช้น้ำ (หน่วย/บาท) (6 เดือนล่าสุด)
+                                การใช้น้ำ (หน่วย/บาท) (ย้อนหลัง 6 เดือน)
                             </h3>
+                            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-800">
+                                    รวมย้อนหลัง 6 เดือน
+                                </span>
+                                <div className="flex flex-wrap items-baseline justify-end gap-x-2 text-right text-sm font-black tabular-nums text-blue-900">
+                                    <span>{totalHistoricalWaterUnits.toLocaleString('th-TH')} หน่วย</span>
+                                    <span className="text-blue-700/80">·</span>
+                                    <span>฿{totalHistoricalWaterBaht.toLocaleString('th-TH')}</span>
+                                </div>
+                            </div>
                             <div className="flex justify-between gap-1.5 px-1 pt-1 sm:gap-3 sm:px-2">
                                 {overviewData.historicalUtilities.map((data, i) => {
                                     const maxVal = Math.max(...overviewData.historicalUtilities.map(h => h.water), 1);

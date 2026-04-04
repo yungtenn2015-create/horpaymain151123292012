@@ -17,7 +17,8 @@ import {
     XMarkIcon,
     DocumentTextIcon,
     BanknotesIcon,
-    UserPlusIcon
+    UserPlusIcon,
+    DocumentMagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 
 // Helper function for Thai date formatting
@@ -102,7 +103,8 @@ export default function RoomsTab({
 
             if (selectedStatus === 'available') matchesStatus = isAvailable && !isWaitingVerify && !isUnpaid && !overdueRoomIds.has(room.id);
             if (selectedStatus === 'occupied') matchesStatus = isOccupied;
-            if (selectedStatus === 'waiting') matchesStatus = isUnpaid || isWaitingVerify;
+            if (selectedStatus === 'waiting') matchesStatus = isUnpaid;
+            if (selectedStatus === 'waiting_verify') matchesStatus = isWaitingVerify;
             if (selectedStatus === 'overdue') matchesStatus = overdueRoomIds.has(room.id);
             if (selectedStatus === 'moving_out') matchesStatus = movingOutRoomIds.has(room.id);
         }
@@ -121,7 +123,8 @@ export default function RoomsTab({
         let statusTheme = { badge: 'bg-green-500', text: 'ว่าง', icon: KeyIcon, color: 'text-green-600', bg: 'bg-green-50' };
         if (isMovingOut) statusTheme = { badge: 'bg-amber-500', text: 'แจ้งออก', icon: ArrowRightOnRectangleIcon, color: 'text-amber-600', bg: 'bg-amber-50' };
         else if (isReallyOverdue) statusTheme = { badge: 'bg-orange-500', text: 'ค้างชำระ', icon: ExclamationTriangleIcon, color: 'text-orange-600', bg: 'bg-orange-50' };
-        else if (isWaitingVerify || isUnpaid) statusTheme = { badge: 'bg-sky-500', text: 'รอชำระ', icon: ClockIcon, color: 'text-sky-600', bg: 'bg-sky-50' };
+        else if (isWaitingVerify) statusTheme = { badge: 'bg-violet-500', text: 'รอตรวจสลิป', icon: DocumentMagnifyingGlassIcon, color: 'text-violet-600', bg: 'bg-violet-50' };
+        else if (isUnpaid) statusTheme = { badge: 'bg-sky-500', text: 'รอชำระ', icon: ClockIcon, color: 'text-sky-600', bg: 'bg-sky-50' };
         else if (isOccupied) statusTheme = { badge: 'bg-blue-600', text: 'มีคนพัก', icon: BuildingOfficeIcon, color: 'text-blue-600', bg: 'bg-blue-50' };
 
         const activeTenant = selectedRoom.tenants?.find(t => t.status === 'active');
@@ -342,6 +345,7 @@ export default function RoomsTab({
                                 { id: 'available', label: 'ว่าง', color: 'bg-green-500 border-green-500 shadow-green-900/10' },
                                 { id: 'occupied', label: 'มีคนพัก', color: 'bg-blue-600 border-blue-600 shadow-blue-900/10' },
                                 { id: 'waiting', label: 'รอชำระ', color: 'bg-sky-500 border-sky-500 shadow-sky-900/10' },
+                                { id: 'waiting_verify', label: 'รอตรวจสลิป', color: 'bg-violet-500 border-violet-500 shadow-violet-900/10' },
                                 { id: 'overdue', label: 'ค้างชำระ', color: 'bg-orange-500 border-orange-500 shadow-orange-900/10' },
                                 { id: 'moving_out', label: 'แจ้งออก', color: 'bg-amber-500 border-amber-500 shadow-amber-900/10' }
                             ].map(status => (
@@ -400,7 +404,8 @@ export default function RoomsTab({
                                                 let theme = { border: 'border-gray-100', iconBg: 'bg-green-50 text-green-600', badge: 'bg-green-500 text-white', status: 'ว่าง', icon: KeyIcon, shadow: 'shadow-green-50/10' };
                                                 if (isMovingOut) theme = { border: 'border-amber-100', iconBg: 'bg-amber-50 text-amber-600', badge: 'bg-amber-500 text-white', status: 'แจ้งออก', icon: ArrowRightOnRectangleIcon, shadow: 'shadow-amber-50/10' };
                                                 else if (isReallyOverdue) theme = { border: 'border-orange-100', iconBg: 'bg-orange-50 text-orange-600', badge: 'bg-orange-500 text-white', status: 'ค้างชำระ', icon: ExclamationTriangleIcon, shadow: 'shadow-orange-50/10' };
-                                                else if (isWaitingVerify || isUnpaid) theme = { border: 'border-sky-100', iconBg: 'bg-sky-50 text-sky-600', badge: 'bg-sky-500 text-white', status: 'รอชำระ', icon: ClockIcon, shadow: 'shadow-sky-50/10' };
+                                                else if (isWaitingVerify) theme = { border: 'border-violet-100', iconBg: 'bg-violet-50 text-violet-600', badge: 'bg-violet-500 text-white', status: 'รอตรวจสลิป', icon: DocumentMagnifyingGlassIcon, shadow: 'shadow-violet-50/10' };
+                                                else if (isUnpaid) theme = { border: 'border-sky-100', iconBg: 'bg-sky-50 text-sky-600', badge: 'bg-sky-500 text-white', status: 'รอชำระ', icon: ClockIcon, shadow: 'shadow-sky-50/10' };
                                                 else if (isOccupied) theme = { border: 'border-blue-100', iconBg: 'bg-blue-50 text-blue-600', badge: 'bg-blue-600 text-white', status: 'มีคนพัก', icon: BuildingOfficeIcon, shadow: 'shadow-blue-50/10' };
 
                                                 const activeTenant = room.tenants?.find(t => t.status === 'active');
