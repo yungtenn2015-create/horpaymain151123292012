@@ -6,7 +6,11 @@
 
 -- 1. อัปเกรดฟังก์ชัน check_plan_limit ให้ฉลาดขึ้นและครอบคลุมทุก Table
 CREATE OR REPLACE FUNCTION check_plan_limit()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   v_owner_id   UUID;
 BEGIN
@@ -38,7 +42,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- 2. สร้าง Trigger เพิ่มเติมสำหรับตารางที่ยังไม่มีการดัก
 -- (Dorms และ Rooms มี Trigger เดิมอยู่แล้ว จะใช้ฟังก์ชันใหม่ที่อัปเกรดนี้ทันที)

@@ -1,6 +1,6 @@
 # dev_notes.md — SaaS Dormitory Management System
 
-> อัปเดตล่าสุด: migration v7 + rls_policies v3
+> อัปเดตล่าสุด: migration v7 + rls_policies v3 + trial 30 วัน
 > ไฟล์นี้รวมทุกสิ่งที่ developer ต้องรู้ก่อนแตะโค้ด — อ่านตั้งแต่ต้นถึงปลายครั้งแรกที่เข้าโปรเจกต์
 
 ---
@@ -45,6 +45,8 @@
 ```
 
 > ⚠️ ถ้าข้ามขั้นที่ 1 ก่อน — `encrypt_id_card()` จะสร้างได้แต่ใช้งานไม่ได้ เพราะ Vault ยังไม่มี key
+
+> **DB ที่ trial ไม่ตรงกับ repo (เช่น เคยรัน trial 60 วัน):** รันครั้งเดียว `db/migration_trial_30_days.sql` ใน SQL Editor เพื่อ default + trigger + ข้อความ error + ย่อ `trial_expires_at` ของ user `free` ที่ยาวเกิน `created_at + 30 วัน`
 
 ---
 

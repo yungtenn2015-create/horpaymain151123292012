@@ -307,7 +307,11 @@ CREATE INDEX idx_upgrade_requests_status ON upgrade_requests(status) WHERE statu
 -- TRIGGER: สร้าง user อัตโนมัติเมื่อ signup (ดู dev_notes.md ข้อ 7)
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
   INSERT INTO public.users (id, email, name, phone, role, plan_type, trial_expires_at)
   VALUES (
@@ -321,7 +325,7 @@ BEGIN
   );
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -498,7 +502,10 @@ $$;
 -- FUNCTION: check_plan_limit
 -- ============================================================
 CREATE OR REPLACE FUNCTION check_plan_limit()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   v_owner_id   UUID;  -- v_plan และ v_count ไม่ใช้แล้ว ใช้ is_trial_active() แทน
 BEGIN
@@ -516,7 +523,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER trg_check_dorm_plan_limit
   BEFORE INSERT ON dorms
@@ -530,7 +537,10 @@ CREATE TRIGGER trg_check_room_plan_limit
 -- เหตุผล: ถ้าเจ้าของหอ free ย้ายห้องจากหอ A ไปหอ B ที่มี 20 ห้องแล้ว
 --         BEFORE INSERT ไม่ดัก เพราะไม่ได้สร้างห้องใหม่
 CREATE OR REPLACE FUNCTION check_plan_limit_on_update()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   v_plan     TEXT;
   v_count    INT;
@@ -545,7 +555,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER trg_check_room_plan_limit_update
   BEFORE UPDATE ON rooms
